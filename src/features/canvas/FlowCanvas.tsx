@@ -9,6 +9,7 @@ import {
   type Edge,
   type EdgeChange,
   type NodeChange,
+  useReactFlow,
 } from '@xyflow/react';
 import { MousePointer2, Plus, RotateCcw, Workflow } from 'lucide-react';
 import { catalog, type Block, type BlockData, type Graph, type Trace } from '../../engine';
@@ -16,7 +17,7 @@ import { pruneEdges } from '../../state/graphOps';
 import { nodeTypes, type FlowNode } from './BlockNode';
 import { toFlowEdges, toFlowNodes } from './toFlow';
 
-export const DEFAULT_VIEWPORT = { x: 25, y: 210, zoom: 0.62 };
+export const DEFAULT_VIEWPORT = { x: 30, y: 70, zoom: 0.72 };
 
 type Props = {
   graph: Graph;
@@ -37,6 +38,27 @@ type Props = {
 };
 
 export function FlowCanvas(p: Props) {
+  const flow = useReactFlow();
+  const screens = p.graph.nodes.filter((n) => n.data.kind === 'screen');
+
+  // Identifica a tela ativa com base na seleção atual ou padrão da primeira tela
+  const selectedNode = p.graph.nodes.find((n) => n.id === p.selected);
+  const activeScreenId =
+    selectedNode?.data.kind === 'screen'
+      ? selectedNode.id
+      : selectedNode?.data.config.screenId || screens[0]?.id || '';
+
+  function handleSelectScreen(screenId: string) {
+    p.onSelect(screenId);
+    const targetNode = p.graph.nodes.find((n) => n.id === screenId);
+    if (targetNode) {
+      void flow.setCenter(targetNode.position.x + 120, targetNode.position.y + 80, {
+        zoom: Math.max(flow.getZoom(), 0.68),
+        duration: 250,
+      });
+    }
+  }
+
   const handleNodesChange = (changes: NodeChange<FlowNode>[]) =>
     p.onGraphChange(
       (g) =>
@@ -53,9 +75,46 @@ export function FlowCanvas(p: Props) {
   return (
     <main className="canvas-area">
       <div className="canvas-bar">
-        <div>
+        <div className="canvas-bar-left">
           <span className="canvas-dot" /> Editor de fluxo <span className="divider">/</span>
           <span className="muted">{p.graph.nodes.length} blocos</span>
+          {screens.length > 0 && (
+            <>
+              <span className="divider">/</span>
+              <div className="canvas-screen-tabs" role="tablist" aria-label="Abas de telas">
+                {screens.map((screen) => {
+                  const isActive = screen.id === activeScreenId;
+                  return (
+                    <button
+                      key={screen.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      className={`canvas-screen-tab ${isActive ? 'active' : ''}`}
+                      onClick={() => handleSelectScreen(screen.id)}
+                      title={`Focar na tela: ${screen.data.label || screen.id}`}
+                    >
+                      <span className="canvas-screen-tab-icon">📱</span>
+                      <span className="canvas-screen-tab-label">
+                        {screen.data.label || screen.id}
+                      </span>
+                      {isActive && <span className="canvas-screen-tab-glow" />}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  className="canvas-screen-tab-add"
+                  title="Adicionar nova tela"
+                  aria-label="Adicionar nova tela"
+                  onClick={p.onAddScreen}
+                >
+                  <Plus size={12} />
+                  <span>Nova tela</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
         <div className="canvas-tools">
           <button title="Desfazer" onClick={p.onUndo} disabled={!p.canUndo}>

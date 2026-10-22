@@ -69,12 +69,17 @@ export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
 
   return (
     <div
-      className={'block ' + (selected ? 'selected' : '')}
+      className={
+        'block ' +
+        (data.kind === 'screen' ? 'block-screen-tab ' : '') +
+        (selected ? 'selected' : '')
+      }
       style={{ '--block-color': def.color } as CSSProperties}
     >
       <div className="block-heading">
         <span className="block-icon">{def.icon}</span>
         <span className="block-title">{title}</span>
+        {data.kind === 'screen' && <span className="screen-tab-badge">Aba de Tela</span>}
         <span className="block-id-tag" title={'ID: #' + id}>
           #{id}
         </span>

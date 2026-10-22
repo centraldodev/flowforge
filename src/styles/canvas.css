@@ -32,6 +32,102 @@
   gap: 8px;
 }
 
+.canvas-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Abas de Telas na Barra Superior */
+.canvas-screen-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+  overflow-x: auto;
+  max-width: calc(100vw - 480px);
+  scrollbar-width: none;
+}
+
+.canvas-screen-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.canvas-screen-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.canvas-screen-tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.canvas-screen-tab.active {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(129, 140, 248, 0.45);
+  color: #c7d2fe;
+  font-weight: 600;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+}
+
+.canvas-screen-tab-icon {
+  font-size: 12px;
+}
+
+.canvas-screen-tab-label {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvas-screen-tab-glow {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #818cf8;
+  box-shadow: 0 0 6px #818cf8;
+}
+
+.canvas-screen-tab-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  color: #64748b;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.canvas-screen-tab-add:hover {
+  border-color: rgba(129, 140, 248, 0.4);
+  color: #c7d2fe;
+  background: rgba(99, 102, 241, 0.08);
+}
+
 .canvas-dot {
   width: 6px;
   height: 6px;
@@ -189,6 +285,38 @@
   border-radius: 999px;
   margin-left: auto;
   letter-spacing: -0.2px;
+}
+
+.screen-tab-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #a5b4fc;
+  background: rgba(99, 102, 241, 0.18);
+  border: 1px solid rgba(129, 140, 248, 0.3);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* Bloco de Tela com Estilo de Aba */
+.block.block-screen-tab {
+  background: linear-gradient(180deg, #181b26 0%, #11141d 100%);
+  border: 1px solid rgba(129, 140, 248, 0.25);
+  border-top: 3px solid #818cf8;
+  border-radius: 10px 10px 12px 12px;
+  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(129, 140, 248, 0.1);
+  min-width: 250px;
+}
+
+.block.block-screen-tab:hover {
+  border-color: rgba(129, 140, 248, 0.45);
+  box-shadow: 0 14px 32px -4px rgba(0, 0, 0, 0.7), 0 0 16px rgba(99, 102, 241, 0.2);
+}
+
+.block.block-screen-tab.selected {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.4), 0 14px 32px rgba(0, 0, 0, 0.7);
 }
 
 /* ==========================================================================

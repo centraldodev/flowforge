@@ -17,7 +17,7 @@ export const demo: Graph = {
   version: 1,
   name: 'Fluxo de Autenticação Real',
   nodes: [
-    // Tela de Login
+    // Aba da Tela de Login (Origem)
     block('login', 40, 40, {
       kind: 'screen',
       label: 'Tela de Login',
@@ -29,7 +29,7 @@ export const demo: Graph = {
       ],
     }),
     // Campos de Entrada da Tela de Login
-    block('email', 40, 180, {
+    block('email', 40, 160, {
       kind: 'input',
       label: 'E-mail',
       config: {
@@ -43,7 +43,7 @@ export const demo: Graph = {
         { id: 'onChange', name: 'onChange', direction: 'output', type: 'Event' },
       ],
     }),
-    block('password', 40, 320, {
+    block('password', 40, 300, {
       kind: 'input',
       label: 'Senha',
       config: {
@@ -58,7 +58,7 @@ export const demo: Graph = {
       ],
     }),
     // Botão de Submissão
-    block('btn-login', 400, 40, {
+    block('btn-login', 360, 160, {
       kind: 'button',
       label: 'Entrar',
       config: { screenId: 'login' },
@@ -68,7 +68,7 @@ export const demo: Graph = {
       ],
     }),
     // Bloco de Autenticação
-    block('auth', 400, 200, {
+    block('auth', 360, 280, {
       kind: 'auth',
       label: 'Login',
       config: { provider: 'email', mode: 'login' },
@@ -82,7 +82,7 @@ export const demo: Graph = {
       ],
     }),
     // Ramo de Falha -> Bloco Dedicado de Tratamento de Erro
-    block('show-error', 620, 460, {
+    block('show-error', 640, 320, {
       kind: 'error',
       label: 'Tratamento de Erro',
       config: {
@@ -95,8 +95,8 @@ export const demo: Graph = {
         { id: 'msg', name: 'msg', direction: 'output', type: 'string' },
       ],
     }),
-    // Tela Inicial (Home) - Destino direto da navegação
-    block('home', 240, 460, {
+    // Aba da Tela Inicial (Home) - Destino na Parte Superior
+    block('home', 640, 40, {
       kind: 'screen',
       label: 'Tela Home',
       config: {
