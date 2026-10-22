@@ -1,26 +1,13 @@
 export type Kind =
   | 'screen'
-  | 'input'
   | 'button'
-  | 'auth'
+  | 'input'
+  | 'function'
   | 'condition'
-  | 'api'
+  | 'auth'
   | 'database'
-  | 'math'
-  | 'class'
-  | 'reset'
-  | 'navigate'
-  | 'text'
-  | 'textarea'
-  | 'select'
-  | 'checkbox'
-  | 'divider'
-  | 'constant'
-  | 'variable'
-  | 'validation'
-  | 'transform'
-  | 'notify'
-  | 'logout';
+  | 'api'
+  | 'navigate';
 
 export type CustomPort = {
   id: string;
@@ -85,4 +72,4 @@ export type BlockDefinition = {
   defaults: Record<string, string>;
 };
 
-export type Category = 'Interface' | 'Lógica' | 'Dados' | 'Estrutura';
+export type Category = 'Interface' | 'Lógica' | 'Dados';

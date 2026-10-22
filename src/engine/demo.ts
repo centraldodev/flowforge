@@ -61,9 +61,15 @@ export const demo: Graph = {
       config: { screenId: 'login' },
     }),
     block('reset', 590, 440, {
-      kind: 'reset',
+      kind: 'function',
       label: 'Enviar recuperação',
-      config: { channel: 'email' },
+      config: { code: 'return String(value || read("email")).includes("@");' },
+      ports: [
+        { id: 'exec', name: 'exec', direction: 'input' },
+        { id: 'email', name: 'email', direction: 'input' },
+        { id: 'next', name: 'next', direction: 'output' },
+        { id: 'value', name: 'value', direction: 'output' },
+      ],
     }),
     block('google', 300, 650, {
       kind: 'button',
@@ -90,7 +96,15 @@ export const demo: Graph = {
       label: 'Sair da conta',
       config: { screenId: 'home' },
     }),
-    block('logout-action', 1690, 320, { kind: 'logout', label: 'Encerrar sessão', config: {} }),
+    block('logout-action', 1690, 320, {
+      kind: 'function',
+      label: 'Encerrar sessão',
+      config: { code: 'delete store.__session; return true;' },
+      ports: [
+        { id: 'exec', name: 'exec', direction: 'input' },
+        { id: 'next', name: 'next', direction: 'output' },
+      ],
+    }),
   ],
   // [origem, destino, porta de saída, porta de entrada]
   edges: [

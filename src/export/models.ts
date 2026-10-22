@@ -7,7 +7,7 @@ const safe = (s: string) => s.replace(/[^a-zA-Z0-9_]/g, '_');
 /** Gera classes a partir dos blocos "Classe / modelo". */
 export function models(g: Graph, lang: ModelLanguage): string {
   return g.nodes
-    .filter((n) => n.data.kind === 'class')
+    .filter((n) => (n.data.kind as string) === 'class')
     .map((n, i) => {
       const name = 'Model_' + safe(n.data.config.name) + '_' + i;
       const fields = n.data.config.fields

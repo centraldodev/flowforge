@@ -25,93 +25,26 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
     { key: 'placeholder', label: 'Texto de ajuda' },
     { key: 'value', label: 'Valor inicial' },
   ],
-  text: [
-    { key: 'text', label: 'Conteúdo', area: true },
+  button: [],
+  function: [
     {
-      key: 'style',
-      label: 'Estilo',
+      key: 'code',
+      label: 'Código JavaScript (value, store, read)',
+      area: true,
+    },
+  ],
+  condition: [
+    {
+      key: 'operator',
+      label: 'Comparação',
       options: [
-        { value: 'title', label: 'Título' },
-        { value: 'paragraph', label: 'Parágrafo' },
-        { value: 'caption', label: 'Legenda' },
+        { value: 'truthy', label: 'É verdadeiro / tem valor' },
+        { value: 'equals', label: 'É igual a' },
+        { value: 'gt', label: 'É maior que' },
       ],
     },
+    { key: 'compare', label: 'Comparar com', visible: (c) => c.operator !== 'truthy' },
   ],
-  textarea: [
-    { key: 'placeholder', label: 'Texto de ajuda' },
-    { key: 'value', label: 'Valor inicial', area: true },
-  ],
-  select: [
-    { key: 'options', label: 'Opções separadas por vírgula' },
-    { key: 'value', label: 'Opção inicial' },
-  ],
-  checkbox: [
-    {
-      key: 'value',
-      label: 'Estado inicial',
-      options: [
-        { value: 'false', label: 'Desmarcado' },
-        { value: 'true', label: 'Marcado' },
-      ],
-    },
-  ],
-  constant: [
-    {
-      key: 'valueType',
-      label: 'Tipo do valor',
-      options: [
-        { value: 'text', label: 'Texto' },
-        { value: 'number', label: 'Número' },
-        { value: 'boolean', label: 'Booleano' },
-        { value: 'json', label: 'JSON' },
-      ],
-    },
-    { key: 'value', label: 'Valor', area: true },
-  ],
-  variable: [
-    { key: 'key', label: 'Nome da variável' },
-    {
-      key: 'operation',
-      label: 'Operação',
-      options: [
-        { value: 'set', label: 'Definir valor' },
-        { value: 'get', label: 'Ler valor' },
-      ],
-    },
-    { key: 'value', label: 'Valor padrão' },
-  ],
-  validation: [
-    {
-      key: 'rule',
-      label: 'Regra',
-      options: [
-        { value: 'required', label: 'Obrigatório' },
-        { value: 'email', label: 'E-mail válido' },
-        { value: 'minLength', label: 'Tamanho mínimo' },
-        { value: 'number', label: 'É um número' },
-      ],
-    },
-    {
-      key: 'minimum',
-      label: 'Quantidade mínima de caracteres',
-      visible: (c) => c.rule === 'minLength',
-    },
-  ],
-  transform: [
-    {
-      key: 'operation',
-      label: 'Operação',
-      options: [
-        { value: 'trim', label: 'Remover espaços nas pontas' },
-        { value: 'upper', label: 'Maiúsculas' },
-        { value: 'lower', label: 'Minúsculas' },
-        { value: 'concat', label: 'Acrescentar texto' },
-      ],
-    },
-    { key: 'value', label: 'Texto padrão' },
-    { key: 'suffix', label: 'Texto para acrescentar', visible: (c) => c.operation === 'concat' },
-  ],
-  notify: [{ key: 'message', label: 'Mensagem padrão', area: true }],
   auth: [
     {
       key: 'provider',
@@ -132,36 +65,7 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
       ],
     },
   ],
-  condition: [
-    {
-      key: 'operator',
-      label: 'Comparação',
-      options: [
-        { value: 'truthy', label: 'É verdadeiro / tem valor' },
-        { value: 'equals', label: 'É igual a' },
-        { value: 'gt', label: 'É maior que' },
-      ],
-    },
-    { key: 'compare', label: 'Comparar com', visible: (c) => c.operator !== 'truthy' },
-  ],
-  math: [
-    {
-      key: 'operation',
-      label: 'Operação',
-      options: [
-        { value: 'add', label: 'Somar' },
-        { value: 'subtract', label: 'Subtrair' },
-        { value: 'multiply', label: 'Multiplicar' },
-        { value: 'divide', label: 'Dividir' },
-      ],
-    },
-    { key: 'a', label: 'Valor A (quando não conectado)' },
-    { key: 'b', label: 'Valor B (quando não conectado)' },
-  ],
   navigate: [{ key: 'target', label: 'Tela de destino', options: 'screens' }],
-  reset: [
-    { key: 'channel', label: 'Método de recuperação', options: same('email', 'sms', 'token') },
-  ],
   api: [
     { key: 'method', label: 'Método HTTP', options: same('GET', 'POST', 'PUT', 'PATCH', 'DELETE') },
     { key: 'url', label: 'Endpoint' },
@@ -178,10 +82,6 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
     },
     { key: 'table', label: 'Nome da tabela' },
     { key: 'mock', label: 'Registros iniciais (array JSON)', area: true },
-  ],
-  class: [
-    { key: 'name', label: 'Nome da classe' },
-    { key: 'fields', label: 'Atributos separados por vírgula' },
   ],
 };
 

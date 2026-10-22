@@ -52,18 +52,9 @@ function validateBlock(g: Graph, n: Block, errors: string[]) {
     case 'navigate':
       if (!isScreen(g, c.target)) errors.push(`${label}: selecione a tela de destino.`);
       break;
-    case 'constant':
-      if (c.valueType === 'json' && !isJson(c.value)) errors.push(`${label}: JSON inválido.`);
-      if (c.valueType === 'number' && !Number.isFinite(Number(c.value)))
-        errors.push(`${label}: informe um número.`);
-      break;
-    case 'validation':
-      if (c.rule === 'minLength' && (!Number.isFinite(Number(c.minimum)) || Number(c.minimum) < 0))
-        errors.push(`${label}: tamanho mínimo inválido.`);
-      break;
     case 'api':
     case 'database':
-      if (!isJson(c.mock)) errors.push(`${label}: JSON inválido.`);
+      if (c.mock && !isJson(c.mock)) errors.push(`${label}: JSON inválido.`);
       break;
   }
 }

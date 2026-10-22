@@ -15,30 +15,16 @@ const BRANCH: Ports = { inputs: ['exec', 'value'], outputs: ['true', 'false', 'v
 const table: Record<Kind, Ports> = {
   // Interface
   screen: { inputs: ['exec'], outputs: [] },
-  input: VALUE,
-  textarea: VALUE,
-  select: VALUE,
-  checkbox: VALUE,
-  text: NONE,
-  divider: NONE,
   button: { inputs: [], outputs: ['next', 'value'] },
-  // Dados
-  constant: VALUE,
-  api: { inputs: ['exec', 'body'], outputs: ['next', 'value'] },
-  database: { inputs: ['exec', 'value'], outputs: ['next', 'value'] },
+  input: VALUE,
   // Lógica
-  variable: ACTION_WITH_VALUE,
-  transform: ACTION_WITH_VALUE,
-  notify: ACTION_WITH_VALUE,
-  validation: BRANCH,
+  function: ACTION_WITH_VALUE,
   condition: BRANCH,
   auth: { inputs: ['exec', 'email', 'password'], outputs: ['next', 'value'] },
-  reset: { inputs: ['exec', 'email'], outputs: ['next', 'value'] },
-  math: { inputs: ['exec', 'a', 'b'], outputs: ['next', 'value'] },
   navigate: { inputs: ['exec'], outputs: ['next', 'value'] },
-  logout: { inputs: ['exec'], outputs: ['next', 'value'] },
-  // Estrutura
-  class: NONE,
+  // Dados
+  database: { inputs: ['exec', 'value'], outputs: ['next', 'value'] },
+  api: { inputs: ['exec', 'body'], outputs: ['next', 'value'] },
 };
 
 export function ports(kind: Kind): Ports {

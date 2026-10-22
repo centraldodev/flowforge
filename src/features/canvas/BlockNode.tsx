@@ -8,50 +8,26 @@ export type FlowNode = Node<BlockData, 'block'>;
 function subtitle(data: Block['data']): string {
   const c = data.config;
   switch (data.kind) {
+    case 'screen':
+      return c.title || 'Tela do aplicativo';
+    case 'button':
+      return 'Dispara um fluxo de ações';
     case 'input':
       return c.placeholder ? `"${c.placeholder}"` : 'Campo de entrada';
-    case 'textarea':
-      return c.placeholder ? `"${c.placeholder}"` : 'Área de texto';
-    case 'select':
-      return c.options ? `Opções: ${c.options}` : 'Lista de seleção';
-    case 'checkbox':
-      return c.value === 'true' ? 'Marcado por padrão' : 'Desmarcado por padrão';
-    case 'constant':
-      return `${c.valueType || 'texto'}: ${c.value || '""'}`;
-    case 'variable':
-      return `${c.operation === 'get' ? 'Ler' : 'Definir'} ${c.key || 'variável'}`;
-    case 'validation':
-      return `Regra: ${c.rule || 'obrigatório'}${c.minimum ? ` (mín: ${c.minimum})` : ''}`;
-    case 'transform':
-      return `Operação: ${c.operation || 'transformar'}`;
-    case 'notify':
-      return c.message ? `"${c.message}"` : 'Mensagem ao usuário';
+    case 'function':
+      return c.code ? `Código: ${c.code.slice(0, 32)}...` : 'Executar função';
+    case 'condition':
+      return c.compare ? `Se ${c.operator} "${c.compare}"` : 'Se / então / senão';
     case 'auth':
       return `${c.provider} · ${c.mode === 'register' ? 'cadastro' : 'autenticação'}`;
     case 'api':
       return `${c.method || 'GET'} ${c.url || '/api'}`;
     case 'database':
       return `${c.operation === 'insert' ? 'Inserir em' : 'Consultar'} ${c.table || 'tabela'}`;
-    case 'condition':
-      return c.compare ? `Se ${c.operator} "${c.compare}"` : 'Se / então / senão';
-    case 'math':
-      return `${c.operation || 'somar'} (a, b)`;
     case 'navigate':
       return c.target ? `Ir para: ${c.target}` : 'Navegar para tela';
-    case 'reset':
-      return `Redefinir via ${c.channel || 'email'}`;
-    case 'screen':
-      return c.title || 'Tela do aplicativo';
-    case 'text':
-      return c.text
-        ? c.text.length > 36
-          ? c.text.slice(0, 36) + '…'
-          : c.text
-        : catalog.text.description;
-    case 'class':
-      return c.fields ? `Campos: ${c.fields}` : catalog.class.description;
     default:
-      return catalog[data.kind]?.description || '';
+      return '';
   }
 }
 

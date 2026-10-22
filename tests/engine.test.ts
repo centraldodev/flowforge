@@ -43,7 +43,7 @@ test('JSON estrutural inválido é rejeitado', () => {
   assert.throws(() => parseGraph('{}'));
   assert.equal(parseGraph(JSON.stringify(demo)).nodes.length, demo.nodes.length);
 });
-test('matemática usa dados conectados e erro de divisão por zero', () => {
+test('função executa código personalizado com dados conectados e contexto', () => {
   const g: Graph = {
     version: 1,
     name: 'calc',
@@ -57,14 +57,16 @@ test('matemática usa dados conectados e erro de divisão por zero', () => {
       {
         id: 'm',
         position: { x: 0, y: 0 },
-        data: { kind: 'math', label: 'M', config: { operation: 'multiply', a: '1', b: '3' } },
+        data: {
+          kind: 'function',
+          label: 'M',
+          config: { code: 'return Number(value) * 3;' },
+        },
       },
     ],
-    edges: [{ id: 'd', source: 'x', target: 'm', sourceHandle: 'value', targetHandle: 'a' }],
+    edges: [{ id: 'd', source: 'x', target: 'm', sourceHandle: 'value', targetHandle: 'value' }],
   };
   assert.equal(run(g, 'm').outputs.m, 21);
-  g.nodes[2].data.config = { operation: 'divide', a: '3', b: '0' };
-  assert.throws(() => run(g, 'm'), /zero/);
 });
 test('validação detecta referência a tela excluída e ligação incompatível', () => {
   const g = structuredClone(demo);
@@ -80,7 +82,7 @@ test('validação detecta referência a tela excluída e ligação incompatível
   assert.ok(validate(g).some((e) => e.includes('dados')));
 });
 
-test('novos blocos: constantes, validação, transformação, variável e mensagem', () => {
+test('funções em cadeia: transformação, validação e persistência em memória', () => {
   const block = (id: string, kind: any, config: Record<string, string>) => ({
     id,
     position: { x: 0, y: 0 },
@@ -95,61 +97,60 @@ test('novos blocos: constantes, validação, transformação, variável e mensag
   });
   const g: Graph = {
     version: 1,
-    name: 'Novos blocos',
+    name: 'Pipeline de Funções',
     nodes: [
-      block('value', 'constant', { valueType: 'text', value: 'demo@exemplo.com' }),
+      block('inputVal', 'input', { value: 'demo@exemplo.com', screenId: '' }),
       block('start', 'button', {}),
-      block('validation', 'validation', { rule: 'email' }),
-      block('upper', 'transform', { operation: 'upper', value: '', suffix: '' }),
-      block('save', 'variable', { key: 'email', operation: 'set', value: '' }),
-      block('message', 'notify', { message: 'Concluído' }),
+      block('validate', 'condition', { operator: 'truthy' }),
+      block('upper', 'function', { code: 'return String(value).toUpperCase();' }),
+      block('save', 'function', { code: 'store["user"] = [value]; return value;' }),
     ],
     edges: [
-      edge('value', 'validation', 'value', 'value'),
-      edge('start', 'validation', 'next', 'exec'),
-      edge('validation', 'upper', 'true', 'exec'),
-      edge('value', 'upper', 'value', 'value'),
+      edge('inputVal', 'validate', 'value', 'value'),
+      edge('start', 'validate', 'next', 'exec'),
+      edge('validate', 'upper', 'true', 'exec'),
+      edge('inputVal', 'upper', 'value', 'value'),
       edge('upper', 'save', 'next', 'exec'),
       edge('upper', 'save', 'value', 'value'),
-      edge('save', 'message', 'next', 'exec'),
-      edge('save', 'message', 'value', 'value'),
     ],
   };
   const store: Record<string, unknown[]> = {};
   const r = run(g, 'start', {}, store);
-  assert.equal(r.outputs.validation, true);
-  assert.equal(store['variable:email'][0], 'DEMO@EXEMPLO.COM');
-  assert.deepEqual(r.messages, ['DEMO@EXEMPLO.COM']);
-  g.nodes[0].data.config.value = 'inválido';
-  assert.equal(run(g, 'start').trace.length, 2);
+  assert.equal(r.outputs.validate, true);
+  assert.equal(store['user'][0], 'DEMO@EXEMPLO.COM');
 });
-test('checkbox fornece booleano e logout limpa a sessão', () => {
+
+test('condição avalia valores e função limpa sessão', () => {
   const g: Graph = {
     version: 1,
-    name: 'checkbox',
+    name: 'cond',
     nodes: [
       {
-        id: 'check',
+        id: 'val',
         position: { x: 0, y: 0 },
-        data: { kind: 'checkbox', label: 'Termos', config: { value: 'false' } },
+        data: { kind: 'input', label: 'Val', config: { value: '' } },
       },
       {
         id: 'rule',
         position: { x: 0, y: 0 },
-        data: { kind: 'condition', label: 'Aceitou?', config: { operator: 'truthy' } },
+        data: { kind: 'condition', label: 'Tem valor?', config: { operator: 'truthy' } },
       },
       {
         id: 'logout',
         position: { x: 0, y: 0 },
-        data: { kind: 'logout', label: 'Sair', config: {} },
+        data: {
+          kind: 'function',
+          label: 'Sair',
+          config: { code: 'delete store.__session; return true;' },
+        },
       },
     ],
     edges: [
-      { id: 'a', source: 'check', target: 'rule', sourceHandle: 'value', targetHandle: 'value' },
+      { id: 'a', source: 'val', target: 'rule', sourceHandle: 'value', targetHandle: 'value' },
     ],
   };
   assert.equal(run(g, 'rule').outputs.rule, false);
-  assert.equal(run(g, 'rule', { check: 'true' }).outputs.rule, true);
+  assert.equal(run(g, 'rule', { val: 'teste' }).outputs.rule, true);
   const store = { __session: [{ user: 1 }] };
   run(g, 'logout', {}, store);
   assert.equal(store.__session, undefined);

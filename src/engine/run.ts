@@ -11,15 +11,7 @@ type User = { email: string; password: string };
 
 /** Valor atual de um bloco de dados (campo digitado ou valor configurado). */
 export function inputValue(n: Block, values: Record<string, string>): unknown {
-  const v = values[n.id] ?? n.data.config.value ?? '';
-  if (n.data.kind === 'checkbox') return v === 'true';
-  if (n.data.kind === 'constant') {
-    const type = n.data.config.valueType;
-    if (type === 'number') return Number(v);
-    if (type === 'boolean') return v === 'true';
-    if (type === 'json') return JSON.parse(v);
-  }
-  return v;
+  return values[n.id] ?? n.data.config.value ?? '';
 }
 
 type Step = { out: unknown; path: string; message: string };
@@ -58,65 +50,26 @@ export function run(
         message = 'Tela aberta';
         break;
       case 'input':
-      case 'textarea':
-      case 'select':
-      case 'checkbox':
-      case 'constant':
         out = inputValue(n, values);
-        break;
-      case 'text':
-        out = c.text;
-        break;
-      case 'divider':
-        out = null;
-        break;
-      case 'variable': {
-        const key = 'variable:' + c.key;
-        if (c.operation === 'set') store[key] = [read(n.id, 'value', c.value)];
-        out = store[key]?.[0] ?? c.value;
-        message = (c.operation === 'set' ? 'Definir ' : 'Ler ') + c.key;
-        break;
-      }
-      case 'validation': {
-        const value = String(read(n.id, 'value'));
-        out =
-          c.rule === 'email'
-            ? EMAIL_PATTERN.test(value)
-            : c.rule === 'minLength'
-              ? value.length >= Number(c.minimum)
-              : c.rule === 'number'
-                ? value.trim() !== '' && Number.isFinite(Number(value))
-                : value.trim().length > 0;
-        path = out ? 'true' : 'false';
-        message = out ? 'Validação aprovada' : 'Validação reprovada';
-        break;
-      }
-      case 'transform': {
-        const value = String(read(n.id, 'value', c.value));
-        out =
-          c.operation === 'upper'
-            ? value.toUpperCase()
-            : c.operation === 'lower'
-              ? value.toLowerCase()
-              : c.operation === 'concat'
-                ? value + c.suffix
-                : value.trim();
-        message = 'Texto: ' + out;
-        break;
-      }
-      case 'notify':
-        out = String(read(n.id, 'value', c.message));
-        result.messages.push(String(out));
-        message = String(out);
-        break;
-      case 'logout':
-        delete store.__session;
-        out = true;
-        message = 'Sessão simulada encerrada';
+        message = `Valor: "${out}"`;
         break;
       case 'button':
         message = 'Fluxo iniciado';
         break;
+      case 'function': {
+        const inputVal = read(n.id, 'value', '');
+        const code = c.code || 'return value;';
+        try {
+          const fn = new Function('value', 'store', 'read', code);
+          out = fn(inputVal, store, (port: string, fallback?: unknown) =>
+            read(n.id, port, fallback),
+          );
+        } catch {
+          out = inputVal;
+        }
+        message = 'Função executada';
+        break;
+      }
       case 'auth': {
         const email = String(read(n.id, 'email'));
         const password = String(read(n.id, 'password'));
@@ -151,47 +104,21 @@ export function run(
         message = out ? 'Caminho verdadeiro' : 'Caminho falso';
         break;
       }
-      case 'math': {
-        const a = Number(read(n.id, 'a', c.a));
-        const b = Number(read(n.id, 'b', c.b));
-        if (!Number.isFinite(a) || !Number.isFinite(b)) throw Error('Operação exige números');
-        if (c.operation === 'divide' && b === 0) throw Error('Divisão por zero');
-        out =
-          c.operation === 'subtract'
-            ? a - b
-            : c.operation === 'multiply'
-              ? a * b
-              : c.operation === 'divide'
-                ? a / b
-                : a + b;
-        message = 'Resultado: ' + out;
-        break;
-      }
       case 'api':
-        out = JSON.parse(c.mock);
+        out = JSON.parse(c.mock || '{"ok":true}');
         message = `${c.method} ${c.url} · resposta simulada`;
         break;
       case 'database': {
-        const rows = (store[c.table] ??= JSON.parse(c.mock));
+        const rows = (store[c.table] ??= JSON.parse(c.mock || '[]'));
         if (!Array.isArray(rows)) throw Error('Banco: use um array JSON');
         if (c.operation === 'insert') rows.push(read(n.id, 'value', {}));
         out = [...rows];
         message = `${c.table}: ${rows.length} registro(s) em memória`;
         break;
       }
-      case 'reset':
-        out = String(read(n.id, 'email')).includes('@');
-        message = out
-          ? `Recuperação por ${c.channel} simulada; nada foi enviado`
-          : 'Informe um e-mail';
-        break;
       case 'navigate':
         result.screen = c.target;
         message = 'Navegando para ' + (node(c.target)?.data.label || c.target);
-        break;
-      case 'class':
-        out = Object.fromEntries(c.fields.split(',').map((f) => [f.trim(), null]));
-        message = 'Modelo criado';
         break;
     }
     return { out, path, message };
