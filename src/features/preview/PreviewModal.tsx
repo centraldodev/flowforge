@@ -109,36 +109,40 @@ export function PreviewModal({ isOpen, onClose, graph, simulation }: Props) {
             </button>
           </div>
 
-          {trace.length ? (
-            trace.map((t, i) => (
-              <div key={i} className="trace-item">
-                <span>{i + 1}</span>
-                <div>
-                  <strong>{t.label}</strong>
-                  <p>{t.message}</p>
+          <div className="trace-list">
+            {trace.length ? (
+              trace.map((t, i) => (
+                <div key={i} className="trace-item">
+                  <span>{i + 1}</span>
+                  <div>
+                    <strong>{t.label}</strong>
+                    <p>{t.message}</p>
+                  </div>
                 </div>
-              </div>
-            ))
-          ) : (
-            <p className="subtle">
-              Preencha os campos e clique em um botão. Cada passo executado aparece aqui.
-            </p>
-          )}
+              ))
+            ) : (
+              <p className="subtle">
+                Preencha os campos e clique em um botão. Cada passo executado aparece aqui.
+              </p>
+            )}
+          </div>
 
-          <label className="field">
-            Inspecionar tela
-            <select value={screen} onChange={(e) => setScreen(e.target.value)}>
-              {pages.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <p className="subtle">
-            Os registros e cadastros são mantidos apenas nesta simulação. Os campos de entrada
-            conectados fornecem dados; o botão inicia a execução.
-          </p>
+          <div className="execution-footer">
+            <label className="field">
+              Inspecionar tela
+              <select value={screen} onChange={(e) => setScreen(e.target.value)}>
+                {pages.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="subtle">
+              Os registros e cadastros são mantidos apenas nesta simulação. Os campos de entrada
+              conectados fornecem dados; o botão inicia a execução.
+            </p>
+          </div>
         </div>
       </div>
     </Modal>

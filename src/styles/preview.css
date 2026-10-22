@@ -3,12 +3,22 @@
    ========================================================================== */
 
 .preview-modal {
-  width: 870px;
-  padding: 27px;
+  width: min(94vw, 920px);
+  max-width: 95vw;
+  height: min(92vh, 860px);
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 28px;
+  overflow: hidden;
+}
+
+.preview-head {
+  flex-shrink: 0;
 }
 
 .preview-head h2 {
-  margin: 7px 0;
+  margin: 6px 0 4px;
 }
 
 .preview-head p {
@@ -17,18 +27,19 @@
 }
 
 .platform-picker {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 4px;
   padding: 6px;
   border: 1px solid #363b48;
   border-radius: 10px;
-  margin: 22px 0 0;
+  margin: 14px 0 0;
   background: #15181f;
 }
 
 .platform-picker button {
-  padding: 9px 13px;
+  padding: 8px 13px;
   color: #8e96a8;
   font-size: 11px;
 }
@@ -48,59 +59,80 @@
 
 .preview-grid {
   display: grid;
-  grid-template-columns: 310px 1fr;
-  gap: 40px;
-  margin-top: 25px;
+  grid-template-columns: 320px 1fr;
+  gap: 32px;
+  margin-top: 18px;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  align-items: stretch;
+  overflow: hidden;
 }
 
 /* ==========================================================================
    Superfície Mobile (Celular)
    ========================================================================== */
 
+.preview-surface {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+}
+
 .phone {
   background: #f8f9fc;
   border: 6px solid #343746;
   outline: 1px solid #555968;
-  border-radius: 33px;
+  border-radius: 30px;
   color: #252739;
-  min-height: 525px;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
 }
 
 .phone-top {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
-  padding: 12px 18px;
+  padding: 10px 18px;
   font-size: 10px;
   font-weight: 700;
 }
 
 .phone-content {
-  padding: 22px 21px;
+  padding: 18px 20px;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .app-mark {
   display: grid;
   place-items: center;
-  width: 47px;
-  height: 47px;
-  border-radius: 13px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   color: #7661b0;
   background: #ede7fb;
-  margin-bottom: 21px;
+  margin-bottom: 16px;
 }
 
 .phone-content h2 {
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1.2;
 }
 
 .phone-sub {
   font-size: 10px;
   color: #8c8fa0;
-  margin: 10px 0 20px;
+  margin: 8px 0 16px;
 }
 
 .phone .field {
@@ -124,7 +156,7 @@
 .phone hr {
   border: 0;
   border-top: 1px solid #dfe1e9;
-  margin: 20px 0;
+  margin: 16px 0;
 }
 
 .phone small {
@@ -141,11 +173,12 @@
 }
 
 .phone-bottom {
+  flex-shrink: 0;
   width: 90px;
   height: 4px;
   border-radius: 10px;
   background: #444758;
-  margin: 12px auto;
+  margin: 10px auto;
 }
 
 .phone-content > p {
@@ -159,14 +192,16 @@
 
 .platform-web,
 .platform-desktop {
-  width: 1220px;
+  width: min(96vw, 1260px);
+  max-width: 96vw;
+  height: min(94vh, 900px);
 }
 
 .platform-web .preview-grid,
 .platform-desktop .preview-grid {
-  grid-template-columns: minmax(0, 1fr) 250px;
-  gap: 25px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 24px;
+  align-items: stretch;
 }
 
 .web-window,
@@ -178,8 +213,10 @@
   border: 1px solid #515669;
   border-radius: 12px;
   overflow: hidden;
-  min-height: 550px;
-  box-shadow: 0 12px 30px #0003;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.4);
 }
 
 .web-window .phone-top,
@@ -190,11 +227,12 @@
 }
 
 .window-chrome {
+  flex-shrink: 0;
   display: flex;
   gap: 12px;
   align-items: center;
   justify-content: space-between;
-  height: 46px;
+  height: 42px;
   background: #e5e7ed;
   border-bottom: 1px solid #d7dae3;
   color: #70788b;
@@ -217,14 +255,17 @@
 .web-window .window-name {
   background: #f7f8fb;
   border-radius: 6px;
-  padding: 7px 12px;
+  padding: 6px 12px;
   flex: 1;
 }
 
 .web-window .phone-content {
-  width: min(100%, 520px);
-  margin: auto;
-  padding: 35px 40px;
+  width: min(100%, 560px);
+  margin: 0 auto;
+  padding: 24px 32px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .desktop-window {
@@ -243,9 +284,12 @@
 }
 
 .desktop-window .phone-content {
-  width: min(100%, 600px);
-  padding: 35px 48px;
+  width: min(100%, 640px);
+  padding: 24px 36px;
   margin: 0 auto;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .preview-surface .field input,
@@ -271,26 +315,7 @@
 .preview-surface hr {
   border: 0;
   border-top: 1px solid #dedfe8;
-  margin: 20px 0;
-}
-
-.preview-surface .phone-content {
-  overflow: auto;
-  max-height: 70vh;
-}
-
-.platform-mobile .phone-content {
-  max-height: 60vh;
-}
-
-.platform-web .web-window,
-.platform-desktop .desktop-window {
-  min-height: 420px;
-}
-
-.platform-web .preview-surface .phone-content,
-.platform-desktop .preview-surface .phone-content {
-  max-height: 48vh;
+  margin: 16px 0;
 }
 
 /* ==========================================================================
@@ -298,15 +323,20 @@
    ========================================================================== */
 
 .execution {
-  padding-top: 8px;
-  max-height: 60vh;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  padding-top: 4px;
+  overflow: hidden;
 }
 
 .execution .section-title {
-  padding-bottom: 16px;
+  flex-shrink: 0;
+  padding-bottom: 12px;
   border-bottom: 1px solid #333744;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 
 .execution h3 {
@@ -314,19 +344,28 @@
   font-weight: 500;
 }
 
-.execution .field {
-  margin-top: 28px;
+.trace-list {
+  flex: 1;
+  min-height: 80px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding-right: 6px;
 }
 
 .trace-item {
   display: flex;
   gap: 11px;
-  padding: 12px 0;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.trace-item:last-child {
+  border-bottom: none;
 }
 
 .trace-item > span {
-  width: 23px;
-  height: 23px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: #b9a5f617;
   color: #c5b1f2;
@@ -344,7 +383,18 @@
 .trace-item p {
   color: #929aae;
   font-size: 10px;
-  margin-top: 5px;
+  margin-top: 4px;
+}
+
+.execution-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid #282c38;
+}
+
+.execution-footer .field {
+  margin-top: 0;
 }
 
 .preview-message {
@@ -361,33 +411,64 @@
    Media Queries de Prévia
    ========================================================================== */
 
-@media (max-width: 850px) {
-  .platform-picker > span {
-    display: none;
+@media (max-height: 740px) {
+  .preview-modal {
+    height: 96vh;
+    padding: 16px 20px;
   }
-  .platform-web .preview-grid,
-  .platform-desktop .preview-grid {
-    grid-template-columns: 1fr;
+  .preview-head h2 {
+    font-size: 18px;
+    margin: 4px 0 2px;
   }
-  .web-window .phone-content,
-  .desktop-window .phone-content {
-    padding: 25px;
-    width: 100%;
+  .platform-picker {
+    margin-top: 8px;
+    padding: 4px;
   }
-  .web-window,
-  .desktop-window {
-    min-height: 450px;
+  .preview-grid {
+    margin-top: 12px;
+    gap: 16px;
+  }
+  .phone-content {
+    padding: 14px 16px;
+  }
+  .app-mark {
+    margin-bottom: 10px;
+    width: 36px;
+    height: 36px;
   }
 }
 
-@media (max-width: 700px) {
-  .preview-grid {
+@media (max-width: 850px) {
+  .preview-modal {
+    height: 96vh;
+    overflow-y: auto;
+  }
+  .platform-picker > span {
+    display: none;
+  }
+  .preview-grid,
+  .platform-web .preview-grid,
+  .platform-desktop .preview-grid {
     grid-template-columns: 1fr;
-    gap: 25px;
+    height: auto;
+    overflow: visible;
+    gap: 20px;
   }
   .phone {
     max-width: 310px;
-    margin: auto;
-    width: 100%;
+    margin: 0 auto;
+    height: 480px;
+  }
+  .web-window,
+  .desktop-window {
+    height: 480px;
+  }
+  .execution {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+  .trace-list {
+    max-height: 200px;
   }
 }
