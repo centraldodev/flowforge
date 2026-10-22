@@ -29,7 +29,8 @@ export function run(
   const node = (id: string) => g.nodes.find((n) => n.id === id);
 
   /** Lê o valor conectado a uma porta de entrada; prefere origens já executadas. */
-  const read = (id: string, port: string, fallback: unknown = '') => {
+  const read = (id: string, port: string, fallback?: unknown) => {
+    const defaultVal = fallback !== undefined ? fallback : (values[port] ?? '');
     const aliases =
       port === 'value'
         ? ['value', 'result', 'response', 'data', 'user']
@@ -41,11 +42,11 @@ export function run(
       (e) => e.target === id && (e.targetHandle === port || aliases.includes(e.targetHandle || '')),
     );
     const e = edges.find((e) => Object.hasOwn(outputs, e.source)) || edges[0];
-    if (!e) return fallback;
+    if (!e) return defaultVal;
     const n = node(e.source);
     return n && valueKinds.includes(n.data.kind)
       ? inputValue(n, values)
-      : (outputs[e.source] ?? fallback);
+      : (outputs[e.source] ?? defaultVal);
   };
 
   function execute(n: Block): Step {
@@ -99,8 +100,13 @@ export function run(
             message = out ? 'Acesso simulado autorizado' : 'E-mail ou senha inválidos';
           }
         }
-        if (out) store.__session = [{ provider: c.provider, email: read(n.id, 'email') }];
-        else delete store.__session;
+        if (out) {
+          store.__session = [{ provider: c.provider, email: read(n.id, 'email') }];
+          path = 'onSuccess';
+        } else {
+          delete store.__session;
+          path = 'onError';
+        }
         break;
       }
       case 'condition': {
@@ -127,10 +133,19 @@ export function run(
         message = `${c.table}: ${rows.length} registro(s) em memória`;
         break;
       }
-      case 'navigate':
-        result.screen = c.target;
-        message = 'Navegando para ' + (node(c.target)?.data.label || c.target);
+      case 'navigate': {
+        const targetScreen = c.target || String(read(n.id, 'route', ''));
+        const cleanTarget = targetScreen.replace(/^\//, '');
+        const destNode = node(c.target) || node(cleanTarget) || node(targetScreen);
+        if (destNode && destNode.data.kind === 'screen') {
+          result.screen = destNode.id;
+        } else if (c.target) {
+          result.screen = c.target;
+        }
+        path = 'onComplete';
+        message = 'Navegando para ' + (destNode?.data.label || c.target || cleanTarget);
         break;
+      }
     }
     return { out, path, message };
   }
@@ -189,6 +204,14 @@ export function run(
       } else if (path === 'onError') {
         nextEdge = g.edges.find(
           (e) => e.source === n.id && (e.sourceHandle === 'error' || e.sourceHandle === 'false'),
+        );
+      } else if (path === 'onComplete') {
+        nextEdge = g.edges.find(
+          (e) => e.source === n.id && (e.sourceHandle === 'then' || e.sourceHandle === 'next'),
+        );
+      } else if (path === 'onDismiss') {
+        nextEdge = g.edges.find(
+          (e) => e.source === n.id && (e.sourceHandle === 'then' || e.sourceHandle === 'next'),
         );
       }
     }

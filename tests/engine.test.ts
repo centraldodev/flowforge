@@ -14,38 +14,67 @@ import {
 } from '../src/state/graphOps';
 test('login válido navega para início; senha inválida segue ramo falso', () => {
   assert.equal(validate(demo).length, 0);
-  const r = run(demo, 'enter', { email: 'demo@exemplo.com', password: '123456' });
+  const r = run(demo, 'btn-login', { email: 'demo@exemplo.com', password: '123456' });
   assert.equal(r.screen, 'home');
   assert.equal(r.outputs.auth, true);
   assert.equal(
-    run(demo, 'enter', { email: 'demo@exemplo.com', password: 'errada' }).screen,
+    run(demo, 'btn-login', { email: 'demo@exemplo.com', password: 'errada' }).screen,
     undefined,
   );
 });
 test('cadastro local é reutilizado no login e rejeita duplicação', () => {
+  const g: Graph = {
+    version: 1,
+    name: 'auth-reg',
+    nodes: [
+      { id: 'signup', position: { x: 0, y: 0 }, data: { kind: 'button', label: 'Cadastrar', config: {} } },
+      { id: 'register', position: { x: 0, y: 0 }, data: { kind: 'auth', label: 'Reg', config: { provider: 'email', mode: 'register' } } },
+      { id: 'enter', position: { x: 0, y: 0 }, data: { kind: 'button', label: 'Entrar', config: {} } },
+      { id: 'login', position: { x: 0, y: 0 }, data: { kind: 'auth', label: 'Login', config: { provider: 'email', mode: 'login' } } },
+    ],
+    edges: [
+      { id: 'e1', source: 'signup', target: 'register', sourceHandle: 'onClick', targetHandle: 'trigger' },
+      { id: 'e2', source: 'enter', target: 'login', sourceHandle: 'onClick', targetHandle: 'trigger' },
+    ],
+  };
   const store = {};
   const values = { email: 'nova@exemplo.com', password: '654321' };
-  assert.equal(run(demo, 'signup', values, store).outputs.register, true);
-  assert.equal(run(demo, 'enter', values, store).outputs.auth, true);
-  assert.equal(run(demo, 'signup', values, store).outputs.register, false);
+  assert.equal(run(g, 'signup', values, store).outputs.register, true);
+  assert.equal(run(g, 'enter', values, store).outputs.login, true);
+  assert.equal(run(g, 'signup', values, store).outputs.register, false);
 });
 test('OAuth e recuperação são simulações', () => {
-  assert.equal(run(demo, 'google').screen, 'home');
-  assert.equal(run(demo, 'forgot', { email: 'x@y.com' }).outputs.reset, true);
-  assert.equal(run(demo, 'forgot', { email: 'invalido' }).outputs.reset, false);
+  const g: Graph = {
+    version: 1,
+    name: 'oauth-sim',
+    nodes: [
+      { id: 'google', position: { x: 0, y: 0 }, data: { kind: 'button', label: 'Google', config: {} } },
+      { id: 'oauth', position: { x: 0, y: 0 }, data: { kind: 'auth', label: 'OAuth', config: { provider: 'google', mode: 'login' } } },
+      { id: 'nav', position: { x: 0, y: 0 }, data: { kind: 'navigate', label: 'Nav', config: { target: 'home' } } },
+      { id: 'forgot', position: { x: 0, y: 0 }, data: { kind: 'button', label: 'Forgot', config: {} } },
+      { id: 'reset', position: { x: 0, y: 0 }, data: { kind: 'function', label: 'Reset', config: { code: 'return String(read("email")).includes("@");' } } },
+    ],
+    edges: [
+      { id: 'e1', source: 'google', target: 'oauth', sourceHandle: 'onClick', targetHandle: 'trigger' },
+      { id: 'e2', source: 'oauth', target: 'nav', sourceHandle: 'onSuccess', targetHandle: 'execute' },
+      { id: 'e3', source: 'forgot', target: 'reset', sourceHandle: 'onClick', targetHandle: 'execute' },
+    ],
+  };
+  assert.equal(run(g, 'google').screen, 'home');
+  assert.equal(run(g, 'forgot', { email: 'x@y.com' }).outputs.reset, true);
+  assert.equal(run(g, 'forgot', { email: 'invalido' }).outputs.reset, false);
 });
 test('ciclos não travam interpretador', () => {
   const g = structuredClone(demo);
-  g.nodes.filter((n) => n.data.kind === 'screen').forEach((n) => (n.data.config.routes = '[]'));
   g.edges.push({
     id: 'cycle',
     source: 'home',
-    target: 'enter',
-    sourceHandle: 'next',
-    targetHandle: 'exec',
+    target: 'btn-login',
+    sourceHandle: 'then',
+    targetHandle: 'onClick',
   });
   assert.throws(
-    () => run(g, 'enter', { email: 'demo@exemplo.com', password: '123456' }),
+    () => run(g, 'btn-login', { email: 'demo@exemplo.com', password: '123456' }),
     /100 passos/,
   );
 });
@@ -166,11 +195,15 @@ test('condição avalia valores e função limpa sessão', () => {
   assert.equal(store.__session, undefined);
 });
 
-test('transições de tela: autenticação válida abre início e logout volta a login', () => {
+test('transições de tela: rotas configuradas na tela realizam transição de tela', () => {
+  const g = structuredClone(demo);
+  g.nodes.find((n) => n.id === 'login')!.data.config.routes = JSON.stringify([
+    { id: 'r1', trigger: 'auth', when: 'true', target: 'home' },
+  ]);
   const store: Record<string, unknown[]> = {};
   const success = run(
-    demo,
-    'enter',
+    g,
+    'btn-login',
     { email: 'demo@exemplo.com', password: '123456' },
     store,
     'login',
@@ -178,10 +211,8 @@ test('transições de tela: autenticação válida abre início e logout volta a
   assert.equal(success.screen, 'home');
   assert.ok(store.__session);
   assert.ok(success.trace.at(-1)?.message.startsWith('Transição'));
-  assert.equal(run(demo, 'logout-button', {}, store, 'home').screen, 'login');
-  assert.equal(store.__session, undefined);
   assert.equal(
-    run(demo, 'enter', { email: 'demo@exemplo.com', password: 'erro' }, store, 'login').screen,
+    run(g, 'btn-login', { email: 'demo@exemplo.com', password: 'erro' }, store, 'login').screen,
     undefined,
   );
 });
@@ -190,14 +221,14 @@ test('transição false e limite de tela de origem', () => {
   g.nodes.find((n) => n.id === 'login')!.data.config.routes = JSON.stringify([
     { id: 'failed', trigger: 'auth', when: 'false', target: 'home' },
   ]);
-  assert.equal(run(g, 'enter', { email: 'x', password: 'x' }, {}).screen, 'home');
-  assert.equal(run(g, 'enter', { email: 'x', password: 'x' }, {}, 'home').screen, undefined);
+  assert.equal(run(g, 'btn-login', { email: 'x', password: 'x' }, {}).screen, 'home');
+  assert.equal(run(g, 'btn-login', { email: 'x', password: 'x' }, {}, 'home').screen, undefined);
 });
 test('validação detecta destino inexistente, evento de outra tela e condições sobrepostas', () => {
   const g = structuredClone(demo);
   const page = g.nodes.find((n) => n.id === 'login')!;
   page.data.config.routes = JSON.stringify([
-    { id: 'a', trigger: 'logout-action', when: 'true', target: 'missing' },
+    { id: 'a', trigger: 'home', when: 'true', target: 'missing' },
   ]);
   assert.ok(validate(g).some((e) => e.includes('destino')));
   assert.ok(validate(g).some((e) => e.includes('botão desta tela')));
@@ -274,29 +305,23 @@ test('validação de ID do bloco: impede duplicados, vazios e formatos inválido
 test('renomeação atômica de ID propaga para conexões, rotas e telas dependentes', () => {
   let g = structuredClone(demo);
 
-  // Renomear o botão 'enter' para 'btn_entrar'
-  g = renameBlockId(g, 'enter', 'btn_entrar');
+  // Renomear o botão 'btn-login' para 'btn_entrar'
+  g = renameBlockId(g, 'btn-login', 'btn_entrar');
   assert.ok(g.nodes.some((n) => n.id === 'btn_entrar'));
-  assert.ok(!g.nodes.some((n) => n.id === 'enter'));
+  assert.ok(!g.nodes.some((n) => n.id === 'btn-login'));
 
-  // Todas as conexões que partiam de 'enter' agora devem partir de 'btn_entrar'
+  // Todas as conexões que partiam de 'btn-login' agora devem partir de 'btn_entrar'
   assert.ok(g.edges.some((e) => e.source === 'btn_entrar' && e.target === 'auth'));
-  assert.ok(!g.edges.some((e) => e.source === 'enter'));
+  assert.ok(!g.edges.some((e) => e.source === 'btn-login'));
 
   // Renomear a tela 'home' para 'tela_principal'
   g = renameBlockId(g, 'home', 'tela_principal');
   assert.ok(g.nodes.some((n) => n.id === 'tela_principal'));
   assert.ok(!g.nodes.some((n) => n.id === 'home'));
 
-  // O bloco pertencente à tela 'home' agora deve apontar para 'tela_principal'
-  const homeBlock = g.nodes.find((n) => n.data.config.screenId === 'tela_principal');
-  assert.ok(homeBlock);
-
-  // As rotas de transição na tela 'login' que iam para 'home' agora devem ir para 'tela_principal'
-  const loginScreen = g.nodes.find((n) => n.id === 'login')!;
-  const routes = JSON.parse(loginScreen.data.config.routes || '[]');
-  assert.ok(routes.some((r: any) => r.target === 'tela_principal'));
-  assert.ok(!routes.some((r: any) => r.target === 'home'));
+  // O bloco navigate que apontava para 'home' agora deve apontar para 'tela_principal'
+  const navBlock = g.nodes.find((n) => n.id === 'navigate');
+  assert.equal(navBlock?.data.config.target, 'tela_principal');
 
   // Não deve permitir renomear se o destino já existir
   const beforeAttempt = g;

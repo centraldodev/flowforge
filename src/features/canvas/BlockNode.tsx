@@ -1,64 +1,70 @@
 import type { CSSProperties } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { catalog, ports, type Block, type BlockData } from '../../engine';
+import { catalog, ports, getPortType, type BlockData } from '../../engine';
 
 export type FlowNode = Node<BlockData, 'block'>;
 
-/** Linha de resumo exibida abaixo do nome do bloco. */
-function subtitle(data: Block['data']): string {
-  const c = data.config;
-  switch (data.kind) {
-    case 'screen':
-      return c.title || 'Tela do aplicativo';
-    case 'button':
-      return 'Dispara um fluxo de ações';
-    case 'input':
-      return c.placeholder ? `"${c.placeholder}"` : 'Campo de entrada';
-    case 'function':
-      return c.code ? `Código: ${c.code.slice(0, 32)}...` : 'Executar função';
-    case 'condition':
-      return c.compare ? `Se ${c.operator} "${c.compare}"` : 'Se / então / senão';
-    case 'auth':
-      return `${c.provider} · ${c.mode === 'register' ? 'cadastro' : 'autenticação'}`;
-    case 'api':
-      return `${c.method || 'GET'} ${c.url || '/api'}`;
-    case 'database':
-      return `${c.operation === 'insert' ? 'Inserir em' : 'Consultar'} ${c.table || 'tabela'}`;
-    case 'navigate':
-      return c.target ? `Ir para: ${c.target}` : 'Navegar para tela';
-    default:
-      return '';
-  }
-}
-
 export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
-  const def = catalog[data.kind];
+  const def = catalog[data.kind] || {
+    name: 'Bloco',
+    icon: '📦',
+    color: '#818cf8',
+  };
 
-  const inPorts =
-    data.ports !== undefined
-      ? data.ports.filter((p) => p.direction === 'input').map((p) => ({ id: p.id, label: p.name }))
-      : ports(data.kind).inputs.map((p) => ({ id: p, label: p }));
+  // Formata o título no padrão visual: "Botão — Entrar", "Autenticação — Login", etc.
+  const title = (() => {
+    if (!data.label) return def.name;
+    const label = data.label.trim();
+    const kindName = def.name.trim();
+    if (label.toLowerCase() === kindName.toLowerCase()) return label;
+    if (label.toLowerCase().includes(kindName.toLowerCase())) return label;
+    if (label.includes('—') || label.includes('-')) return label;
+    // Se for tela ou input simples, prioriza o label direto se for descritivo
+    if (data.kind === 'screen' || data.kind === 'input') return label;
+    return `${kindName} — ${label}`;
+  })();
 
-  const outPorts =
+  const rawPorts =
     data.ports !== undefined
       ? data.ports
-          .filter((p) => p.direction === 'output')
-          .map((p) => ({
-            id: p.id,
-            label: p.name,
-            isConnectable: p.id !== 'routes' || data.kind !== 'screen',
-          }))
       : [
+          ...ports(data.kind).inputs.map((p) => ({
+            id: p,
+            name: p,
+            direction: 'input' as const,
+            type: getPortType(p),
+          })),
           ...ports(data.kind).outputs.map((p) => ({
             id: p,
-            label: p,
-            isConnectable: true,
+            name: p,
+            direction: 'output' as const,
+            type: getPortType(p),
           })),
-          ...(data.kind === 'screen'
-            ? [{ id: 'routes', label: 'routes', isConnectable: false }]
-            : []),
         ];
 
+  const inPorts = rawPorts
+    .filter((p) => p.direction === 'input')
+    .map((p) => ({
+      id: p.id,
+      label: p.name || p.id,
+      type: p.type || getPortType(p.id),
+      value:
+        (p as { value?: string }).value ||
+        (p.id === 'route' && data.config.target ? `/${data.config.target}` : undefined),
+    }));
+
+  const outPorts = rawPorts
+    .filter((p) => p.direction === 'output')
+    .map((p) => ({
+      id: p.id,
+      label: p.name || p.id,
+      type: p.type || getPortType(p.id),
+      value: (p as { value?: string }).value,
+      isConnectable: p.id !== 'routes' || data.kind !== 'screen',
+    }));
+
+  const hasIn = inPorts.length > 0;
+  const hasOut = outPorts.length > 0;
   const maxRows = Math.max(inPorts.length, outPorts.length);
 
   return (
@@ -68,45 +74,81 @@ export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
     >
       <div className="block-heading">
         <span className="block-icon">{def.icon}</span>
-        <span>{def.name}</span>
-        <span className="block-id-tag" title={'ID: ' + id}>
-          #{id.length > 16 ? id.slice(0, 15) + '…' : id}
+        <span className="block-title">{title}</span>
+        <span className="block-id-tag" title={'ID: #' + id}>
+          #{id}
         </span>
-        <span className="dots">···</span>
       </div>
-      <strong>{data.label}</strong>
-      <div className="block-sub">{subtitle(data)}</div>
-      {maxRows > 0 && (
+
+      {(hasIn || hasOut) ? (
         <div className="ports">
-          {Array.from({ length: maxRows }, (_, i) => {
-            const inPort = inPorts[i];
-            const outPort = outPorts[i];
-            return (
-              <div key={i} className="port-row">
-                {inPort ? (
-                  <div className="port in">
-                    <Handle type="target" position={Position.Left} id={inPort.id} />
-                    <span>{inPort.label}</span>
-                  </div>
-                ) : (
-                  <div />
-                )}
-                {outPort ? (
-                  <div className="port out">
-                    <span>{outPort.label}</span>
-                    <Handle
-                      type="source"
-                      position={Position.Right}
-                      id={outPort.id}
-                      isConnectable={outPort.isConnectable}
-                    />
-                  </div>
-                ) : (
-                  <div />
-                )}
-              </div>
-            );
-          })}
+          <div className="ports-header">
+            <span className="port-col in">
+              {hasIn ? (inPorts.length > 1 ? 'IN · Entradas' : 'IN') : ''}
+            </span>
+            <span className="port-col out">
+              {hasOut ? (outPorts.length > 1 ? 'OUT · Saídas' : 'OUT') : ''}
+            </span>
+          </div>
+
+          <div className="ports-rows">
+            {Array.from({ length: maxRows }, (_, i) => {
+              const inPort = inPorts[i];
+              const outPort = outPorts[i];
+              return (
+                <div key={i} className="port-row">
+                  {inPort ? (
+                    <div className="port in" title={`Entrada: ${inPort.label}`}>
+                      <Handle
+                        type="target"
+                        position={Position.Left}
+                        id={inPort.id}
+                        className="port-handle in-handle"
+                      />
+                      <span className="port-label">
+                        <span className="port-name">{inPort.label}</span>
+                        {inPort.type && (
+                          <span className={`port-type type-${inPort.type.toLowerCase()}`}>
+                            : {inPort.type}
+                          </span>
+                        )}
+                        {inPort.value && <span className="port-val">{inPort.value}</span>}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="port in-empty" />
+                  )}
+
+                  {outPort ? (
+                    <div className="port out" title={`Saída: ${outPort.label}`}>
+                      <span className="port-label">
+                        <span className="port-name">{outPort.label}</span>
+                        {outPort.type && (
+                          <span className={`port-type type-${outPort.type.toLowerCase()}`}>
+                            : {outPort.type}
+                          </span>
+                        )}
+                        {outPort.value && <span className="port-val">{outPort.value}</span>}
+                      </span>
+                      <Handle
+                        type="source"
+                        position={Position.Right}
+                        id={outPort.id}
+                        isConnectable={outPort.isConnectable}
+                        className="port-handle out-handle"
+                      />
+                    </div>
+                  ) : (
+                    <div className="port out-empty" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="ports-empty">
+          <span>Sem conexões configuradas</span>
         </div>
       )}
     </div>

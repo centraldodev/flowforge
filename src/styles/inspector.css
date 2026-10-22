@@ -410,6 +410,13 @@
   font-weight: 600;
 }
 
+.port-type-tag {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: #818cf8;
+  font-weight: 500;
+}
+
 .port-edge-count {
   font-size: 8px;
   color: #818ba0;

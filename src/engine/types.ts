@@ -13,6 +13,8 @@ export type CustomPort = {
   id: string;
   name: string;
   direction: 'input' | 'output';
+  type?: string;
+  value?: string;
 };
 
 export type BlockData = {

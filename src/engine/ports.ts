@@ -16,6 +16,8 @@ export const EXEC_OUTPUTS = [
   'error',
   'onChange',
   'onOpen',
+  'onComplete',
+  'onDismiss',
   'routes',
 ];
 
@@ -28,11 +30,42 @@ export const EXEC_INPUTS = [
   'call',
   'trigger',
   'exec',
+  'execute',
+  'onEnter',
   'onTrigger',
 ];
 
+const KNOWN_EXEC_INPUTS = new Set([
+  'listener',
+  'listenerclick',
+  'handler',
+  'handle',
+  'call',
+  'trigger',
+  'exec',
+  'execute',
+  'onenter',
+  'ontrigger',
+]);
+
+export const isExecInput = (handle?: string | null): boolean => {
+  const h = (handle || '').toLowerCase();
+  return (
+    EXEC_INPUTS.some((p) => p.toLowerCase() === h) ||
+    KNOWN_EXEC_INPUTS.has(h) ||
+    h.includes('listener') ||
+    h.includes('handler') ||
+    h.includes('trigger') ||
+    h === 'call' ||
+    h === 'exec' ||
+    h === 'execute' ||
+    h === 'onenter'
+  );
+};
+
 export const isExecOutput = (handle?: string | null): boolean => {
   const h = (handle || '').toLowerCase();
+  if (KNOWN_EXEC_INPUTS.has(h)) return false;
   return (
     EXEC_OUTPUTS.some((p) => p.toLowerCase() === h) ||
     h.startsWith('on') ||
@@ -43,45 +76,74 @@ export const isExecOutput = (handle?: string | null): boolean => {
   );
 };
 
-export const isExecInput = (handle?: string | null): boolean => {
-  const h = (handle || '').toLowerCase();
-  return (
-    EXEC_INPUTS.some((p) => p.toLowerCase() === h) ||
-    h.includes('listener') ||
-    h.includes('handler') ||
-    h.includes('trigger') ||
-    h === 'call' ||
-    h === 'exec'
-  );
+export const DEFAULT_PORT_TYPES: Record<string, string> = {
+  // Events / Triggers
+  onClick: 'Event',
+  click: 'Event',
+  trigger: 'Event',
+  onSuccess: 'Event',
+  onError: 'Error',
+  onComplete: 'Event',
+  onDismiss: 'Event',
+  onEnter: 'Event',
+  onChange: 'Event',
+  onOpen: 'Event',
+  then: 'Event',
+  execute: 'Event',
+  exec: 'Event',
+  listener: 'Event',
+  listenerClick: 'Event',
+  true: 'Event',
+  false: 'Event',
+  // Data
+  email: 'string',
+  password: 'string',
+  disabled: 'boolean',
+  user: 'User',
+  message: 'string',
+  route: 'string',
+  value: 'string',
+  data: 'object',
+  response: 'object',
+  body: 'object',
+  result: 'any',
 };
+
+export function getPortType(portId: string, customType?: string): string {
+  if (customType) return customType;
+  return DEFAULT_PORT_TYPES[portId] || '';
+}
 
 const table: Record<Kind, Ports> = {
   // Interface
-  screen: { inputs: ['listener', 'exec'], outputs: [] },
-  button: { inputs: [], outputs: ['onClick', 'next', 'value'] },
-  input: { inputs: [], outputs: ['value', 'onChange'] },
+  screen: { inputs: ['onEnter', 'user', 'listener', 'exec'], outputs: [] },
+  button: { inputs: ['disabled'], outputs: ['onClick', 'next', 'value'] },
+  input: { inputs: ['disabled'], outputs: ['value', 'onChange'] },
   // Lógica
   function: {
-    inputs: ['listener', 'listenerClick', 'exec', 'value'],
-    outputs: ['then', 'next', 'result', 'value'],
+    inputs: ['execute', 'message', 'listener', 'listenerClick', 'exec', 'value'],
+    outputs: ['onDismiss', 'then', 'next', 'result', 'value'],
   },
   condition: {
-    inputs: ['listener', 'listenerClick', 'exec', 'value'],
+    inputs: ['execute', 'listener', 'listenerClick', 'exec', 'value'],
     outputs: ['true', 'false', 'value'],
   },
   auth: {
-    inputs: ['listener', 'listenerClick', 'exec', 'email', 'password'],
-    outputs: ['onSuccess', 'then', 'next', 'onError', 'user', 'value'],
+    inputs: ['trigger', 'email', 'password', 'listener', 'listenerClick', 'exec'],
+    outputs: ['onSuccess', 'onError', 'user', 'then', 'next', 'value'],
   },
-  navigate: { inputs: ['listener', 'listenerClick', 'exec'], outputs: ['then', 'next', 'value'] },
+  navigate: {
+    inputs: ['execute', 'route', 'listener', 'listenerClick', 'exec'],
+    outputs: ['onComplete', 'then', 'next', 'value'],
+  },
   // Dados
   database: {
-    inputs: ['listener', 'listenerClick', 'exec', 'value'],
-    outputs: ['onSuccess', 'then', 'next', 'onError', 'data', 'value'],
+    inputs: ['execute', 'listener', 'listenerClick', 'exec', 'value'],
+    outputs: ['onSuccess', 'onError', 'data', 'then', 'next', 'value'],
   },
   api: {
-    inputs: ['listener', 'listenerClick', 'exec', 'body'],
-    outputs: ['onSuccess', 'then', 'next', 'onError', 'response', 'value'],
+    inputs: ['execute', 'body', 'listener', 'listenerClick', 'exec'],
+    outputs: ['onSuccess', 'onError', 'response', 'then', 'next', 'value'],
   },
 };
 
@@ -112,10 +174,10 @@ export function ensureBlockPorts(block: Block): CustomPort[] {
   const def = ports(block.data.kind);
   const result: CustomPort[] = [];
   for (const p of def.inputs) {
-    result.push({ id: p, name: p, direction: 'input' });
+    result.push({ id: p, name: p, direction: 'input', type: getPortType(p) });
   }
   for (const p of def.outputs) {
-    result.push({ id: p, name: p, direction: 'output' });
+    result.push({ id: p, name: p, direction: 'output', type: getPortType(p) });
   }
   if (block.data.kind === 'screen') {
     result.push({ id: 'routes', name: 'routes', direction: 'output' });

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Plus, Trash2, X, ArrowRight, ArrowLeft } from 'lucide-react';
 import {
   ensureBlockPorts,
+  getPortType,
   type Block,
   type CustomPort,
   type Graph,
@@ -37,14 +38,14 @@ export function Connections({
   const portsList = ensureBlockPorts(chosen);
   const blockEdges = graph.edges.filter((e) => e.source === chosen.id || e.target === chosen.id);
 
-  function handleAddPreset(name: string, direction: 'input' | 'output') {
+  function handleAddPreset(name: string, direction: 'input' | 'output', type?: string) {
     if (!chosen) return;
     let id = name;
     let counter = 2;
     while (portsList.some((p) => p.id === id)) {
       id = `${name}_${counter++}`;
     }
-    onAddPort({ id, name, direction });
+    onAddPort({ id, name, direction, type });
   }
 
   function handleAddCustom(e: FormEvent) {
@@ -70,8 +71,7 @@ export function Connections({
 
       <p className="subtle">
         Conecte o Lado A (Eventos: <code>onClick</code>, <code>then</code>, <code>onSuccess</code>)
-        ao Lado B (Ouvintes: <code>listenerClick</code>, <code>listener</code>, <code>handler</code>
-        ).
+        ao Lado B (Ouvintes: <code>trigger</code>, <code>execute</code>, <code>onEnter</code>).
       </p>
 
       {/* Lista de portas configuradas */}
@@ -104,6 +104,9 @@ export function Connections({
                     {port.direction === 'input' ? 'IN' : 'OUT'}
                   </span>
                   <strong className="port-name">{port.name}</strong>
+                  {(port.type || getPortType(port.id)) && (
+                    <span className="port-type-tag">:{port.type || getPortType(port.id)}</span>
+                  )}
                   {edgeCount > 0 ? (
                     <span className="port-edge-count">{edgeCount} fio(s)</span>
                   ) : (
@@ -135,15 +138,23 @@ export function Connections({
                 type="button"
                 className="chip-btn output"
                 title="Lado A: Evento de clique do botão"
-                onClick={() => handleAddPreset('onClick', 'output')}
+                onClick={() => handleAddPreset('onClick', 'output', 'Event')}
               >
-                <Plus size={12} /> onClick (out)
+                <Plus size={12} /> onClick: Event (out)
+              </button>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Desativa o botão quando verdadeiro"
+                onClick={() => handleAddPreset('disabled', 'input', 'boolean')}
+              >
+                <Plus size={12} /> disabled: boolean (in)
               </button>
               <button
                 type="button"
                 className="chip-btn output"
                 title="Texto ou valor associado ao botão"
-                onClick={() => handleAddPreset('value', 'output')}
+                onClick={() => handleAddPreset('value', 'output', 'string')}
               >
                 <Plus size={12} /> value (out)
               </button>
@@ -156,17 +167,25 @@ export function Connections({
                 type="button"
                 className="chip-btn output"
                 title="Valor de texto digitado no campo"
-                onClick={() => handleAddPreset('value', 'output')}
+                onClick={() => handleAddPreset('value', 'output', 'string')}
               >
-                <Plus size={12} /> value (out)
+                <Plus size={12} /> value: string (out)
               </button>
               <button
                 type="button"
                 className="chip-btn output"
                 title="Evento disparado quando o valor muda"
-                onClick={() => handleAddPreset('onChange', 'output')}
+                onClick={() => handleAddPreset('onChange', 'output', 'Event')}
               >
-                <Plus size={12} /> onChange (out)
+                <Plus size={12} /> onChange: Event (out)
+              </button>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Desativa o campo quando verdadeiro"
+                onClick={() => handleAddPreset('disabled', 'input', 'boolean')}
+              >
+                <Plus size={12} /> disabled: boolean (in)
               </button>
             </>
           )}
@@ -176,40 +195,48 @@ export function Connections({
               <button
                 type="button"
                 className="chip-btn input"
-                title="Lado B: Ouvinte para evento onClick de botões"
-                onClick={() => handleAddPreset('listenerClick', 'input')}
+                title="Lado B: Executar a função"
+                onClick={() => handleAddPreset('execute', 'input', 'Event')}
               >
-                <Plus size={12} /> listenerClick (in)
+                <Plus size={12} /> execute: Event (in)
               </button>
               <button
                 type="button"
                 className="chip-btn input"
-                title="Lado B: Ouvinte geral para executar a função"
-                onClick={() => handleAddPreset('listener', 'input')}
+                title="Dado: mensagem recebida pela função"
+                onClick={() => handleAddPreset('message', 'input', 'string')}
               >
-                <Plus size={12} /> listener (in)
+                <Plus size={12} /> message: string (in)
               </button>
               <button
                 type="button"
                 className="chip-btn input"
                 title="Dados / argumentos passados para a função"
-                onClick={() => handleAddPreset('value', 'input')}
+                onClick={() => handleAddPreset('value', 'input', 'string')}
               >
                 <Plus size={12} /> value (in)
               </button>
               <button
                 type="button"
                 className="chip-btn output"
-                title="Lado A: Continuação após execução (promise then)"
-                onClick={() => handleAddPreset('then', 'output')}
+                title="Lado A: Evento de dispensa ou finalização"
+                onClick={() => handleAddPreset('onDismiss', 'output', 'Event')}
               >
-                <Plus size={12} /> then (out)
+                <Plus size={12} /> onDismiss: Event (out)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Lado A: Continuação após execução (promise then)"
+                onClick={() => handleAddPreset('then', 'output', 'Event')}
+              >
+                <Plus size={12} /> then: Event (out)
               </button>
               <button
                 type="button"
                 className="chip-btn output"
                 title="Resultado / retorno retornado pela função"
-                onClick={() => handleAddPreset('result', 'output')}
+                onClick={() => handleAddPreset('result', 'output', 'any')}
               >
                 <Plus size={12} /> result (out)
               </button>
@@ -221,24 +248,16 @@ export function Connections({
               <button
                 type="button"
                 className="chip-btn input"
-                title="Lado B: Ouvinte para evento onClick de botões"
-                onClick={() => handleAddPreset('listenerClick', 'input')}
+                title="Lado B: Disparar avaliação da condição"
+                onClick={() => handleAddPreset('execute', 'input', 'Event')}
               >
-                <Plus size={12} /> listenerClick (in)
-              </button>
-              <button
-                type="button"
-                className="chip-btn input"
-                title="Lado B: Ouvinte de execução"
-                onClick={() => handleAddPreset('listener', 'input')}
-              >
-                <Plus size={12} /> listener (in)
+                <Plus size={12} /> execute: Event (in)
               </button>
               <button
                 type="button"
                 className="chip-btn input"
                 title="Valor de entrada a ser comparado"
-                onClick={() => handleAddPreset('value', 'input')}
+                onClick={() => handleAddPreset('value', 'input', 'string')}
               >
                 <Plus size={12} /> value (in)
               </button>
@@ -246,17 +265,17 @@ export function Connections({
                 type="button"
                 className="chip-btn output"
                 title="Lado A: Ramo executado quando a condição for verdadeira"
-                onClick={() => handleAddPreset('true', 'output')}
+                onClick={() => handleAddPreset('true', 'output', 'Event')}
               >
-                <Plus size={12} /> true (out)
+                <Plus size={12} /> true: Event (out)
               </button>
               <button
                 type="button"
                 className="chip-btn output"
                 title="Lado A: Ramo executado quando a condição for falsa"
-                onClick={() => handleAddPreset('false', 'output')}
+                onClick={() => handleAddPreset('false', 'output', 'Event')}
               >
-                <Plus size={12} /> false (out)
+                <Plus size={12} /> false: Event (out)
               </button>
             </>
           )}
@@ -266,58 +285,50 @@ export function Connections({
               <button
                 type="button"
                 className="chip-btn input"
-                title="Lado B: Ouvinte acionado pelo clique de um botão"
-                onClick={() => handleAddPreset('listenerClick', 'input')}
+                title="Lado B: Dispara o fluxo de autenticação (ex: via onClick)"
+                onClick={() => handleAddPreset('trigger', 'input', 'Event')}
               >
-                <Plus size={12} /> listenerClick (in)
-              </button>
-              <button
-                type="button"
-                className="chip-btn input"
-                title="Lado B: Ouvinte para autenticar"
-                onClick={() => handleAddPreset('listener', 'input')}
-              >
-                <Plus size={12} /> listener (in)
+                <Plus size={12} /> trigger: Event (in)
               </button>
               <button
                 type="button"
                 className="chip-btn input"
                 title="Dado: e-mail do usuário"
-                onClick={() => handleAddPreset('email', 'input')}
+                onClick={() => handleAddPreset('email', 'input', 'string')}
               >
-                <Plus size={12} /> email (in)
+                <Plus size={12} /> email: string (in)
               </button>
               <button
                 type="button"
                 className="chip-btn input"
                 title="Dado: senha do usuário"
-                onClick={() => handleAddPreset('password', 'input')}
+                onClick={() => handleAddPreset('password', 'input', 'string')}
               >
-                <Plus size={12} /> password (in)
+                <Plus size={12} /> password: string (in)
               </button>
               <button
                 type="button"
                 className="chip-btn output"
                 title="Lado A: Sucesso na autenticação"
-                onClick={() => handleAddPreset('onSuccess', 'output')}
+                onClick={() => handleAddPreset('onSuccess', 'output', 'Event')}
               >
-                <Plus size={12} /> onSuccess (out)
+                <Plus size={12} /> onSuccess: Event (out)
               </button>
               <button
                 type="button"
                 className="chip-btn output"
                 title="Lado A: Falha na autenticação"
-                onClick={() => handleAddPreset('onError', 'output')}
+                onClick={() => handleAddPreset('onError', 'output', 'Error')}
               >
-                <Plus size={12} /> onError (out)
+                <Plus size={12} /> onError: Error (out)
               </button>
               <button
                 type="button"
                 className="chip-btn output"
                 title="Dado: sessão ou dados do usuário autenticado"
-                onClick={() => handleAddPreset('user', 'output')}
+                onClick={() => handleAddPreset('user', 'output', 'User')}
               >
-                <Plus size={12} /> user (out)
+                <Plus size={12} /> user: User (out)
               </button>
             </>
           )}
@@ -327,50 +338,42 @@ export function Connections({
               <button
                 type="button"
                 className="chip-btn input"
-                title="Lado B: Ouvinte acionado pelo clique de um botão"
-                onClick={() => handleAddPreset('listenerClick', 'input')}
-              >
-                <Plus size={12} /> listenerClick (in)
-              </button>
-              <button
-                type="button"
-                className="chip-btn input"
                 title="Lado B: Disparador da requisição HTTP"
-                onClick={() => handleAddPreset('listener', 'input')}
+                onClick={() => handleAddPreset('execute', 'input', 'Event')}
               >
-                <Plus size={12} /> listener (in)
+                <Plus size={12} /> execute: Event (in)
               </button>
               <button
                 type="button"
                 className="chip-btn input"
                 title="Dado: corpo ou parâmetros da requisição"
-                onClick={() => handleAddPreset('body', 'input')}
+                onClick={() => handleAddPreset('body', 'input', 'object')}
               >
-                <Plus size={12} /> body (in)
+                <Plus size={12} /> body: object (in)
               </button>
               <button
                 type="button"
                 className="chip-btn output"
                 title="Lado A: Resposta HTTP 2xx de sucesso"
-                onClick={() => handleAddPreset('onSuccess', 'output')}
+                onClick={() => handleAddPreset('onSuccess', 'output', 'Event')}
               >
-                <Plus size={12} /> onSuccess (out)
+                <Plus size={12} /> onSuccess: Event (out)
               </button>
               <button
                 type="button"
                 className="chip-btn output"
                 title="Lado A: Erro HTTP ou falha de rede"
-                onClick={() => handleAddPreset('onError', 'output')}
+                onClick={() => handleAddPreset('onError', 'output', 'Error')}
               >
-                <Plus size={12} /> onError (out)
+                <Plus size={12} /> onError: Error (out)
               </button>
               <button
                 type="button"
                 className="chip-btn output"
                 title="Dado: dados JSON retornados pela API"
-                onClick={() => handleAddPreset('response', 'output')}
+                onClick={() => handleAddPreset('response', 'output', 'object')}
               >
-                <Plus size={12} /> response (out)
+                <Plus size={12} /> response: object (out)
               </button>
             </>
           )}
@@ -380,50 +383,42 @@ export function Connections({
               <button
                 type="button"
                 className="chip-btn input"
-                title="Lado B: Ouvinte acionado por botão"
-                onClick={() => handleAddPreset('listenerClick', 'input')}
-              >
-                <Plus size={12} /> listenerClick (in)
-              </button>
-              <button
-                type="button"
-                className="chip-btn input"
                 title="Lado B: Executa query ou insert"
-                onClick={() => handleAddPreset('listener', 'input')}
+                onClick={() => handleAddPreset('execute', 'input', 'Event')}
               >
-                <Plus size={12} /> listener (in)
+                <Plus size={12} /> execute: Event (in)
               </button>
               <button
                 type="button"
                 className="chip-btn input"
                 title="Dado: registro a ser inserido ou filtrado"
-                onClick={() => handleAddPreset('value', 'input')}
+                onClick={() => handleAddPreset('value', 'input', 'object')}
               >
-                <Plus size={12} /> value (in)
+                <Plus size={12} /> value: object (in)
               </button>
               <button
                 type="button"
                 className="chip-btn output"
                 title="Lado A: Operação no banco concluída com sucesso"
-                onClick={() => handleAddPreset('onSuccess', 'output')}
+                onClick={() => handleAddPreset('onSuccess', 'output', 'Event')}
               >
-                <Plus size={12} /> onSuccess (out)
+                <Plus size={12} /> onSuccess: Event (out)
               </button>
               <button
                 type="button"
                 className="chip-btn output"
                 title="Lado A: Erro na operação do banco"
-                onClick={() => handleAddPreset('onError', 'output')}
+                onClick={() => handleAddPreset('onError', 'output', 'Error')}
               >
-                <Plus size={12} /> onError (out)
+                <Plus size={12} /> onError: Error (out)
               </button>
               <button
                 type="button"
                 className="chip-btn output"
                 title="Dado: registros retornados pelo banco"
-                onClick={() => handleAddPreset('data', 'output')}
+                onClick={() => handleAddPreset('data', 'output', 'object')}
               >
-                <Plus size={12} /> data (out)
+                <Plus size={12} /> data: object (out)
               </button>
             </>
           )}
@@ -433,26 +428,26 @@ export function Connections({
               <button
                 type="button"
                 className="chip-btn input"
-                title="Lado B: Ouvinte acionado por clique"
-                onClick={() => handleAddPreset('listenerClick', 'input')}
+                title="Lado B: Acionar navegação"
+                onClick={() => handleAddPreset('execute', 'input', 'Event')}
               >
-                <Plus size={12} /> listenerClick (in)
+                <Plus size={12} /> execute: Event (in)
               </button>
               <button
                 type="button"
                 className="chip-btn input"
-                title="Lado B: Acionar navegação"
-                onClick={() => handleAddPreset('listener', 'input')}
+                title="Dado: rota de destino"
+                onClick={() => handleAddPreset('route', 'input', 'string')}
               >
-                <Plus size={12} /> listener (in)
+                <Plus size={12} /> route: string (in)
               </button>
               <button
                 type="button"
                 className="chip-btn output"
-                title="Lado A: Continuação após abrir a tela"
-                onClick={() => handleAddPreset('then', 'output')}
+                title="Lado A: Navegação concluída"
+                onClick={() => handleAddPreset('onComplete', 'output', 'Event')}
               >
-                <Plus size={12} /> then (out)
+                <Plus size={12} /> onComplete: Event (out)
               </button>
             </>
           )}
@@ -463,9 +458,17 @@ export function Connections({
                 type="button"
                 className="chip-btn input"
                 title="Lado B: Ouvinte disparado ao carregar/abrir a tela"
-                onClick={() => handleAddPreset('listener', 'input')}
+                onClick={() => handleAddPreset('onEnter', 'input', 'Event')}
               >
-                <Plus size={12} /> listener (in)
+                <Plus size={12} /> onEnter: Event (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Dado: dados do usuário recebidos pela tela"
+                onClick={() => handleAddPreset('user', 'input', 'User')}
+              >
+                <Plus size={12} /> user: User (in)
               </button>
               <button
                 type="button"
