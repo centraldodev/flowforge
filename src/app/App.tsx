@@ -45,6 +45,7 @@ export function App() {
     useGraphHistory(loadSavedGraph);
 
   const [selected, setSelected] = useState<string | null>('auth');
+  const [activeScreenId, setActiveScreenId] = useState<string>('login');
   const [modal, setModal] = useState<ModalType>(null);
   const [sidebar, setSidebar] = useState(true);
   const [notice, setNotice] = useNotice();
@@ -73,10 +74,20 @@ export function App() {
       duration: 200,
     });
 
-    const screenId = chosen?.data.kind === 'screen' ? chosen.id : screensOf(graph)[0]?.id || '';
-    const newBlock = createBlock(kind, position, screenId, graph);
+    const targetScreenId =
+      chosen?.data.kind === 'screen'
+        ? chosen.id
+        : activeScreenId || screensOf(graph)[0]?.id || '';
+    const newBlock = createBlock(kind, position, targetScreenId, graph);
     commit((g) => addBlock(g, newBlock));
     setSelected(newBlock.id);
+  }
+
+  function handleAddScreen() {
+    const newScreen = createBlock('screen', { x: 640, y: 40 }, '', graph);
+    commit((g) => addBlock(g, newScreen));
+    setActiveScreenId(newScreen.id);
+    setSelected(newScreen.id);
   }
 
   function handleConnect(c: Connection) {
@@ -125,14 +136,18 @@ export function App() {
 
   function handleLoadExample() {
     commit(() => structuredClone(demo));
+    setActiveScreenId('login');
     setSelected('auth');
     simulation.reset();
     void flow.setViewport(DEFAULT_VIEWPORT);
   }
 
   function handleCreateProject(name: string) {
-    commit(() => emptyGraph(name));
-    setSelected(null);
+    const empty = emptyGraph(name);
+    commit(() => empty);
+    const firstScreen = screensOf(empty)[0]?.id || 'screen_1';
+    setActiveScreenId(firstScreen);
+    setSelected(firstScreen);
     simulation.reset();
     void flow.setViewport(DEFAULT_VIEWPORT);
   }
@@ -189,13 +204,15 @@ export function App() {
         <FlowCanvas
           graph={graph}
           selected={selected}
+          activeScreenId={activeScreenId}
+          onSelectScreen={setActiveScreenId}
           trace={simulation.trace}
           errorCount={errors.length}
           canUndo={canUndo}
           canRedo={canRedo}
           onUndo={undo}
           onRedo={redo}
-          onAddScreen={() => handleAdd('screen')}
+          onAddScreen={handleAddScreen}
           onSelect={setSelected}
           onGraphChange={(updater, undoable) => {
             if (undoable) remember();

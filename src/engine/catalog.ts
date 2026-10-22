@@ -91,9 +91,8 @@ export const catalog: Record<Kind, BlockDefinition> = {
 
 export const categories = ['Interface', 'Lógica', 'Dados'] as const;
 
-/** Tipos visíveis na biblioteca de blocos da barra lateral (sem o bloco redundante de navegação). */
+/** Tipos visíveis na biblioteca de blocos da barra lateral (telas agora são gerenciadas como abas). */
 export const visibleKinds: Kind[] = [
-  'screen',
   'button',
   'input',
   'function',

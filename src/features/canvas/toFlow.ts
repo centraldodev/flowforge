@@ -8,13 +8,89 @@ const SUCCESS_COLOR = '#22c55e';
 const ERROR_COLOR = '#ef4444';
 const ROUTE_COLOR = '#8ecfb4';
 
-export function toFlowNodes(g: Graph, selected: string | null): FlowNode[] {
-  return g.nodes.map((n) => ({ ...n, type: 'block' as const, selected: n.id === selected }));
+/**
+ * Retorna os nós visíveis para a aba de tela ativa.
+ * A própria tela ativa é gerenciada pelas abas superiores (não renderizada como bloco na área do canvas).
+ * Telas de destino conectadas aparecem no topo como abas receptoras de conexão.
+ */
+export function toFlowNodes(
+  g: Graph,
+  selected: string | null,
+  activeScreenId?: string,
+): FlowNode[] {
+  const allScreens = g.nodes.filter((n) => n.data.kind === 'screen');
+  const currentScreenId =
+    activeScreenId && allScreens.some((s) => s.id === activeScreenId)
+      ? activeScreenId
+      : allScreens[0]?.id;
+
+  if (!currentScreenId) {
+    return g.nodes.map((n) => ({ ...n, type: 'block' as const, selected: n.id === selected }));
+  }
+
+  // 1. Identifica blocos que pertencem a esta aba/tela
+  const activeBlockIds = new Set<string>();
+  for (const n of g.nodes) {
+    if (n.data.kind === 'screen') continue;
+    if (n.data.config.screenId === currentScreenId) {
+      activeBlockIds.add(n.id);
+    }
+  }
+
+  // Propaga para blocos de lógica conectados sem tela explicitada
+  let expanded = true;
+  while (expanded) {
+    expanded = false;
+    for (const e of g.edges) {
+      if (activeBlockIds.has(e.source)) {
+        const target = g.nodes.find((n) => n.id === e.target);
+        if (
+          target &&
+          target.data.kind !== 'screen' &&
+          !target.data.config.screenId &&
+          !activeBlockIds.has(e.target)
+        ) {
+          activeBlockIds.add(e.target);
+          expanded = true;
+        }
+      }
+    }
+  }
+
+  // 2. Telas de destino (outras telas alcançadas pelas saídas dos blocos desta tela)
+  const targetScreenIds = new Set<string>();
+  for (const e of g.edges) {
+    if (activeBlockIds.has(e.source)) {
+      const target = g.nodes.find((n) => n.id === e.target);
+      if (target && target.data.kind === 'screen' && target.id !== currentScreenId) {
+        targetScreenIds.add(target.id);
+      }
+    }
+  }
+
+  // Monta nós visíveis (blocos da tela ativa + abas de telas de destino)
+  const visibleNodes = g.nodes.filter(
+    (n) => activeBlockIds.has(n.id) || targetScreenIds.has(n.id),
+  );
+
+  return visibleNodes.map((n) => ({
+    ...n,
+    type: 'block' as const,
+    selected: n.id === selected,
+  }));
 }
 
 /** Conexões do grafo com identificação visual de eventos (onClick, onSuccess, onError, true, false, dados). */
-export function toFlowEdges(g: Graph, trace: Trace[]): Edge[] {
-  const edges: Edge[] = g.edges.map((e) => {
+export function toFlowEdges(
+  g: Graph,
+  trace: Trace[],
+  visibleNodeIds?: Set<string>,
+): Edge[] {
+  const edgesList = visibleNodeIds
+    ? g.edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target))
+    : g.edges;
+
+  const edges: Edge[] = edgesList.map((e) => {
     let stroke = isExecOutput(e.sourceHandle) ? EXEC_COLOR : DATA_COLOR;
     let label: string | undefined = undefined;
     let labelStyle: Record<string, unknown> | undefined = undefined;

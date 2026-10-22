@@ -214,7 +214,7 @@ export function createBlock(kind: Kind, position: Position, screenId: string, g?
       label: catalog[kind].name,
       config: {
         ...catalog[kind].defaults,
-        ...(interfaceKinds.includes(kind) ? { screenId } : {}),
+        ...(kind !== 'screen' && screenId ? { screenId } : {}),
         ...(kind === 'navigate' ? { target: screenId } : {}),
       },
       ports: [],

@@ -71,7 +71,7 @@ export const demo: Graph = {
     block('auth', 360, 280, {
       kind: 'auth',
       label: 'Login',
-      config: { provider: 'email', mode: 'login' },
+      config: { provider: 'email', mode: 'login', screenId: 'login' },
       ports: [
         { id: 'trigger', name: 'trigger', direction: 'input', type: 'Event' },
         { id: 'email', name: 'email', direction: 'input', type: 'string' },
@@ -88,6 +88,7 @@ export const demo: Graph = {
       config: {
         message: 'E-mail ou senha incorretos. Verifique suas credenciais.',
         type: 'toast',
+        screenId: 'login',
       },
       ports: [
         { id: 'execute', name: 'execute', direction: 'input', type: 'Event' },
@@ -105,6 +106,28 @@ export const demo: Graph = {
       ports: [
         { id: 'onEnter', name: 'onEnter', direction: 'input', type: 'Event' },
         { id: 'user', name: 'user', direction: 'input', type: 'User' },
+      ],
+    }),
+    // Blocos que pertencem à Tela Home
+    block('welcome-home', 360, 160, {
+      kind: 'input',
+      label: 'Boas-vindas',
+      config: {
+        field: 'welcome',
+        placeholder: 'Mensagem',
+        screenId: 'home',
+        value: 'Painel Principal do Usuário',
+      },
+      ports: [
+        { id: 'value', name: 'value', direction: 'output', type: 'string' },
+      ],
+    }),
+    block('btn-logout', 360, 280, {
+      kind: 'button',
+      label: 'Sair da Conta',
+      config: { screenId: 'home' },
+      ports: [
+        { id: 'onClick', name: 'onClick', direction: 'output', type: 'Event' },
       ],
     }),
   ],
@@ -157,6 +180,13 @@ export const demo: Graph = {
       target: 'home',
       sourceHandle: 'user',
       targetHandle: 'user',
+    },
+    {
+      id: 'e-logout-login-nav',
+      source: 'btn-logout',
+      target: 'login',
+      sourceHandle: 'onClick',
+      targetHandle: 'onEnter',
     },
   ],
 };

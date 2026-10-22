@@ -22,6 +22,8 @@ export const DEFAULT_VIEWPORT = { x: 30, y: 70, zoom: 0.72 };
 type Props = {
   graph: Graph;
   selected: string | null;
+  activeScreenId: string;
+  onSelectScreen: (screenId: string) => void;
   trace: Trace[];
   errorCount: number;
   canUndo: boolean;
@@ -38,25 +40,22 @@ type Props = {
 };
 
 export function FlowCanvas(p: Props) {
-  const flow = useReactFlow();
   const screens = p.graph.nodes.filter((n) => n.data.kind === 'screen');
 
-  // Identifica a tela ativa com base na seleção atual ou padrão da primeira tela
-  const selectedNode = p.graph.nodes.find((n) => n.id === p.selected);
+  // Identifica a tela ativa da barra de abas
   const activeScreenId =
-    selectedNode?.data.kind === 'screen'
-      ? selectedNode.id
-      : selectedNode?.data.config.screenId || screens[0]?.id || '';
+    p.activeScreenId && screens.some((s) => s.id === p.activeScreenId)
+      ? p.activeScreenId
+      : screens[0]?.id || '';
+
+  // Filtra nós e conexões exclusivos para a aba de tela selecionada
+  const flowNodes = toFlowNodes(p.graph, p.selected, activeScreenId);
+  const visibleNodeIds = new Set(flowNodes.map((n) => n.id));
+  const flowEdges = toFlowEdges(p.graph, p.trace, visibleNodeIds);
 
   function handleSelectScreen(screenId: string) {
+    p.onSelectScreen(screenId);
     p.onSelect(screenId);
-    const targetNode = p.graph.nodes.find((n) => n.id === screenId);
-    if (targetNode) {
-      void flow.setCenter(targetNode.position.x + 120, targetNode.position.y + 80, {
-        zoom: Math.max(flow.getZoom(), 0.68),
-        duration: 250,
-      });
-    }
   }
 
   const handleNodesChange = (changes: NodeChange<FlowNode>[]) =>
@@ -135,21 +134,17 @@ export function FlowCanvas(p: Props) {
         </div>
       </div>
 
-      {p.graph.nodes.length === 0 && (
+      {flowNodes.length === 0 && (
         <div className="blank-canvas">
           <Workflow size={36} />
-          <h2>Seu projeto começa em branco.</h2>
-          <p>Adicione uma tela e conecte os blocos para construir seu aplicativo.</p>
-          <button className="primary" onClick={p.onAddScreen}>
-            <Plus size={15} />
-            Adicionar primeira tela
-          </button>
+          <h2>Esta tela está vazia.</h2>
+          <p>Adicione botões, entradas e funções na barra lateral para construir o fluxo desta tela.</p>
         </div>
       )}
 
       <ReactFlow<FlowNode>
-        nodes={toFlowNodes(p.graph, p.selected)}
-        edges={toFlowEdges(p.graph, p.trace)}
+        nodes={flowNodes}
+        edges={flowEdges}
         nodeTypes={nodeTypes}
         onNodesChange={handleNodesChange}
         onEdgesChange={handleEdgesChange}
