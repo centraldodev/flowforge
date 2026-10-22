@@ -23,10 +23,13 @@ Abra o endereço informado pelo Vite. `npm run build` gera `dist/`. `npm test` v
 
 ## Arquitetura
 
-- `src/engine.ts`: representação intermediária (IR), catálogo, portas, validação e interpretador.
-- `src/main.tsx`: canvas React Flow, propriedades, simulação e persistência local.
-- `src/exporter.ts`: geradores de projetos TypeScript/React e Python/Tkinter.
-- `src/style.css`: interface.
+- `src/engine/`: representação intermediária (IR), catálogo, portas, validação e interpretador (puro, sem React).
+- `src/state/`: gerenciamento de histórico (undo/redo), persistência em localStorage e operações puras no grafo.
+- `src/features/`: componentes modulares da aplicação (canvas, sidebar, inspector, preview, project).
+- `src/export/`: geradores de exportação para TypeScript/React e Python/Tkinter com templates dedicados.
+- `src/components/`: componentes genéricos reutilizáveis (Modal, Toast, PropertyField).
+- `src/app/`: montagem da aplicação (`App.tsx`, `Header.tsx`).
+- `src/style.css`: interface e estilos.
 
 O grafo não depende da linguagem de destino. Para adicionar uma linguagem, implemente outro exportador que interprete os tipos de bloco, propriedades e conexões, e adicione a opção no modal. Não existe tradução automática confiável para qualquer linguagem sem esse adaptador.
 
