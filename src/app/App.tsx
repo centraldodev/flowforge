@@ -208,7 +208,10 @@ export function App() {
 
         <InspectorShell
           chosen={chosen}
-          fields={allInspectorFields}
+          graph={graph}
+          nameField={nameField}
+          onRenameId={handleRenameId}
+          fields={currentConfigFields}
           connections={connections}
           onDuplicate={handleDuplicateChosen}
           onDelete={handleDeleteChosen}

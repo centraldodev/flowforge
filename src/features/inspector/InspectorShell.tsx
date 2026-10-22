@@ -15,39 +15,53 @@ import {
   Copy,
   Trash2,
   X,
+  Tag,
+  Code2,
+  Monitor,
 } from 'lucide-react';
 import { PropertyField, type FieldDefinition } from '../../components/PropertyField';
-import type { Block } from '../../engine';
+import type { Block, Graph } from '../../engine';
+import { BlockIdEditor } from './BlockIdEditor';
+
 type Props = {
   children: ReactNode;
   fields: FieldDefinition[];
   chosen?: Block;
+  graph?: Graph;
+  nameField?: FieldDefinition;
+  onRenameId?: (newId: string) => boolean | void;
   connections: ReactNode;
   onDuplicate: () => void;
   onDelete: () => void;
 };
+
 export function InspectorShell(p: Props) {
   const [expanded, setExpanded] = useState(true);
   const [active, setActive] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const root = useRef<HTMLElement>(null);
   const lastTrigger = useRef<HTMLButtonElement | null>(null);
+
   function cancel() {
     if (timer.current) clearTimeout(timer.current);
   }
+
   function show(id: string, trigger?: HTMLButtonElement) {
     cancel();
     if (trigger) lastTrigger.current = trigger;
     setActive(id);
   }
+
   function closeSoon() {
     cancel();
-    timer.current = setTimeout(() => setActive(null), 180);
+    timer.current = setTimeout(() => setActive(null), 220);
   }
+
   useEffect(() => () => cancel(), []);
   useEffect(() => {
     setActive(null);
   }, [p.chosen?.id]);
+
   useEffect(() => {
     if (!active) return;
     const escape = (e: KeyboardEvent) => {
@@ -67,23 +81,30 @@ export function InspectorShell(p: Props) {
       document.removeEventListener('pointerdown', outside);
     };
   }, [active]);
+
   const field = p.fields.find((f) => f.id === active);
+
   const icon = (id: string) =>
-    id === 'provider'
-      ? KeyRound
-      : id === 'url'
-        ? Globe
-        : id === 'table'
-          ? Database
-          : id === 'operation' || id === 'mode'
-            ? ArrowRightLeft
-            : id === 'value' || id === 'minimum'
-              ? Hash
-              : id === 'label'
-                ? Type
-                : id === 'text' || id === 'message'
-                  ? FileText
-                  : SlidersHorizontal;
+    id === 'identity' || id === 'label'
+      ? Tag
+      : id === 'code'
+        ? Code2
+        : id === 'screenId' || id === 'target'
+          ? Monitor
+          : id === 'provider'
+            ? KeyRound
+            : id === 'url'
+              ? Globe
+              : id === 'table'
+                ? Database
+                : id === 'operation' || id === 'mode'
+                  ? ArrowRightLeft
+                  : id === 'value' || id === 'minimum'
+                    ? Hash
+                    : id === 'text' || id === 'message'
+                      ? FileText
+                      : SlidersHorizontal;
+
   return (
     <aside
       ref={root}
@@ -124,30 +145,66 @@ export function InspectorShell(p: Props) {
           {p.chosen ? (
             <>
               <span className="inspector-rail-separator" />
-              {p.fields.map((f) => {
-                const Icon = icon(f.id);
-                return (
-                  <button
-                    key={f.id}
-                    title={f.label}
-                    aria-label={f.label}
-                    aria-expanded={active === f.id}
-                    aria-haspopup="dialog"
-                    className={active === f.id ? 'active' : ''}
-                    onClick={(e) => show(f.id, e.currentTarget)}
-                  >
-                    <Icon size={19} />
-                  </button>
-                );
-              })}
+
+              {/* Botão de Identidade: ID e Título unificados */}
               <div
-                className="connections-trigger"
-                onMouseEnter={() => show('connections')}
+                className="rail-item-wrapper"
+                onMouseEnter={(e) =>
+                  show('identity', e.currentTarget.querySelector('button') || undefined)
+                }
                 onMouseLeave={closeSoon}
               >
                 <button
-                  title="Conexões"
-                  aria-label="Conexões"
+                  title="Identidade do Bloco (ID & Título)"
+                  aria-label="Identidade do Bloco (ID & Título)"
+                  aria-expanded={active === 'identity'}
+                  aria-haspopup="dialog"
+                  className={active === 'identity' ? 'active' : ''}
+                  onClick={(e) => show('identity', e.currentTarget)}
+                >
+                  <Tag size={19} />
+                </button>
+              </div>
+
+              {/* Demais propriedades de configuração */}
+              {p.fields
+                .filter((f) => f.id !== 'label')
+                .map((f) => {
+                  const Icon = icon(f.id);
+                  return (
+                    <div
+                      key={f.id}
+                      className="rail-item-wrapper"
+                      onMouseEnter={(e) =>
+                        show(f.id, e.currentTarget.querySelector('button') || undefined)
+                      }
+                      onMouseLeave={closeSoon}
+                    >
+                      <button
+                        title={f.label}
+                        aria-label={f.label}
+                        aria-expanded={active === f.id}
+                        aria-haspopup="dialog"
+                        className={active === f.id ? 'active' : ''}
+                        onClick={(e) => show(f.id, e.currentTarget)}
+                      >
+                        <Icon size={19} />
+                      </button>
+                    </div>
+                  );
+                })}
+
+              {/* Conexões e portas */}
+              <div
+                className="connections-trigger"
+                onMouseEnter={(e) =>
+                  show('connections', e.currentTarget.querySelector('button') || undefined)
+                }
+                onMouseLeave={closeSoon}
+              >
+                <button
+                  title="Conexões (Portas)"
+                  aria-label="Conexões (Portas)"
                   aria-expanded={active === 'connections'}
                   aria-haspopup="dialog"
                   className={active === 'connections' ? 'active' : ''}
@@ -156,6 +213,7 @@ export function InspectorShell(p: Props) {
                   <GitBranch size={20} />
                 </button>
               </div>
+
               <div className="inspector-rail-bottom">
                 <button title="Duplicar bloco" aria-label="Duplicar bloco" onClick={p.onDuplicate}>
                   <Copy size={18} />
@@ -177,15 +235,23 @@ export function InspectorShell(p: Props) {
           className="inspector-flyout"
           role="dialog"
           aria-label={
-            active === 'connections' ? 'Conexões do bloco' : field?.label || 'Propriedade'
+            active === 'identity'
+              ? 'Identidade do bloco'
+              : active === 'connections'
+                ? 'Conexões do bloco'
+                : field?.label || 'Propriedade'
           }
           onMouseEnter={cancel}
-          onMouseLeave={() => {
-            if (active === 'connections') closeSoon();
-          }}
+          onMouseLeave={closeSoon}
         >
           <div className="section-title">
-            <h2>{active === 'connections' ? 'Conexões' : field?.label}</h2>
+            <h2>
+              {active === 'identity'
+                ? 'Identidade do Bloco'
+                : active === 'connections'
+                  ? 'Conexões'
+                  : field?.label}
+            </h2>
             <button
               title="Fechar painel flutuante"
               aria-label="Fechar painel flutuante"
@@ -194,34 +260,43 @@ export function InspectorShell(p: Props) {
               <X size={16} />
             </button>
           </div>
-          {active === 'connections'
-            ? p.connections
-            : field &&
-              (field.options ? (
-                <div
-                  className="inspector-options"
-                  role="listbox"
-                  aria-label={'Opções de ' + field.label}
-                >
-                  {field.options.map((option) => (
-                    <button
-                      key={option.value}
-                      role="option"
-                      aria-selected={field.value === option.value}
-                      onClick={() => {
-                        field.onChange(option.value);
-                        setActive(null);
-                        lastTrigger.current?.focus();
-                      }}
-                    >
-                      <span>{option.label}</span>
-                      {field.value === option.value && <span>✓</span>}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <PropertyField key={field.id} {...field} />
-              ))}
+
+          {active === 'identity' ? (
+            <div className="inspector-identity-flyout">
+              {p.graph && p.onRenameId && p.chosen && (
+                <BlockIdEditor chosen={p.chosen} graph={p.graph} onRename={p.onRenameId} />
+              )}
+              {p.nameField && <PropertyField {...p.nameField} />}
+            </div>
+          ) : active === 'connections' ? (
+            p.connections
+          ) : field ? (
+            field.options ? (
+              <div
+                className="inspector-options"
+                role="listbox"
+                aria-label={'Opções de ' + field.label}
+              >
+                {field.options.map((option) => (
+                  <button
+                    key={option.value}
+                    role="option"
+                    aria-selected={field.value === option.value}
+                    onClick={() => {
+                      field.onChange(option.value);
+                      setActive(null);
+                      lastTrigger.current?.focus();
+                    }}
+                  >
+                    <span>{option.label}</span>
+                    {field.value === option.value && <span>✓</span>}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <PropertyField key={field.id} {...field} />
+            )
+          ) : null}
         </div>
       )}
     </aside>

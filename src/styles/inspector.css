@@ -618,6 +618,17 @@
   overflow-y: auto;
 }
 
+.rail-item-wrapper,
+.connections-trigger {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  position: relative;
+}
+
 .inspector-rail button {
   width: 40px;
   height: 40px;
@@ -668,6 +679,25 @@
   padding: 18px;
   box-shadow: -8px 15px 45px #0008;
   z-index: 22;
+}
+
+.inspector-flyout::after {
+  content: '';
+  position: absolute;
+  right: -14px;
+  top: 0;
+  width: 16px;
+  height: 100%;
+}
+
+.inspector-identity-flyout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inspector-identity-flyout .block-id-editor {
+  margin-bottom: 0;
 }
 
 .inspector-flyout > .section-title {
