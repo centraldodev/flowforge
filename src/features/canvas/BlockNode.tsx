@@ -16,23 +16,66 @@ function subtitle(data: Block['data']): string {
   const c = data.config;
   switch (data.kind) {
     case 'input':
-      return c.placeholder;
+      return c.placeholder ? `"${c.placeholder}"` : 'Campo de entrada';
+    case 'textarea':
+      return c.placeholder ? `"${c.placeholder}"` : 'Área de texto';
+    case 'select':
+      return c.options ? `Opções: ${c.options}` : 'Lista de seleção';
+    case 'checkbox':
+      return c.value === 'true' ? 'Marcado por padrão' : 'Desmarcado por padrão';
+    case 'constant':
+      return `${c.valueType || 'texto'}: ${c.value || '""'}`;
+    case 'variable':
+      return `${c.operation === 'get' ? 'Ler' : 'Definir'} ${c.key || 'variável'}`;
+    case 'validation':
+      return `Regra: ${c.rule || 'obrigatório'}${c.minimum ? ` (mín: ${c.minimum})` : ''}`;
+    case 'transform':
+      return `Operação: ${c.operation || 'transformar'}`;
+    case 'notify':
+      return c.message ? `"${c.message}"` : 'Mensagem ao usuário';
     case 'auth':
       return `${c.provider} · ${c.mode === 'register' ? 'cadastro' : 'autenticação'}`;
     case 'api':
-      return `${c.method} ${c.url}`;
+      return `${c.method || 'GET'} ${c.url || '/api'}`;
+    case 'database':
+      return `${c.operation === 'insert' ? 'Inserir em' : 'Consultar'} ${c.table || 'tabela'}`;
     case 'condition':
-      return 'Se / então / senão';
+      return c.compare ? `Se ${c.operator} "${c.compare}"` : 'Se / então / senão';
+    case 'math':
+      return `${c.operation || 'somar'} (a, b)`;
+    case 'navigate':
+      return c.target ? `Ir para: ${c.target}` : 'Navegar para tela';
+    case 'reset':
+      return `Redefinir via ${c.channel || 'email'}`;
     case 'screen':
-      return c.title;
+      return c.title || 'Tela do aplicativo';
+    case 'text':
+      return c.text
+        ? c.text.length > 36
+          ? c.text.slice(0, 36) + '…'
+          : c.text
+        : catalog.text.description;
+    case 'class':
+      return c.fields ? `Campos: ${c.fields}` : catalog.class.description;
     default:
-      return catalog[data.kind].description;
+      return catalog[data.kind]?.description || '';
   }
 }
 
 export function BlockNode({ data, selected }: NodeProps<FlowNode>) {
   const def = catalog[data.kind];
   const { inputs, outputs } = ports(data.kind);
+
+  const allOutputs = [
+    ...outputs.map((port) => ({
+      id: port,
+      label: outputLabels[port] || port,
+      isConnectable: true,
+    })),
+    ...(data.kind === 'screen' ? [{ id: 'routes', label: 'telas', isConnectable: false }] : []),
+  ];
+
+  const maxRows = Math.max(inputs.length, allOutputs.length);
 
   return (
     <div
@@ -46,27 +89,39 @@ export function BlockNode({ data, selected }: NodeProps<FlowNode>) {
       </div>
       <strong>{data.label}</strong>
       <div className="block-sub">{subtitle(data)}</div>
-      <div className="ports">
-        {inputs.map((port, i) => (
-          <div key={'i' + port} className="port in" style={{ '--port-index': i } as CSSProperties}>
-            <Handle type="target" position={Position.Left} id={port} />
-            <span>{port === 'exec' ? 'executar' : port}</span>
-          </div>
-        ))}
-        {outputs.map((port, i) => (
-          <div key={'o' + port} className="port out" style={{ '--port-index': i } as CSSProperties}>
-            <span>{outputLabels[port]}</span>
-            <Handle type="source" position={Position.Right} id={port} />
-          </div>
-        ))}
-        {data.kind === 'screen' && (
-          // Origem visual das transições de tela (configuradas no inspetor, não por arraste).
-          <div className="port out">
-            <span>telas</span>
-            <Handle type="source" position={Position.Right} id="routes" isConnectable={false} />
-          </div>
-        )}
-      </div>
+      {maxRows > 0 && (
+        <div className="ports">
+          {Array.from({ length: maxRows }, (_, i) => {
+            const inPort = inputs[i];
+            const outPort = allOutputs[i];
+            return (
+              <div key={i} className="port-row">
+                {inPort ? (
+                  <div className="port in">
+                    <Handle type="target" position={Position.Left} id={inPort} />
+                    <span>{inPort === 'exec' ? 'executar' : inPort}</span>
+                  </div>
+                ) : (
+                  <div />
+                )}
+                {outPort ? (
+                  <div className="port out">
+                    <span>{outPort.label}</span>
+                    <Handle
+                      type="source"
+                      position={Position.Right}
+                      id={outPort.id}
+                      isConnectable={outPort.isConnectable}
+                    />
+                  </div>
+                ) : (
+                  <div />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
