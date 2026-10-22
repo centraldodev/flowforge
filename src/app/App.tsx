@@ -47,7 +47,7 @@ export function App() {
   const [selected, setSelected] = useState<string | null>('auth');
   const [activeScreenId, setActiveScreenId] = useState<string>('login');
   const [modal, setModal] = useState<ModalType>(null);
-  const [sidebar, setSidebar] = useState(true);
+  const [sidebar, setSidebar] = useState(false);
   const [notice, setNotice] = useNotice();
 
   const simulation = useSimulation(graph);

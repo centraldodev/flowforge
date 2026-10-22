@@ -125,7 +125,6 @@ export function FlowCanvas(p: Props) {
                           : `Focar na tela: ${screen.data.label || screen.id}`
                       }
                     >
-                      <span className="canvas-screen-tab-icon">📱</span>
                       <span className="canvas-screen-tab-label">
                         {screen.data.label || screen.id}
                       </span>
