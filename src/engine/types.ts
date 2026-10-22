@@ -7,6 +7,7 @@ export type Kind =
   | 'auth'
   | 'database'
   | 'api'
+  | 'error'
   | 'navigate';
 
 export type CustomPort = {

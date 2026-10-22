@@ -2,10 +2,10 @@ import { useState, type CSSProperties } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { catalog, categories, type BlockDefinition, type Kind } from '../../engine';
 
-// A tela aparece primeiro; os demais seguem a ordem do catálogo.
-const allEntries = (Object.entries(catalog) as [Kind, BlockDefinition][]).sort(([a], [b]) =>
-  a === 'screen' ? -1 : b === 'screen' ? 1 : 0,
-);
+// A tela aparece primeiro; os demais seguem a ordem do catálogo (exclui o bloco redundante navigate).
+const allEntries = (Object.entries(catalog) as [Kind, BlockDefinition][])
+  .filter(([kind]) => kind !== 'navigate')
+  .sort(([a], [b]) => (a === 'screen' ? -1 : b === 'screen' ? 1 : 0));
 
 export function BlockLibrary({ onAdd }: { onAdd: (kind: Kind) => void }) {
   const [search, setSearch] = useState('');

@@ -65,6 +65,18 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
       ],
     },
   ],
+  error: [
+    { key: 'message', label: 'Mensagem do alerta de erro' },
+    {
+      key: 'type',
+      label: 'Tipo de alerta',
+      options: [
+        { value: 'toast', label: 'Notificação rápida (Toast)' },
+        { value: 'modal', label: 'Modal de erro' },
+        { value: 'banner', label: 'Banner inline' },
+      ],
+    },
+  ],
   navigate: [{ key: 'target', label: 'Tela de destino', options: 'screens' }],
   api: [
     { key: 'method', label: 'Método HTTP', options: same('GET', 'POST', 'PUT', 'PATCH', 'DELETE') },

@@ -18,6 +18,7 @@ export const EXEC_OUTPUTS = [
   'onOpen',
   'onComplete',
   'onDismiss',
+  'retry',
   'routes',
 ];
 
@@ -93,6 +94,7 @@ export const DEFAULT_PORT_TYPES: Record<string, string> = {
   exec: 'Event',
   listener: 'Event',
   listenerClick: 'Event',
+  retry: 'Event',
   true: 'Event',
   false: 'Event',
   // Data
@@ -101,6 +103,7 @@ export const DEFAULT_PORT_TYPES: Record<string, string> = {
   disabled: 'boolean',
   user: 'User',
   message: 'string',
+  error: 'Error',
   route: 'string',
   value: 'string',
   data: 'object',
@@ -131,6 +134,10 @@ const table: Record<Kind, Ports> = {
   auth: {
     inputs: ['trigger', 'email', 'password', 'listener', 'listenerClick', 'exec'],
     outputs: ['onSuccess', 'onError', 'user', 'then', 'next', 'value'],
+  },
+  error: {
+    inputs: ['execute', 'message', 'error', 'listener', 'listenerClick', 'exec'],
+    outputs: ['onDismiss', 'retry', 'then', 'next'],
   },
   navigate: {
     inputs: ['execute', 'route', 'listener', 'listenerClick', 'exec'],

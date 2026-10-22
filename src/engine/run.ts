@@ -58,8 +58,24 @@ export function run(
     switch (n.data.kind) {
       case 'screen':
         result.screen = n.id;
-        message = 'Tela aberta';
+        message = 'Navegando para ' + (n.data.label || n.id);
         break;
+      case 'error': {
+        const errorInput = read(n.id, 'error', '');
+        const messageInput = read(n.id, 'message', '');
+        const msg = String(
+          messageInput ||
+            (errorInput && typeof errorInput === 'object' && (errorInput as any).message
+              ? (errorInput as any).message
+              : errorInput) ||
+            c.message ||
+            'Erro detectado no fluxo',
+        );
+        out = { error: true, message: msg, type: c.type || 'toast' };
+        path = 'onDismiss';
+        message = `Alerta de erro: "${msg}"`;
+        break;
+      }
       case 'input':
         out = inputValue(n, values);
         message = `Valor: "${out}"`;

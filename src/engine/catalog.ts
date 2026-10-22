@@ -55,10 +55,18 @@ export const catalog: Record<Kind, BlockDefinition> = {
     color: AUTH,
     defaults: { provider: 'email', mode: 'login' },
   },
+  error: {
+    name: 'Tratamento de Erro',
+    category: 'Lógica',
+    description: 'Captura falhas, exibe alertas e gerencia exceções',
+    icon: '⚠️',
+    color: '#f87171',
+    defaults: { message: 'Ocorreu um erro no fluxo', type: 'toast' },
+  },
   navigate: {
     name: 'Navegação',
     category: 'Lógica',
-    description: 'Abre outra tela do projeto',
+    description: 'Abre outra tela do projeto (legado: prefira conectar direto à tela)',
     icon: '→',
     color: '#89d5ba',
     defaults: { target: '' },
@@ -82,6 +90,19 @@ export const catalog: Record<Kind, BlockDefinition> = {
 };
 
 export const categories = ['Interface', 'Lógica', 'Dados'] as const;
+
+/** Tipos visíveis na biblioteca de blocos da barra lateral (sem o bloco redundante de navegação). */
+export const visibleKinds: Kind[] = [
+  'screen',
+  'button',
+  'input',
+  'function',
+  'condition',
+  'auth',
+  'error',
+  'database',
+  'api',
+];
 
 /** Blocos que pertencem a uma tela (têm `config.screenId`). */
 export const interfaceKinds: Kind[] = ['input', 'button'];

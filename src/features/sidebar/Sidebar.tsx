@@ -11,7 +11,7 @@ import {
   Layers,
   X,
 } from 'lucide-react';
-import { catalog, type Kind } from '../../engine';
+import { catalog, visibleKinds, type Kind } from '../../engine';
 import { BlockLibrary } from './BlockLibrary';
 
 type Props = {
@@ -131,7 +131,7 @@ export function Sidebar(p: Props) {
           </nav>
           <div className="section-title">
             <h2>Blocos</h2>
-            <span className="block-count">{Object.keys(catalog).length}</span>
+            <span className="block-count">{visibleKinds.length}</span>
           </div>
           <p>Pequenas peças. Grandes ideias.</p>
           <BlockLibrary onAdd={p.onAdd} />
@@ -194,7 +194,7 @@ export function Sidebar(p: Props) {
                 >
                   <div className="section-title">
                     <h2>
-                      Blocos <span className="block-count">{Object.keys(catalog).length}</span>
+                      Blocos <span className="block-count">{visibleKinds.length}</span>
                     </h2>
                     <button title="Fechar blocos" aria-label="Fechar blocos" onClick={close}>
                       <X size={16} />

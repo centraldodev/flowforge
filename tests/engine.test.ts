@@ -319,14 +319,33 @@ test('renomeação atômica de ID propaga para conexões, rotas e telas dependen
   assert.ok(g.nodes.some((n) => n.id === 'tela_principal'));
   assert.ok(!g.nodes.some((n) => n.id === 'home'));
 
-  // O bloco navigate que apontava para 'home' agora deve apontar para 'tela_principal'
-  const navBlock = g.nodes.find((n) => n.id === 'navigate');
-  assert.equal(navBlock?.data.config.target, 'tela_principal');
+  // As conexões de navegação direta que apontavam para 'home' agora apontam para 'tela_principal'
+  assert.ok(g.edges.some((e) => e.target === 'tela_principal'));
+  assert.ok(!g.edges.some((e) => e.target === 'home'));
 
   // Não deve permitir renomear se o destino já existir
   const beforeAttempt = g;
   const afterAttempt = renameBlockId(g, 'auth', 'tela_principal');
   assert.equal(afterAttempt, beforeAttempt);
+});
+
+test('bloco de tratamento de erro captura falha e emite onDismiss', () => {
+  const g: Graph = {
+    version: 1,
+    name: 'err-test',
+    nodes: [
+      { id: 'btn', position: { x: 0, y: 0 }, data: { kind: 'button', label: 'Disparar', config: {} } },
+      { id: 'err', position: { x: 0, y: 0 }, data: { kind: 'error', label: 'Alerta', config: { message: 'Erro crítico detectado', type: 'modal' } } },
+    ],
+    edges: [
+      { id: 'e1', source: 'btn', target: 'err', sourceHandle: 'onClick', targetHandle: 'execute' },
+    ],
+  };
+  const res = run(g, 'btn');
+  const errOutput = res.outputs.err as { error: boolean; message: string; type: string };
+  assert.equal(errOutput.error, true);
+  assert.equal(errOutput.message, 'Erro crítico detectado');
+  assert.equal(errOutput.type, 'modal');
 });
 
 test('geração de IDs únicos e legíveis para novos blocos e duplicações', () => {

@@ -280,6 +280,51 @@ export function Connections({
             </>
           )}
 
+          {chosen.data.kind === 'error' && (
+            <>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Lado B: Dispara o alerta ou tratamento do erro"
+                onClick={() => handleAddPreset('execute', 'input', 'Event')}
+              >
+                <Plus size={12} /> execute: Event (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Dado: mensagem personalizada de erro recebida"
+                onClick={() => handleAddPreset('message', 'input', 'string')}
+              >
+                <Plus size={12} /> message: string (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Dado: objeto do erro lançado"
+                onClick={() => handleAddPreset('error', 'input', 'Error')}
+              >
+                <Plus size={12} /> error: Error (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Lado A: Evento disparado ao dispensar/fechar o erro"
+                onClick={() => handleAddPreset('onDismiss', 'output', 'Event')}
+              >
+                <Plus size={12} /> onDismiss: Event (out)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Lado A: Evento para tentar novamente a operação"
+                onClick={() => handleAddPreset('retry', 'output', 'Event')}
+              >
+                <Plus size={12} /> retry: Event (out)
+              </button>
+            </>
+          )}
+
           {chosen.data.kind === 'auth' && (
             <>
               <button

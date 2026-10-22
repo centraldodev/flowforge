@@ -8,15 +8,10 @@ const block = (id: string, x: number, y: number, data: BlockData): Block => ({
 });
 
 /**
- * Projeto de exemplo refatorado no padrão real de programação (Lado IN / Lado OUT).
- * Somente conexões reais e utilizadas:
- *  - Botão Entrar (#btn-login) [onClick] -> [trigger] Autenticação (#auth)
- *  - E-mail (#email) [value] -> [email] Autenticação (#auth)
- *  - Senha (#password) [value] -> [password] Autenticação (#auth)
- *  - Autenticação (#auth) [onSuccess] -> [execute] Navegação (#navigate)
- *  - Autenticação (#auth) [onError] -> [execute] Exibir Erro (#show-error)
- *  - Autenticação (#auth) [user] -> [user] Tela Home (#home)
- *  - Navegação (#navigate) [onComplete] -> [onEnter] Tela Home (#home)
+ * Projeto de exemplo refatorado no padrão real de programação (Lado IN / Lado OUT):
+ *  - Navegação direta para tela: conexão de evento diretamente na página destino (#home [onEnter])
+ *  - Bloco nativo de Tratamento de Erro (#show-error) conectado em onError
+ *  - Sem intermediários artificiais: conexões 100% reais e funcionais
  */
 export const demo: Graph = {
   version: 1,
@@ -86,30 +81,24 @@ export const demo: Graph = {
         { id: 'user', name: 'user', direction: 'output', type: 'User' },
       ],
     }),
-    // Ramo de Sucesso -> Navegação
-    block('navigate', 260, 480, {
-      kind: 'navigate',
-      label: 'Navigate',
-      config: { target: 'home' },
-      ports: [
-        { id: 'execute', name: 'execute', direction: 'input', type: 'Event' },
-        { id: 'route', name: 'route', direction: 'input', type: 'string', value: '/home' },
-        { id: 'onComplete', name: 'onComplete', direction: 'output', type: 'Event' },
-      ],
-    }),
-    // Ramo de Falha -> Exibir Erro
-    block('show-error', 620, 480, {
-      kind: 'function',
-      label: 'Show Error',
-      config: { code: 'return message || "Credenciais inválidas";' },
+    // Ramo de Falha -> Bloco Dedicado de Tratamento de Erro
+    block('show-error', 620, 460, {
+      kind: 'error',
+      label: 'Tratamento de Erro',
+      config: {
+        message: 'E-mail ou senha incorretos. Verifique suas credenciais.',
+        type: 'toast',
+      },
       ports: [
         { id: 'execute', name: 'execute', direction: 'input', type: 'Event' },
         { id: 'message', name: 'message', direction: 'input', type: 'string' },
+        { id: 'error', name: 'error', direction: 'input', type: 'Error' },
         { id: 'onDismiss', name: 'onDismiss', direction: 'output', type: 'Event' },
+        { id: 'retry', name: 'retry', direction: 'output', type: 'Event' },
       ],
     }),
-    // Tela Inicial (Home)
-    block('home', 260, 680, {
+    // Tela Inicial (Home) - Destino direto da navegação
+    block('home', 240, 460, {
       kind: 'screen',
       label: 'Tela Home',
       config: {
@@ -144,11 +133,11 @@ export const demo: Graph = {
       targetHandle: 'password',
     },
     {
-      id: 'e-auth-nav',
+      id: 'e-auth-home-nav',
       source: 'auth',
-      target: 'navigate',
+      target: 'home',
       sourceHandle: 'onSuccess',
-      targetHandle: 'execute',
+      targetHandle: 'onEnter',
     },
     {
       id: 'e-auth-err',
@@ -163,13 +152,6 @@ export const demo: Graph = {
       target: 'home',
       sourceHandle: 'user',
       targetHandle: 'user',
-    },
-    {
-      id: 'e-nav-home',
-      source: 'navigate',
-      target: 'home',
-      sourceHandle: 'onComplete',
-      targetHandle: 'onEnter',
     },
   ],
 };
