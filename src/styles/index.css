@@ -14,8 +14,8 @@
 /* 4. Inspetor: Painel direito de propriedades, seletores e conexões */
 @import './inspector.css';
 
-/* 5. Simulador (Preview): Superfícies mobile, web, desktop e trace de execução */
-@import './preview.css';
-
-/* 6. Modais: Overlays de novos projetos, exportação, configs e toasts */
+/* 5. Modais: Overlays de novos projetos, exportação, configs e toasts */
 @import './modals.css';
+
+/* 6. Simulador (Preview): Superfícies mobile, web, desktop e trace de execução */
+@import './preview.css';

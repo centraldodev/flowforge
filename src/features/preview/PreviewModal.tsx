@@ -27,7 +27,10 @@ export function PreviewModal({ isOpen, onClose, graph, simulation }: Props) {
   const { trace, clearTrace, screen, setScreen, values, setValue, messages, execute } = simulation;
 
   const currentScreenNode = graph.nodes.find((n) => n.id === screen);
-  const screenTitle = currentScreenNode?.data.config.title || 'Adicione uma tela';
+  const screenTitle =
+    currentScreenNode?.data.label ||
+    currentScreenNode?.data.config.title ||
+    'Adicione uma tela';
   const pages = screenOptions(graph).filter((p) => p.value);
 
   const surfaceClass =

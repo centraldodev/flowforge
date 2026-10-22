@@ -2,15 +2,29 @@
    Modal de Simulação & Playground
    ========================================================================== */
 
-.preview-modal {
-  width: min(94vw, 920px);
-  max-width: 95vw;
-  height: min(92vh, 860px);
-  max-height: calc(100dvh - 32px);
-  display: flex;
-  flex-direction: column;
-  padding: 24px 28px;
-  overflow: hidden;
+/* Garante alta especificidade sobre .modal de modals.css */
+.modal.preview-modal {
+  width: min(92vw, 980px) !important;
+  max-width: 95vw !important;
+  height: min(90vh, 840px) !important;
+  max-height: calc(100dvh - 36px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 24px 28px !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+.modal.preview-modal.platform-mobile {
+  width: min(92vw, 980px) !important;
+  height: min(90vh, 840px) !important;
+}
+
+.modal.preview-modal.platform-web,
+.modal.preview-modal.platform-desktop {
+  width: min(96vw, 1380px) !important;
+  max-width: 96vw !important;
+  height: min(92vh, 880px) !important;
 }
 
 .preview-head {
@@ -39,9 +53,14 @@
 }
 
 .platform-picker button {
-  padding: 8px 13px;
+  padding: 8px 14px;
   color: #8e96a8;
   font-size: 11px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .platform-picker button.active {
@@ -57,9 +76,13 @@
   font-size: 10px;
 }
 
+/* ==========================================================================
+   Grid Principal do Playground
+   ========================================================================== */
+
 .preview-grid {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 340px 1fr;
   gap: 32px;
   margin-top: 18px;
   flex: 1;
@@ -69,8 +92,14 @@
   overflow: hidden;
 }
 
+.modal.preview-modal.platform-web .preview-grid,
+.modal.preview-modal.platform-desktop .preview-grid {
+  grid-template-columns: minmax(400px, 1fr) 340px;
+  gap: 28px;
+}
+
 /* ==========================================================================
-   Superfície Mobile (Celular)
+   Coluna da Superfície / Dispositivo (Mobile, Web, Desktop)
    ========================================================================== */
 
 .preview-surface {
@@ -79,20 +108,25 @@
   height: 100%;
   min-height: 0;
   max-height: 100%;
+  width: 100%;
+  overflow: hidden;
 }
 
+/* Mobile Frame (Celular) */
 .phone {
   background: #f8f9fc;
   border: 6px solid #343746;
   outline: 1px solid #555968;
-  border-radius: 30px;
+  border-radius: 32px;
   color: #252739;
+  width: 320px;
+  margin: 0 auto;
   height: 100%;
   max-height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.45);
   overflow: hidden;
 }
 
@@ -103,73 +137,7 @@
   padding: 10px 18px;
   font-size: 10px;
   font-weight: 700;
-}
-
-.phone-content {
-  padding: 18px 20px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-}
-
-.app-mark {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  color: #7661b0;
-  background: #ede7fb;
-  margin-bottom: 16px;
-}
-
-.phone-content h2 {
-  font-size: 22px;
-  line-height: 1.2;
-}
-
-.phone-sub {
-  font-size: 10px;
-  color: #8c8fa0;
-  margin: 8px 0 16px;
-}
-
-.phone .field {
-  color: #61677c;
-  font-weight: 550;
-}
-
-.phone input {
-  background: #fff;
-  border-color: #dfe1e9;
-  color: #242637;
-}
-
-.phone textarea,
-.phone select {
-  background: white;
-  color: #303444;
-  border-color: #dfe1e9;
-}
-
-.phone hr {
-  border: 0;
-  border-top: 1px solid #dfe1e9;
-  margin: 16px 0;
-}
-
-.phone small {
-  color: #73798b;
-}
-
-.phone .primary {
-  font-size: 11px;
-  background: #8470bb;
-  color: white;
-  border-color: #8470bb;
-  box-shadow: none;
-  margin-top: 10px;
+  color: #4b5262;
 }
 
 .phone-bottom {
@@ -181,29 +149,7 @@
   margin: 10px auto;
 }
 
-.phone-content > p {
-  font-size: 12px;
-  white-space: pre-wrap;
-}
-
-/* ==========================================================================
-   Superfícies Web e Desktop
-   ========================================================================== */
-
-.platform-web,
-.platform-desktop {
-  width: min(96vw, 1260px);
-  max-width: 96vw;
-  height: min(94vh, 900px);
-}
-
-.platform-web .preview-grid,
-.platform-desktop .preview-grid {
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 24px;
-  align-items: stretch;
-}
-
+/* Janela Web e Janela Desktop */
 .web-window,
 .desktop-window {
   display: flex;
@@ -212,11 +158,12 @@
   color: #252739;
   border: 1px solid #515669;
   border-radius: 12px;
-  overflow: hidden;
+  width: 100%;
   height: 100%;
   max-height: 100%;
   min-height: 0;
-  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
 }
 
 .web-window .phone-top,
@@ -236,8 +183,8 @@
   background: #e5e7ed;
   border-bottom: 1px solid #d7dae3;
   color: #70788b;
-  font-size: 10px;
-  padding: 0 15px;
+  font-size: 11px;
+  padding: 0 16px;
 }
 
 .window-dots {
@@ -255,17 +202,9 @@
 .web-window .window-name {
   background: #f7f8fb;
   border-radius: 6px;
-  padding: 6px 12px;
+  padding: 6px 14px;
   flex: 1;
-}
-
-.web-window .phone-content {
-  width: min(100%, 560px);
-  margin: 0 auto;
-  padding: 24px 32px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+  max-width: 480px;
 }
 
 .desktop-window {
@@ -283,13 +222,66 @@
   font-size: 11px;
 }
 
-.desktop-window .phone-content {
-  width: min(100%, 640px);
-  padding: 24px 36px;
-  margin: 0 auto;
+/* Área Interna com Conteúdo do Aplicativo */
+.phone-content {
+  padding: 22px 22px;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.web-window .phone-content {
+  width: min(100%, 680px);
+  margin: 0 auto;
+  padding: 28px 36px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.desktop-window .phone-content {
+  width: min(100%, 780px);
+  margin: 0 auto;
+  padding: 28px 40px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.app-mark {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: #7661b0;
+  background: #ede7fb;
+  margin-bottom: 16px;
+}
+
+.phone-content h2 {
+  font-size: 22px;
+  line-height: 1.25;
+  color: #1e202e;
+  word-break: normal;
+}
+
+.phone-sub {
+  font-size: 11px;
+  color: #8c8fa0;
+  margin: 8px 0 18px;
+}
+
+.phone-content > p {
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.preview-surface .field {
+  color: #555b70;
+  font-weight: 550;
+  margin-top: 14px;
 }
 
 .preview-surface .field input,
@@ -298,10 +290,14 @@
   background: white;
   color: #242637;
   border-color: #d8dbe6;
+  width: 100%;
 }
 
-.preview-surface .field {
-  color: #61677c;
+.preview-surface .field input:focus,
+.preview-surface .field textarea:focus,
+.preview-surface .field select:focus {
+  border-color: #8470bb;
+  box-shadow: 0 0 0 2px rgba(132, 112, 187, 0.2);
 }
 
 .preview-surface .primary {
@@ -309,13 +305,32 @@
   color: white;
   border-color: #8470bb;
   font-size: 12px;
+  font-weight: 600;
   box-shadow: none;
+  margin-top: 14px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.preview-surface .primary:hover {
+  background: #735fa7;
 }
 
 .preview-surface hr {
   border: 0;
   border-top: 1px solid #dedfe8;
   margin: 16px 0;
+}
+
+.preview-message {
+  padding: 10px 14px;
+  background: #e9e3f8;
+  color: #51416e;
+  border: 1px solid #d2c4ed;
+  border-radius: 8px;
+  margin-top: 14px;
+  font-size: 12px;
 }
 
 /* ==========================================================================
@@ -334,6 +349,9 @@
 
 .execution .section-title {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding-bottom: 12px;
   border-bottom: 1px solid #333744;
   margin-bottom: 12px;
@@ -341,7 +359,20 @@
 
 .execution h3 {
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.execution .section-title button {
+  background: transparent;
+  color: #94a3b8;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.execution .section-title button:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .trace-list {
@@ -372,18 +403,20 @@
   display: grid;
   place-items: center;
   font-size: 10px;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
 .trace-item strong {
   font-size: 11px;
   font-weight: 500;
+  color: #e2e8f0;
 }
 
 .trace-item p {
   color: #929aae;
   font-size: 10px;
-  margin-top: 4px;
+  margin-top: 3px;
 }
 
 .execution-footer {
@@ -395,26 +428,33 @@
 
 .execution-footer .field {
   margin-top: 0;
+  font-size: 11px;
+  color: #94a3b8;
 }
 
-.preview-message {
-  padding: 10px 12px;
-  background: #e9e3f8;
-  color: #51416e;
-  border: 1px solid #d2c4ed;
-  border-radius: 8px;
-  margin-top: 14px;
-  font-size: 12px;
+.execution-footer select {
+  margin-top: 6px;
+  background: #181a22;
+  border-color: #333744;
+  color: #e2e8f0;
+  border-radius: 6px;
+}
+
+.execution-footer .subtle {
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 8px;
+  line-height: 1.4;
 }
 
 /* ==========================================================================
-   Media Queries de Prévia
+   Media Queries de Responsividade
    ========================================================================== */
 
 @media (max-height: 740px) {
-  .preview-modal {
-    height: 96vh;
-    padding: 16px 20px;
+  .modal.preview-modal {
+    height: 96vh !important;
+    padding: 16px 20px !important;
   }
   .preview-head h2 {
     font-size: 18px;
@@ -439,16 +479,16 @@
 }
 
 @media (max-width: 850px) {
-  .preview-modal {
-    height: 96vh;
-    overflow-y: auto;
+  .modal.preview-modal {
+    height: 96vh !important;
+    overflow-y: auto !important;
   }
   .platform-picker > span {
     display: none;
   }
   .preview-grid,
-  .platform-web .preview-grid,
-  .platform-desktop .preview-grid {
+  .modal.preview-modal.platform-web .preview-grid,
+  .modal.preview-modal.platform-desktop .preview-grid {
     grid-template-columns: 1fr;
     height: auto;
     overflow: visible;
