@@ -1,5 +1,5 @@
 import { catalog, interfaceKinds } from './catalog';
-import { getBlockPorts, isExecOutput, ports } from './ports';
+import { getBlockPorts, isExecInput, isExecOutput, ports } from './ports';
 import { reachableActions, screenRoutes } from './routes';
 import type { Block, Graph } from './types';
 
@@ -86,8 +86,8 @@ export function validate(g: Graph): string[] {
       !getBlockPorts(b).inputs.includes(e.targetHandle || '')
     )
       errors.push('Porta de conexão inválida.');
-    if ((e.targetHandle === 'exec') !== isExecOutput(e.sourceHandle))
-      errors.push('Conecte ações a ações e dados a dados.');
+    if (isExecInput(e.targetHandle) !== isExecOutput(e.sourceHandle))
+      errors.push('Conecte eventos (Lado A) a ouvintes de execução (Lado B) e dados a dados.');
   }
 
   return [...new Set(errors)];

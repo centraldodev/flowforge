@@ -1,5 +1,6 @@
 // Interpretador compartilhado pelo editor e pelo projeto TypeScript exportado.
 import { valueKinds } from './catalog';
+import { isExecOutput } from './ports';
 import { screenRoutes } from './routes';
 import type { Block, Graph, Result, Store } from './types';
 
@@ -29,7 +30,16 @@ export function run(
 
   /** Lê o valor conectado a uma porta de entrada; prefere origens já executadas. */
   const read = (id: string, port: string, fallback: unknown = '') => {
-    const edges = g.edges.filter((e) => e.target === id && e.targetHandle === port);
+    const aliases =
+      port === 'value'
+        ? ['value', 'result', 'response', 'data', 'user']
+        : port === 'result' || port === 'response' || port === 'data' || port === 'user'
+          ? [port, 'value']
+          : [port];
+
+    const edges = g.edges.filter(
+      (e) => e.target === id && (e.targetHandle === port || aliases.includes(e.targetHandle || '')),
+    );
     const e = edges.find((e) => Object.hasOwn(outputs, e.source)) || edges[0];
     if (!e) return fallback;
     const n = node(e.source);
@@ -41,7 +51,7 @@ export function run(
   function execute(n: Block): Step {
     const c = n.data.config;
     let out: unknown = true;
-    let path = 'next';
+    let path = 'then';
     let message = 'Executado';
 
     switch (n.data.kind) {
@@ -54,7 +64,8 @@ export function run(
         message = `Valor: "${out}"`;
         break;
       case 'button':
-        message = 'Fluxo iniciado';
+        path = 'onClick';
+        message = 'Evento onClick disparado';
         break;
       case 'function': {
         const inputVal = read(n.id, 'value', '');
@@ -155,7 +166,33 @@ export function run(
       return result;
     }
 
-    current = g.edges.find((e) => e.source === n.id && e.sourceHandle === path)?.target;
+    let nextEdge = g.edges.find((e) => e.source === n.id && e.sourceHandle === path);
+    if (!nextEdge) {
+      if (path === 'onClick') {
+        nextEdge = g.edges.find(
+          (e) => e.source === n.id && (e.sourceHandle === 'click' || e.sourceHandle === 'next'),
+        );
+      } else if (path === 'then') {
+        nextEdge = g.edges.find((e) => e.source === n.id && e.sourceHandle === 'next');
+      } else if (path === 'true') {
+        nextEdge = g.edges.find((e) => e.source === n.id && e.sourceHandle === 'then');
+      } else if (path === 'false') {
+        nextEdge = g.edges.find((e) => e.source === n.id && e.sourceHandle === 'else');
+      } else if (path === 'onSuccess') {
+        nextEdge = g.edges.find(
+          (e) =>
+            e.source === n.id &&
+            (e.sourceHandle === 'success' ||
+              e.sourceHandle === 'then' ||
+              e.sourceHandle === 'next'),
+        );
+      } else if (path === 'onError') {
+        nextEdge = g.edges.find(
+          (e) => e.source === n.id && (e.sourceHandle === 'error' || e.sourceHandle === 'false'),
+        );
+      }
+    }
+    current = nextEdge?.target;
   }
 
   if (current) throw Error('Fluxo interrompido: limite de 100 passos (possível ciclo).');

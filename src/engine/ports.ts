@@ -3,28 +3,86 @@ import type { Block, CustomPort, Kind } from './types';
 export type Ports = { inputs: string[]; outputs: string[] };
 
 /** Saídas que continuam o caminho de execução (as demais carregam dados). */
-export const EXEC_OUTPUTS = ['next', 'true', 'false', 'routes'];
+export const EXEC_OUTPUTS = [
+  'onClick',
+  'click',
+  'then',
+  'next',
+  'true',
+  'false',
+  'onSuccess',
+  'onError',
+  'success',
+  'error',
+  'onChange',
+  'onOpen',
+  'routes',
+];
 
-export const isExecOutput = (handle?: string | null) => EXEC_OUTPUTS.includes(handle || '');
+/** Entradas de eventos / ouvintes de execução (Lado B - Event Listeners / Handlers) */
+export const EXEC_INPUTS = [
+  'listener',
+  'listenerClick',
+  'handler',
+  'handle',
+  'call',
+  'trigger',
+  'exec',
+  'onTrigger',
+];
 
-const VALUE: Ports = { inputs: [], outputs: ['value'] };
-const NONE: Ports = { inputs: [], outputs: [] };
-const ACTION_WITH_VALUE: Ports = { inputs: ['exec', 'value'], outputs: ['next', 'value'] };
-const BRANCH: Ports = { inputs: ['exec', 'value'], outputs: ['true', 'false', 'value'] };
+export const isExecOutput = (handle?: string | null): boolean => {
+  const h = (handle || '').toLowerCase();
+  return (
+    EXEC_OUTPUTS.some((p) => p.toLowerCase() === h) ||
+    h.startsWith('on') ||
+    h.endsWith('click') ||
+    h === 'true' ||
+    h === 'false' ||
+    h === 'then'
+  );
+};
+
+export const isExecInput = (handle?: string | null): boolean => {
+  const h = (handle || '').toLowerCase();
+  return (
+    EXEC_INPUTS.some((p) => p.toLowerCase() === h) ||
+    h.includes('listener') ||
+    h.includes('handler') ||
+    h.includes('trigger') ||
+    h === 'call' ||
+    h === 'exec'
+  );
+};
 
 const table: Record<Kind, Ports> = {
   // Interface
-  screen: { inputs: ['exec'], outputs: [] },
-  button: { inputs: [], outputs: ['next', 'value'] },
-  input: VALUE,
+  screen: { inputs: ['listener', 'exec'], outputs: [] },
+  button: { inputs: [], outputs: ['onClick', 'next', 'value'] },
+  input: { inputs: [], outputs: ['value', 'onChange'] },
   // Lógica
-  function: ACTION_WITH_VALUE,
-  condition: BRANCH,
-  auth: { inputs: ['exec', 'email', 'password'], outputs: ['next', 'value'] },
-  navigate: { inputs: ['exec'], outputs: ['next', 'value'] },
+  function: {
+    inputs: ['listener', 'listenerClick', 'exec', 'value'],
+    outputs: ['then', 'next', 'result', 'value'],
+  },
+  condition: {
+    inputs: ['listener', 'listenerClick', 'exec', 'value'],
+    outputs: ['true', 'false', 'value'],
+  },
+  auth: {
+    inputs: ['listener', 'listenerClick', 'exec', 'email', 'password'],
+    outputs: ['onSuccess', 'then', 'next', 'onError', 'user', 'value'],
+  },
+  navigate: { inputs: ['listener', 'listenerClick', 'exec'], outputs: ['then', 'next', 'value'] },
   // Dados
-  database: { inputs: ['exec', 'value'], outputs: ['next', 'value'] },
-  api: { inputs: ['exec', 'body'], outputs: ['next', 'value'] },
+  database: {
+    inputs: ['listener', 'listenerClick', 'exec', 'value'],
+    outputs: ['onSuccess', 'then', 'next', 'onError', 'data', 'value'],
+  },
+  api: {
+    inputs: ['listener', 'listenerClick', 'exec', 'body'],
+    outputs: ['onSuccess', 'then', 'next', 'onError', 'response', 'value'],
+  },
 };
 
 export function ports(kind: Kind): Ports {

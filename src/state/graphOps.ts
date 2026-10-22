@@ -4,6 +4,7 @@ import {
   catalog,
   ensureBlockPorts,
   interfaceKinds,
+  isExecInput,
   isExecOutput,
   type Block,
   type CustomPort,
@@ -295,8 +296,8 @@ export function findFreePosition(g: Graph, base: Position): Position {
 /** Mensagem de erro se a conexão for inválida; `null` se puder ser criada. */
 export function connectionError(c: Connection): string | null {
   if (!c.source || !c.target || c.source === c.target) return 'Escolha dois blocos diferentes.';
-  if (isExecOutput(c.sourceHandle) !== (c.targetHandle === 'exec'))
-    return 'Conecte saídas de dados a entradas de dados, e ações a executar.';
+  if (isExecOutput(c.sourceHandle) !== isExecInput(c.targetHandle))
+    return 'Conecte eventos (Lado A: onClick, then, onSuccess) a ouvintes de execução (Lado B: listener, listenerClick, handler), e dados a entradas de dados.';
   return null;
 }
 

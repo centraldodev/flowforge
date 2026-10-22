@@ -69,8 +69,9 @@ export function Connections({
       </div>
 
       <p className="subtle">
-        Crie as conexões deste bloco. Conectores em inglês: <code>exec</code>, <code>next</code>,{' '}
-        <code>value</code>, <code>true</code>, <code>false</code>.
+        Conecte o Lado A (Eventos: <code>onClick</code>, <code>then</code>, <code>onSuccess</code>)
+        ao Lado B (Ouvintes: <code>listenerClick</code>, <code>listener</code>, <code>handler</code>
+        ).
       </p>
 
       {/* Lista de portas configuradas */}
@@ -124,67 +125,357 @@ export function Connections({
         )}
       </div>
 
-      {/* Ações rápidas para adicionar conexões padrão */}
+      {/* Ações rápidas recomendadas para o bloco selecionado */}
       <div className="add-ports-section">
-        <label className="section-label">Adicionar conexão rápida:</label>
+        <label className="section-label">Conexões sugeridas para este bloco:</label>
         <div className="quick-port-buttons">
-          <button
-            type="button"
-            className="chip-btn output"
-            title="Adicionar saída next (continua fluxo)"
-            onClick={() => handleAddPreset('next', 'output')}
-          >
-            <Plus size={12} /> next (out)
-          </button>
-          <button
-            type="button"
-            className="chip-btn output"
-            title="Adicionar saída value (dados)"
-            onClick={() => handleAddPreset('value', 'output')}
-          >
-            <Plus size={12} /> value (out)
-          </button>
-          <button
-            type="button"
-            className="chip-btn output"
-            title="Adicionar saída true (condição sim)"
-            onClick={() => handleAddPreset('true', 'output')}
-          >
-            <Plus size={12} /> true (out)
-          </button>
-          <button
-            type="button"
-            className="chip-btn output"
-            title="Adicionar saída false (condição não)"
-            onClick={() => handleAddPreset('false', 'output')}
-          >
-            <Plus size={12} /> false (out)
-          </button>
-          <button
-            type="button"
-            className="chip-btn input"
-            title="Adicionar entrada exec (executar ação)"
-            onClick={() => handleAddPreset('exec', 'input')}
-          >
-            <Plus size={12} /> exec (in)
-          </button>
-          <button
-            type="button"
-            className="chip-btn input"
-            title="Adicionar entrada value (dados de entrada)"
-            onClick={() => handleAddPreset('value', 'input')}
-          >
-            <Plus size={12} /> value (in)
-          </button>
+          {chosen.data.kind === 'button' && (
+            <>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Lado A: Evento de clique do botão"
+                onClick={() => handleAddPreset('onClick', 'output')}
+              >
+                <Plus size={12} /> onClick (out)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Texto ou valor associado ao botão"
+                onClick={() => handleAddPreset('value', 'output')}
+              >
+                <Plus size={12} /> value (out)
+              </button>
+            </>
+          )}
+
+          {chosen.data.kind === 'input' && (
+            <>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Valor de texto digitado no campo"
+                onClick={() => handleAddPreset('value', 'output')}
+              >
+                <Plus size={12} /> value (out)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Evento disparado quando o valor muda"
+                onClick={() => handleAddPreset('onChange', 'output')}
+              >
+                <Plus size={12} /> onChange (out)
+              </button>
+            </>
+          )}
+
+          {chosen.data.kind === 'function' && (
+            <>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Lado B: Ouvinte para evento onClick de botões"
+                onClick={() => handleAddPreset('listenerClick', 'input')}
+              >
+                <Plus size={12} /> listenerClick (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Lado B: Ouvinte geral para executar a função"
+                onClick={() => handleAddPreset('listener', 'input')}
+              >
+                <Plus size={12} /> listener (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Dados / argumentos passados para a função"
+                onClick={() => handleAddPreset('value', 'input')}
+              >
+                <Plus size={12} /> value (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Lado A: Continuação após execução (promise then)"
+                onClick={() => handleAddPreset('then', 'output')}
+              >
+                <Plus size={12} /> then (out)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Resultado / retorno retornado pela função"
+                onClick={() => handleAddPreset('result', 'output')}
+              >
+                <Plus size={12} /> result (out)
+              </button>
+            </>
+          )}
+
+          {chosen.data.kind === 'condition' && (
+            <>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Lado B: Ouvinte para evento onClick de botões"
+                onClick={() => handleAddPreset('listenerClick', 'input')}
+              >
+                <Plus size={12} /> listenerClick (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Lado B: Ouvinte de execução"
+                onClick={() => handleAddPreset('listener', 'input')}
+              >
+                <Plus size={12} /> listener (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Valor de entrada a ser comparado"
+                onClick={() => handleAddPreset('value', 'input')}
+              >
+                <Plus size={12} /> value (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Lado A: Ramo executado quando a condição for verdadeira"
+                onClick={() => handleAddPreset('true', 'output')}
+              >
+                <Plus size={12} /> true (out)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Lado A: Ramo executado quando a condição for falsa"
+                onClick={() => handleAddPreset('false', 'output')}
+              >
+                <Plus size={12} /> false (out)
+              </button>
+            </>
+          )}
+
+          {chosen.data.kind === 'auth' && (
+            <>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Lado B: Ouvinte acionado pelo clique de um botão"
+                onClick={() => handleAddPreset('listenerClick', 'input')}
+              >
+                <Plus size={12} /> listenerClick (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Lado B: Ouvinte para autenticar"
+                onClick={() => handleAddPreset('listener', 'input')}
+              >
+                <Plus size={12} /> listener (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Dado: e-mail do usuário"
+                onClick={() => handleAddPreset('email', 'input')}
+              >
+                <Plus size={12} /> email (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Dado: senha do usuário"
+                onClick={() => handleAddPreset('password', 'input')}
+              >
+                <Plus size={12} /> password (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Lado A: Sucesso na autenticação"
+                onClick={() => handleAddPreset('onSuccess', 'output')}
+              >
+                <Plus size={12} /> onSuccess (out)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Lado A: Falha na autenticação"
+                onClick={() => handleAddPreset('onError', 'output')}
+              >
+                <Plus size={12} /> onError (out)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Dado: sessão ou dados do usuário autenticado"
+                onClick={() => handleAddPreset('user', 'output')}
+              >
+                <Plus size={12} /> user (out)
+              </button>
+            </>
+          )}
+
+          {chosen.data.kind === 'api' && (
+            <>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Lado B: Ouvinte acionado pelo clique de um botão"
+                onClick={() => handleAddPreset('listenerClick', 'input')}
+              >
+                <Plus size={12} /> listenerClick (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Lado B: Disparador da requisição HTTP"
+                onClick={() => handleAddPreset('listener', 'input')}
+              >
+                <Plus size={12} /> listener (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Dado: corpo ou parâmetros da requisição"
+                onClick={() => handleAddPreset('body', 'input')}
+              >
+                <Plus size={12} /> body (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Lado A: Resposta HTTP 2xx de sucesso"
+                onClick={() => handleAddPreset('onSuccess', 'output')}
+              >
+                <Plus size={12} /> onSuccess (out)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Lado A: Erro HTTP ou falha de rede"
+                onClick={() => handleAddPreset('onError', 'output')}
+              >
+                <Plus size={12} /> onError (out)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Dado: dados JSON retornados pela API"
+                onClick={() => handleAddPreset('response', 'output')}
+              >
+                <Plus size={12} /> response (out)
+              </button>
+            </>
+          )}
+
+          {chosen.data.kind === 'database' && (
+            <>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Lado B: Ouvinte acionado por botão"
+                onClick={() => handleAddPreset('listenerClick', 'input')}
+              >
+                <Plus size={12} /> listenerClick (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Lado B: Executa query ou insert"
+                onClick={() => handleAddPreset('listener', 'input')}
+              >
+                <Plus size={12} /> listener (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Dado: registro a ser inserido ou filtrado"
+                onClick={() => handleAddPreset('value', 'input')}
+              >
+                <Plus size={12} /> value (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Lado A: Operação no banco concluída com sucesso"
+                onClick={() => handleAddPreset('onSuccess', 'output')}
+              >
+                <Plus size={12} /> onSuccess (out)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Lado A: Erro na operação do banco"
+                onClick={() => handleAddPreset('onError', 'output')}
+              >
+                <Plus size={12} /> onError (out)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Dado: registros retornados pelo banco"
+                onClick={() => handleAddPreset('data', 'output')}
+              >
+                <Plus size={12} /> data (out)
+              </button>
+            </>
+          )}
+
+          {chosen.data.kind === 'navigate' && (
+            <>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Lado B: Ouvinte acionado por clique"
+                onClick={() => handleAddPreset('listenerClick', 'input')}
+              >
+                <Plus size={12} /> listenerClick (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Lado B: Acionar navegação"
+                onClick={() => handleAddPreset('listener', 'input')}
+              >
+                <Plus size={12} /> listener (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Lado A: Continuação após abrir a tela"
+                onClick={() => handleAddPreset('then', 'output')}
+              >
+                <Plus size={12} /> then (out)
+              </button>
+            </>
+          )}
+
           {chosen.data.kind === 'screen' && (
-            <button
-              type="button"
-              className="chip-btn output"
-              title="Adicionar saída routes para telas"
-              onClick={() => handleAddPreset('routes', 'output')}
-            >
-              <Plus size={12} /> routes (out)
-            </button>
+            <>
+              <button
+                type="button"
+                className="chip-btn input"
+                title="Lado B: Ouvinte disparado ao carregar/abrir a tela"
+                onClick={() => handleAddPreset('listener', 'input')}
+              >
+                <Plus size={12} /> listener (in)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Lado A: Rotas e transições da tela"
+                onClick={() => handleAddPreset('routes', 'output')}
+              >
+                <Plus size={12} /> routes (out)
+              </button>
+            </>
           )}
         </div>
 

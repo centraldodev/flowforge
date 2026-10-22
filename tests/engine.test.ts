@@ -9,6 +9,8 @@ import {
   renameBlockId,
   generateUniqueBlockId,
   duplicateBlock,
+  connect,
+  connectionError,
 } from '../src/state/graphOps';
 test('login válido navega para início; senha inválida segue ramo falso', () => {
   assert.equal(validate(demo).length, 0);
@@ -314,4 +316,49 @@ test('geração de IDs únicos e legíveis para novos blocos e duplicações', (
 
   const copy = duplicateBlock(b1, g);
   assert.equal(copy.id, 'function_1_copy');
+});
+
+test('conexões com termos reais da programação: Lado A (onClick, then, onSuccess) conecta a Lado B (listenerClick, listener, handler)', () => {
+  const btn = createBlock('button', { x: 0, y: 0 }, '');
+  const fn = createBlock('function', { x: 100, y: 0 }, '');
+  fn.data.config.code = 'return "clicado com sucesso";';
+
+  let g: Graph = {
+    version: 1,
+    name: 'event-listener-test',
+    nodes: [btn, fn],
+    edges: [],
+  };
+
+  // Lado A: onClick (output) no botão
+  g = addPortToBlock(g, btn.id, { id: 'onClick', name: 'onClick', direction: 'output' });
+  // Lado B: listenerClick (input) na função
+  g = addPortToBlock(g, fn.id, { id: 'listenerClick', name: 'listenerClick', direction: 'input' });
+  // Saída de retorno
+  g = addPortToBlock(g, fn.id, { id: 'result', name: 'result', direction: 'output' });
+
+  // Conectar onClick (Lado A) com listenerClick (Lado B)
+  const connection = {
+    source: btn.id,
+    sourceHandle: 'onClick',
+    target: fn.id,
+    targetHandle: 'listenerClick',
+  };
+  assert.equal(connectionError(connection), null);
+
+  g = connect(g, connection);
+  assert.equal(g.edges.length, 1);
+
+  // Executar a partir do botão
+  const r = run(g, btn.id);
+  assert.equal(r.outputs[fn.id], 'clicado com sucesso');
+
+  // Tentar conectar evento (onClick) com porta de dados (value) deve gerar erro
+  const badConnection = {
+    source: btn.id,
+    sourceHandle: 'onClick',
+    target: fn.id,
+    targetHandle: 'value',
+  };
+  assert.ok(connectionError(badConnection)?.includes('eventos'));
 });
