@@ -1,0 +1,502 @@
+/* ==========================================================================
+   Painel Inspetor de Propriedades (Direito)
+   ========================================================================== */
+
+.inspector-shell {
+  position: relative;
+  flex-shrink: 0;
+  height: 100%;
+  background: var(--bg-panel, #191c22);
+  border-left: 1px solid var(--color-border, #2b2e37);
+  z-index: 9;
+}
+
+.inspector-shell.expanded {
+  width: 277px;
+  display: flex;
+  flex-direction: column;
+}
+
+.inspector-shell.collapsed {
+  width: 60px;
+}
+
+.inspector-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 50px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--color-border, #2b2e37);
+  flex-shrink: 0;
+}
+
+.inspector-heading > button {
+  width: 32px;
+  height: 32px;
+  background: #b9a5f611;
+  color: #c4b1f2;
+}
+
+.inspector-heading > span {
+  font: 500 13px var(--font-heading, 'Space Grotesk', sans-serif);
+  color: #b9bfd0;
+}
+
+.inspector-body {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.inspector-shell .inspector {
+  width: 100%;
+  border: 0;
+  overflow: visible;
+}
+
+.inspector {
+  width: 277px;
+  flex-shrink: 0;
+  background: #191c22;
+  border-left: 1px solid #2b2e37;
+  overflow: auto;
+}
+
+.inspector-tabs {
+  display: flex;
+  align-items: center;
+  height: 50px;
+  border-bottom: 1px solid #2b2e37;
+  padding: 0 16px;
+  gap: 20px;
+}
+
+.inspector-tabs button {
+  border-radius: 0;
+  height: 100%;
+  font-size: 11px;
+  padding: 0;
+  color: #7f8596;
+}
+
+.inspector-tabs .active {
+  color: #cebbff;
+  border-bottom: 2px solid #b9a5f6;
+}
+
+.inspector-section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #c6b7e7;
+  font-size: 11px;
+}
+
+.inspector-content {
+  padding: 23px 18px;
+}
+
+.inspector-content > h2 {
+  font-size: 17px;
+}
+
+.inspector-content > p {
+  font-size: 11px;
+  color: #969eaf;
+  margin: 10px 0;
+}
+
+/* ==========================================================================
+   Tipo Selecionado e Cabeçalho do Bloco
+   ========================================================================== */
+
+.selected-kind {
+  display: flex;
+  gap: 11px;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.selected-kind > span {
+  height: 37px;
+  width: 37px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #3f3b4e;
+  background: #b9a5f60b;
+  border-radius: 9px;
+  font-size: 21px;
+  color: var(--kind-color, inherit);
+}
+
+.selected-kind small {
+  font-size: 9px;
+  color: #787f90;
+}
+
+.selected-kind h2 {
+  font-size: 14px;
+  margin-top: 4px;
+  font-weight: 550;
+}
+
+.block-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 25px;
+}
+
+.block-actions .secondary {
+  flex: 1;
+  font-size: 10px;
+}
+
+.empty {
+  padding: 60px 22px;
+  text-align: center;
+  color: #747b8c;
+}
+
+.empty svg {
+  color: #a894cf;
+}
+
+.empty h2 {
+  font-size: 14px;
+  color: #c4c6d3;
+  margin: 17px 0 8px;
+}
+
+.empty p {
+  font-size: 11px;
+}
+
+/* ==========================================================================
+   Linhas de Conexão no Painel
+   ========================================================================== */
+
+.connection-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid #ffffff05;
+  padding: 8px 0;
+  color: #aeb3c2;
+  font-size: 10px;
+}
+
+.connection-row small {
+  display: block;
+  font-size: 8px;
+  color: #6e778b;
+  margin-top: 3px;
+}
+
+.connection-row button {
+  color: #747c90;
+}
+
+/* ==========================================================================
+   Trilho do Inspetor (Modo Ícones)
+   ========================================================================== */
+
+.inspector-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 13px;
+  padding: 18px 8px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.inspector-rail button {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  color: #8a92a6;
+}
+
+.inspector-rail button.active {
+  background: #b9a5f616;
+  color: #c8b2ff;
+  border: 1px solid #b9a5f62b;
+}
+
+.inspector-rail-separator {
+  height: 1px;
+  width: 26px;
+  background: #333846;
+  flex-shrink: 0;
+  margin: 0 0 2px;
+}
+
+.inspector-rail-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.inspector-rail-bottom > button:last-child {
+  color: #c58e9a;
+}
+
+/* ==========================================================================
+   Flyout do Inspetor
+   ========================================================================== */
+
+.inspector-flyout {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 75px;
+  width: 290px;
+  max-height: calc(100% - 90px);
+  overflow: auto;
+  background: #1b1e25;
+  border: 1px solid #44404f;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: -8px 15px 45px #0008;
+  z-index: 22;
+}
+
+.inspector-flyout > .section-title {
+  margin-bottom: 15px;
+}
+
+.inspector-flyout h2 {
+  font-size: 14px;
+  font-weight: 550;
+}
+
+.inspector-flyout > .section-title button {
+  color: #9da5ba;
+}
+
+.inspector-flyout .inspector-content {
+  padding: 0;
+}
+
+.inspector-flyout .connection-row {
+  padding: 12px 0;
+  font-size: 12px;
+}
+
+.inspector-flyout .connection-row small {
+  font-size: 10px;
+}
+
+.inspector-flyout:has(.screen-transitions) {
+  width: 310px;
+}
+
+/* ==========================================================================
+   Seletores Customizados & Popups
+   ========================================================================== */
+
+.property-select {
+  width: 100%;
+  padding: 10px 11px;
+  justify-content: space-between;
+  text-align: left;
+  background: var(--bg-input, #171a20);
+  border: 1px solid var(--color-border-input, #32363f);
+  border-radius: 7px;
+  color: var(--color-text, #e8e9f1);
+  font-size: 11px;
+  min-height: 37px;
+  gap: 10px;
+}
+
+.property-select span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.property-select svg {
+  color: #9f92c1;
+  flex-shrink: 0;
+}
+
+.property-select:hover {
+  border-color: #8e79b7;
+  background: #20202b;
+}
+
+.selector-popup {
+  position: fixed;
+  z-index: 100;
+  width: 280px;
+  max-height: 340px;
+  overflow: auto;
+  background: #24232e;
+  border: 1px solid #625477;
+  border-radius: 11px;
+  padding: 12px;
+  box-shadow: 0 14px 50px #0008;
+}
+
+.selector-popup > .section-title {
+  padding: 1px 3px 10px;
+  border-bottom: 1px solid #393544;
+  margin-bottom: 7px;
+}
+
+.selector-popup h3 {
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.selector-popup button,
+.inspector-options button {
+  display: flex;
+  justify-content: space-between;
+  text-align: left;
+  width: 100%;
+  border-radius: 7px;
+  padding: 12px 10px;
+  font-size: 12px;
+  color: #cdd0de;
+}
+
+.selector-popup > .section-title button {
+  width: 24px;
+  padding: 3px;
+}
+
+.selector-popup [aria-selected='true'],
+.inspector-options [aria-selected='true'] {
+  background: #b9a5f61b;
+  color: #d1baff;
+}
+
+.selector-popup [role='option']:hover,
+.inspector-options button:hover {
+  background: #b9a5f612;
+}
+
+.inspector-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ==========================================================================
+   Transições entre Telas
+   ========================================================================== */
+
+.screen-transitions > .form-separator {
+  margin-top: 0;
+  padding-top: 8px;
+  border-top: 0;
+}
+
+.screen-transitions > .subtle {
+  font-size: 10px;
+  margin: 8px 0 13px;
+}
+
+.transition-card {
+  border: 1px solid #3c4450;
+  border-radius: 9px;
+  padding: 12px;
+  margin: 14px 0;
+  background: #87c5ac05;
+}
+
+.transition-card .section-title strong {
+  font-size: 11px;
+  color: #adcfbf;
+  font-weight: 500;
+}
+
+.transition-card .section-title button {
+  color: #b58f99;
+}
+
+.transition-card .field {
+  margin: 13px 0;
+  font-size: 10px;
+}
+
+.transition-caption {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 10px;
+  color: #91baa7;
+  margin-top: 10px;
+}
+
+.screen-transitions > .secondary {
+  font-size: 11px;
+}
+
+/* ==========================================================================
+   Media Queries do Inspetor
+   ========================================================================== */
+
+@media (min-width: 1600px) {
+  .inspector {
+    width: 300px;
+  }
+  .inspector-shell.expanded {
+    width: 300px;
+  }
+}
+
+@media (max-width: 1150px) {
+  .inspector {
+    width: 245px;
+  }
+  .inspector-shell.expanded {
+    width: 245px;
+  }
+}
+
+@media (max-width: 900px) {
+  .inspector {
+    width: 225px;
+  }
+  .inspector-shell.expanded {
+    width: 225px;
+  }
+  .inspector-shell.collapsed {
+    width: 48px;
+  }
+  .inspector-rail {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+}
+
+@media (max-width: 700px) {
+  .inspector {
+    width: 205px;
+  }
+  .inspector-content {
+    padding: 18px 12px;
+  }
+  .inspector-tabs {
+    padding: 0 10px;
+    gap: 12px;
+  }
+  .inspector-tabs button {
+    font-size: 10px;
+  }
+  .inspector-shell.expanded {
+    width: 205px;
+  }
+  .inspector-flyout {
+    width: min(290px, calc(100vw - 65px));
+    top: 65px;
+  }
+  .selector-popup {
+    width: min(280px, calc(100vw - 24px));
+  }
+}

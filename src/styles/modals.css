@@ -1,0 +1,142 @@
+/* ==========================================================================
+   Modais e Overlays
+   ========================================================================== */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: #080a10c9;
+  backdrop-filter: blur(6px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 25px;
+}
+
+.modal {
+  position: relative;
+  background: #1b1e26;
+  border: 1px solid #3c3c4b;
+  border-radius: 17px;
+  padding: 34px;
+  width: 460px;
+  max-height: 94dvh;
+  overflow: auto;
+  box-shadow: 0 24px 90px #0007;
+}
+
+.close {
+  position: absolute;
+  right: 17px;
+  top: 17px;
+  color: #a0a4b5;
+  padding: 5px;
+}
+
+.modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 52px;
+  width: 52px;
+  background: #b9a5f616;
+  border: 1px solid #b9a5f635;
+  color: #c3a9ff;
+  border-radius: 13px;
+  margin-bottom: 22px;
+}
+
+.modal h2 {
+  font-family: var(--font-heading, 'Space Grotesk', sans-serif);
+  font-size: 25px;
+  font-weight: 500;
+  letter-spacing: -0.8px;
+  margin: 9px 0;
+}
+
+.modal > p {
+  font-size: 12px;
+  color: #929bae;
+}
+
+/* ==========================================================================
+   Modal de Exportação
+   ========================================================================== */
+
+.export-detail {
+  border: 1px solid #3e3c4e;
+  background: #b9a5f607;
+  border-radius: 10px;
+  padding: 15px;
+}
+
+.export-detail strong {
+  font-size: 13px;
+  color: #d8c9ff;
+}
+
+.export-detail p {
+  font-size: 11px;
+  color: #979eb1;
+  margin: 7px 0 12px;
+}
+
+.export-detail span {
+  font-size: 10px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: #b1bda9;
+}
+
+/* ==========================================================================
+   Modal de Configurações
+   ========================================================================== */
+
+.settings-empty {
+  min-height: 240px;
+}
+
+.settings-empty h2 {
+  margin-top: 0;
+}
+
+/* ==========================================================================
+   Notificações Toast
+   ========================================================================== */
+
+.toast {
+  position: fixed;
+  bottom: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2b2838;
+  border: 1px solid #675982;
+  box-shadow: 0 8px 40px #0008;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  font-size: 12px;
+  max-width: 90vw;
+}
+
+.toast > svg {
+  color: #c8b2ff;
+}
+
+/* ==========================================================================
+   Media Queries de Modais
+   ========================================================================== */
+
+@media (max-width: 700px) {
+  .modal {
+    padding: 24px;
+  }
+  .overlay {
+    padding: 12px;
+  }
+}

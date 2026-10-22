@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { catalog, categories, type BlockDefinition, type Kind } from '../../engine';
 
@@ -39,7 +39,7 @@ export function BlockLibrary({ onAdd }: { onAdd: (kind: Kind) => void }) {
               <button className="library-block" key={kind} onClick={() => onAdd(kind)}>
                 <span
                   className="library-icon"
-                  style={{ color: v.color, background: v.color + '12' }}
+                  style={{ '--icon-color': v.color } as React.CSSProperties}
                 >
                   {v.icon}
                 </span>

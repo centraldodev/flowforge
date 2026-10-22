@@ -4,9 +4,6 @@ import { catalog, ports, type Block, type BlockData } from '../../engine';
 
 export type FlowNode = Node<BlockData, 'block'>;
 
-const PORT_TOP = 112;
-const PORT_GAP = 24;
-
 const outputLabels: Record<string, string> = {
   next: 'próximo',
   value: 'valor',
@@ -51,20 +48,20 @@ export function BlockNode({ data, selected }: NodeProps<FlowNode>) {
       <div className="block-sub">{subtitle(data)}</div>
       <div className="ports">
         {inputs.map((port, i) => (
-          <div key={'i' + port} className="port in" style={{ top: PORT_TOP + i * PORT_GAP }}>
+          <div key={'i' + port} className="port in" style={{ '--port-index': i } as CSSProperties}>
             <Handle type="target" position={Position.Left} id={port} />
             <span>{port === 'exec' ? 'executar' : port}</span>
           </div>
         ))}
         {outputs.map((port, i) => (
-          <div key={'o' + port} className="port out" style={{ top: PORT_TOP + i * PORT_GAP }}>
+          <div key={'o' + port} className="port out" style={{ '--port-index': i } as CSSProperties}>
             <span>{outputLabels[port]}</span>
             <Handle type="source" position={Position.Right} id={port} />
           </div>
         ))}
         {data.kind === 'screen' && (
           // Origem visual das transições de tela (configuradas no inspetor, não por arraste).
-          <div className="port out" style={{ top: PORT_TOP }}>
+          <div className="port out">
             <span>telas</span>
             <Handle type="source" position={Position.Right} id="routes" isConnectable={false} />
           </div>

@@ -1,0 +1,21 @@
+/* ==========================================================================
+   Flowforge - Arquitetura Unificada de Estilos
+   ========================================================================== */
+
+/* 1. Base Global: Tokens, reset, formulários, botões, header e layout */
+@import './global.css';
+
+/* 2. Barra Lateral: Navegação e biblioteca de blocos */
+@import './sidebar.css';
+
+/* 3. Canvas: Área visual, blocos (nodes), portas e rodapé */
+@import './canvas.css';
+
+/* 4. Inspetor: Painel direito de propriedades, seletores e conexões */
+@import './inspector.css';
+
+/* 5. Simulador (Preview): Superfícies mobile, web, desktop e trace de execução */
+@import './preview.css';
+
+/* 6. Modais: Overlays de novos projetos, exportação, configs e toasts */
+@import './modals.css';

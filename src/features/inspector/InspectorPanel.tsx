@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Copy, Settings2, Trash2, Workflow } from 'lucide-react';
 import { PropertyField, type FieldDefinition } from '../../components/PropertyField';
 import { catalog, simulatedKinds, type Block } from '../../engine';
@@ -50,7 +50,7 @@ export function InspectorPanel({
 
       <div className="inspector-content">
         <div className="selected-kind">
-          <span style={{ color: def.color }}>{def.icon}</span>
+          <span style={{ '--kind-color': def.color } as CSSProperties}>{def.icon}</span>
           <div>
             <small>{def.category}</small>
             <h2>{def.name}</h2>

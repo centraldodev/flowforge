@@ -1,0 +1,352 @@
+/* ==========================================================================
+   Área de Edição do Canvas (React Flow)
+   ========================================================================== */
+
+.canvas-area {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+  background: var(--bg-root, #111318);
+}
+
+.canvas-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  padding: 0 23px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #2b2e3780;
+  z-index: 3;
+  background: #15171ce8;
+  font-size: 11px;
+  color: #c9cbd7;
+}
+
+.canvas-bar > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.canvas-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #b9a5f6;
+}
+
+.canvas-tools button {
+  height: 28px;
+  width: 28px;
+  color: #9399aa;
+}
+
+.canvas-tools .add-screen-button {
+  width: auto;
+  padding: 0 10px;
+  gap: 6px;
+  color: #c8b7eb;
+  border: 1px solid #484052;
+  background: #b9a5f60b;
+  font-size: 10px;
+}
+
+.canvas-heading {
+  position: absolute;
+  left: 30px;
+  top: 79px;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(90deg, #111318d9, transparent);
+  padding: 0 20px 18px 0;
+}
+
+.canvas-heading h1 {
+  font-family: var(--font-heading, 'Space Grotesk', sans-serif);
+  font-size: 25px;
+  letter-spacing: -0.8px;
+  font-weight: 500;
+  margin-top: 7px;
+}
+
+.canvas-heading p {
+  font-size: 11px;
+  color: #7c8293;
+  margin-top: 5px;
+}
+
+/* ==========================================================================
+   Estado Vazio do Canvas
+   ========================================================================== */
+
+.blank-canvas {
+  position: absolute;
+  inset: 220px 20px 100px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+  color: #969bae;
+}
+
+.blank-canvas svg {
+  color: #bca5f4;
+}
+
+.blank-canvas h2 {
+  font-family: var(--font-heading, 'Space Grotesk', sans-serif);
+  font-size: 20px;
+  color: #d9d6e6;
+  margin: 18px 0 10px;
+}
+
+.blank-canvas p {
+  max-width: 270px;
+  font-size: 12px;
+}
+
+.blank-canvas button {
+  pointer-events: auto;
+  margin-top: 24px;
+}
+
+/* ==========================================================================
+   Blocos de Nós do Fluxo (Nodes)
+   ========================================================================== */
+
+.react-flow {
+  height: 100%;
+}
+
+.block {
+  position: relative;
+  width: 225px;
+  min-height: 198px;
+  background: var(--bg-card, #1c2028);
+  border: 1px solid #3a3e4c;
+  border-radius: 10px;
+  box-shadow: 0 8px 18px #0003;
+  padding: 0 15px 20px;
+}
+
+.block.selected {
+  border-color: var(--block-color);
+  box-shadow:
+    0 0 0 3px #b9a5f612,
+    0 8px 24px #0004;
+}
+
+.block-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 39px;
+  font-size: 9px;
+  color: var(--block-color);
+  border-bottom: 1px solid #ffffff09;
+  letter-spacing: 0.3px;
+}
+
+.block-icon {
+  font-size: 16px;
+}
+
+.block > strong {
+  display: block;
+  margin-top: 13px;
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.block-sub {
+  font-size: 9px;
+  color: #8e95a6;
+  margin-top: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ==========================================================================
+   Portas e Conectores
+   ========================================================================== */
+
+.ports {
+  position: static;
+}
+
+.port {
+  position: absolute;
+  top: calc(112px + var(--port-index, 0) * 24px);
+  font-size: 9px;
+  color: #8f95a7;
+  display: flex;
+  align-items: center;
+  height: 14px;
+}
+
+.port.in {
+  left: 0;
+}
+
+.port.out {
+  right: 0;
+}
+
+.port.in span {
+  padding-left: 15px;
+}
+
+.port.out span {
+  padding-right: 15px;
+}
+
+.react-flow__handle {
+  width: 8px;
+  height: 8px;
+  background: #252a35;
+  border: 1.5px solid var(--block-color);
+  top: 7px;
+}
+
+.react-flow__handle-left {
+  left: -1px;
+}
+
+.react-flow__handle-right {
+  right: -1px;
+}
+
+.react-flow__edge-text {
+  fill: #c8badf;
+  font-size: 10px;
+}
+
+.react-flow__edge-textbg {
+  fill: #20232c;
+}
+
+/* ==========================================================================
+   Controles e Minimap do React Flow
+   ========================================================================== */
+
+.react-flow__controls {
+  bottom: 54px;
+  left: 16px;
+  border: 1px solid #393e4a;
+  border-radius: 7px;
+  overflow: hidden;
+  box-shadow: 0 3px 12px #0003;
+}
+
+.react-flow__controls.react-flow__panel {
+  bottom: 54px;
+  left: 16px;
+}
+
+.react-flow__controls-button {
+  background: #20242c;
+  border-color: #383c47;
+  color: #c8ccd8;
+  width: 28px;
+  height: 28px;
+  border-radius: 0;
+}
+
+.react-flow__controls-button:hover {
+  background: #313642;
+}
+
+.react-flow__minimap {
+  bottom: 55px !important;
+  border: 1px solid #383c47;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #181b21 !important;
+  height: 90px !important;
+  width: 135px !important;
+}
+
+/* ==========================================================================
+   Rodapé do Canvas
+   ========================================================================== */
+
+.canvas-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  height: 38px;
+  align-items: center;
+  padding: 0 17px;
+  background: var(--bg-header, #181b21);
+  border-top: 1px solid var(--color-border, #2b2e37);
+  color: #7f8595;
+  font-size: 9px;
+  z-index: 3;
+}
+
+.canvas-footer > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.canvas-footer i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.ok {
+  background: #8bc2a0;
+}
+
+.warning {
+  background: #e4b76b;
+}
+
+.footer-version {
+  border-left: 1px solid #3c3f49;
+  padding-left: 10px;
+  margin-left: 4px;
+}
+
+/* ==========================================================================
+   Media Queries do Canvas
+   ========================================================================== */
+
+@media (max-width: 900px) {
+  .canvas-heading h1 {
+    font-size: 20px;
+  }
+  .canvas-heading {
+    left: 18px;
+  }
+  .canvas-footer > span:first-child {
+    display: none;
+  }
+  .canvas-footer {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 700px) {
+  .canvas-heading {
+    display: none;
+  }
+  .react-flow__minimap {
+    display: none;
+  }
+}

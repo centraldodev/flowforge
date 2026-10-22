@@ -110,7 +110,6 @@ export function FlowCanvas(p: Props) {
         <MiniMap
           nodeColor={(n) => catalog[(n.data as BlockData).kind].color}
           maskColor="#111318c9"
-          style={{ background: '#181b21', height: 90, width: 135 }}
         />
       </ReactFlow>
 

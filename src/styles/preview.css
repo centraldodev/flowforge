@@ -1,0 +1,393 @@
+/* ==========================================================================
+   Modal de Simulação & Playground
+   ========================================================================== */
+
+.preview-modal {
+  width: 870px;
+  padding: 27px;
+}
+
+.preview-head h2 {
+  margin: 7px 0;
+}
+
+.preview-head p {
+  color: #929aae;
+  font-size: 11px;
+}
+
+.platform-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid #363b48;
+  border-radius: 10px;
+  margin: 22px 0 0;
+  background: #15181f;
+}
+
+.platform-picker button {
+  padding: 9px 13px;
+  color: #8e96a8;
+  font-size: 11px;
+}
+
+.platform-picker button.active {
+  background: #b9a5f620;
+  color: #d0baff;
+  box-shadow: inset 0 0 0 1px #b9a5f638;
+}
+
+.platform-picker > span {
+  margin-left: auto;
+  padding: 0 8px;
+  color: #737e91;
+  font-size: 10px;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: 310px 1fr;
+  gap: 40px;
+  margin-top: 25px;
+}
+
+/* ==========================================================================
+   Superfície Mobile (Celular)
+   ========================================================================== */
+
+.phone {
+  background: #f8f9fc;
+  border: 6px solid #343746;
+  outline: 1px solid #555968;
+  border-radius: 33px;
+  color: #252739;
+  min-height: 525px;
+  display: flex;
+  flex-direction: column;
+}
+
+.phone-top {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 18px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.phone-content {
+  padding: 22px 21px;
+  flex: 1;
+}
+
+.app-mark {
+  display: grid;
+  place-items: center;
+  width: 47px;
+  height: 47px;
+  border-radius: 13px;
+  color: #7661b0;
+  background: #ede7fb;
+  margin-bottom: 21px;
+}
+
+.phone-content h2 {
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.phone-sub {
+  font-size: 10px;
+  color: #8c8fa0;
+  margin: 10px 0 20px;
+}
+
+.phone .field {
+  color: #61677c;
+  font-weight: 550;
+}
+
+.phone input {
+  background: #fff;
+  border-color: #dfe1e9;
+  color: #242637;
+}
+
+.phone textarea,
+.phone select {
+  background: white;
+  color: #303444;
+  border-color: #dfe1e9;
+}
+
+.phone hr {
+  border: 0;
+  border-top: 1px solid #dfe1e9;
+  margin: 20px 0;
+}
+
+.phone small {
+  color: #73798b;
+}
+
+.phone .primary {
+  font-size: 11px;
+  background: #8470bb;
+  color: white;
+  border-color: #8470bb;
+  box-shadow: none;
+  margin-top: 10px;
+}
+
+.phone-bottom {
+  width: 90px;
+  height: 4px;
+  border-radius: 10px;
+  background: #444758;
+  margin: 12px auto;
+}
+
+.phone-content > p {
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+/* ==========================================================================
+   Superfícies Web e Desktop
+   ========================================================================== */
+
+.platform-web,
+.platform-desktop {
+  width: 1220px;
+}
+
+.platform-web .preview-grid,
+.platform-desktop .preview-grid {
+  grid-template-columns: minmax(0, 1fr) 250px;
+  gap: 25px;
+  align-items: start;
+}
+
+.web-window,
+.desktop-window {
+  display: flex;
+  flex-direction: column;
+  background: #f8f9fc;
+  color: #252739;
+  border: 1px solid #515669;
+  border-radius: 12px;
+  overflow: hidden;
+  min-height: 550px;
+  box-shadow: 0 12px 30px #0003;
+}
+
+.web-window .phone-top,
+.desktop-window .phone-top,
+.web-window .phone-bottom,
+.desktop-window .phone-bottom {
+  display: none;
+}
+
+.window-chrome {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  height: 46px;
+  background: #e5e7ed;
+  border-bottom: 1px solid #d7dae3;
+  color: #70788b;
+  font-size: 10px;
+  padding: 0 15px;
+}
+
+.window-dots {
+  letter-spacing: 3px;
+  color: #a49aa9;
+  white-space: nowrap;
+}
+
+.window-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.web-window .window-name {
+  background: #f7f8fb;
+  border-radius: 6px;
+  padding: 7px 12px;
+  flex: 1;
+}
+
+.web-window .phone-content {
+  width: min(100%, 520px);
+  margin: auto;
+  padding: 35px 40px;
+}
+
+.desktop-window {
+  border-radius: 8px;
+}
+
+.desktop-window .window-chrome {
+  background: #303440;
+  border-color: #414655;
+  color: #d2d6e1;
+}
+
+.desktop-window .window-name {
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.desktop-window .phone-content {
+  width: min(100%, 600px);
+  padding: 35px 48px;
+  margin: 0 auto;
+}
+
+.preview-surface .field input,
+.preview-surface .field textarea,
+.preview-surface .field select {
+  background: white;
+  color: #242637;
+  border-color: #d8dbe6;
+}
+
+.preview-surface .field {
+  color: #61677c;
+}
+
+.preview-surface .primary {
+  background: #8470bb;
+  color: white;
+  border-color: #8470bb;
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.preview-surface hr {
+  border: 0;
+  border-top: 1px solid #dedfe8;
+  margin: 20px 0;
+}
+
+.preview-surface .phone-content {
+  overflow: auto;
+  max-height: 70vh;
+}
+
+.platform-mobile .phone-content {
+  max-height: 60vh;
+}
+
+.platform-web .web-window,
+.platform-desktop .desktop-window {
+  min-height: 420px;
+}
+
+.platform-web .preview-surface .phone-content,
+.platform-desktop .preview-surface .phone-content {
+  max-height: 48vh;
+}
+
+/* ==========================================================================
+   Painel de Execução do Fluxo (Trace)
+   ========================================================================== */
+
+.execution {
+  padding-top: 8px;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.execution .section-title {
+  padding-bottom: 16px;
+  border-bottom: 1px solid #333744;
+  margin-bottom: 18px;
+}
+
+.execution h3 {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.execution .field {
+  margin-top: 28px;
+}
+
+.trace-item {
+  display: flex;
+  gap: 11px;
+  padding: 12px 0;
+}
+
+.trace-item > span {
+  width: 23px;
+  height: 23px;
+  border-radius: 50%;
+  background: #b9a5f617;
+  color: #c5b1f2;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.trace-item strong {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.trace-item p {
+  color: #929aae;
+  font-size: 10px;
+  margin-top: 5px;
+}
+
+.preview-message {
+  padding: 10px 12px;
+  background: #e9e3f8;
+  color: #51416e;
+  border: 1px solid #d2c4ed;
+  border-radius: 8px;
+  margin-top: 14px;
+  font-size: 12px;
+}
+
+/* ==========================================================================
+   Media Queries de Prévia
+   ========================================================================== */
+
+@media (max-width: 850px) {
+  .platform-picker > span {
+    display: none;
+  }
+  .platform-web .preview-grid,
+  .platform-desktop .preview-grid {
+    grid-template-columns: 1fr;
+  }
+  .web-window .phone-content,
+  .desktop-window .phone-content {
+    padding: 25px;
+    width: 100%;
+  }
+  .web-window,
+  .desktop-window {
+    min-height: 450px;
+  }
+}
+
+@media (max-width: 700px) {
+  .preview-grid {
+    grid-template-columns: 1fr;
+    gap: 25px;
+  }
+  .phone {
+    max-width: 310px;
+    margin: auto;
+    width: 100%;
+  }
+}

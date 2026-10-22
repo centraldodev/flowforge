@@ -1,0 +1,423 @@
+/* ==========================================================================
+   Sidebar Unificada & Biblioteca de Blocos
+   ========================================================================== */
+
+.unified-sidebar {
+  position: relative;
+  flex-shrink: 0;
+  z-index: 8;
+  background: var(--bg-panel, #191c22);
+  border-right: 1px solid var(--color-border, #2b2e37);
+}
+
+.unified-sidebar.is-expanded {
+  width: 254px;
+}
+
+.unified-sidebar.is-collapsed {
+  width: 60px;
+}
+
+.unified-sidebar .expanded-content {
+  position: static;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  box-shadow: none;
+  padding: 14px 16px 24px;
+  overflow: auto;
+}
+
+.sidebar-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: sticky;
+  top: -14px;
+  z-index: 2;
+  background: #191c22;
+  padding: 4px 0 16px;
+  border-bottom: 1px solid #2c303b;
+  margin-bottom: 20px;
+}
+
+.sidebar-heading > button {
+  width: 32px;
+  height: 32px;
+  color: #c4b1f2;
+  background: #b9a5f611;
+}
+
+.sidebar-heading > span {
+  font: 500 14px var(--font-heading, 'Space Grotesk', sans-serif);
+  color: #bbc0d0;
+}
+
+/* ==========================================================================
+   Rail (Modo Ícones Recolhido)
+   ========================================================================== */
+
+.rail {
+  width: 60px;
+  background: #171a20;
+  border-right: 1px solid #2b2e37;
+  padding: 18px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  flex-shrink: 0;
+}
+
+.rail button {
+  width: 40px;
+  height: 40px;
+  color: #7b8091;
+}
+
+.rail .active {
+  background: #b9a5f616;
+  color: #c8b2ff;
+  border: 1px solid #b9a5f62b;
+}
+
+.rail-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.unified-sidebar .rail {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.unified-sidebar .rail .blocks-trigger > button {
+  width: 40px;
+  height: 40px;
+  color: #7b8091;
+}
+
+.unified-sidebar .rail .blocks-trigger > button.active {
+  color: #c8b2ff;
+}
+
+.unified-sidebar .rail-bottom {
+  margin-top: auto;
+}
+
+/* ==========================================================================
+   Menu do Projeto na Barra Lateral
+   ========================================================================== */
+
+.project-menu {
+  padding-bottom: 19px;
+  margin-bottom: 21px;
+  border-bottom: 1px solid #343641;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.project-menu > .eyebrow {
+  margin: 0 8px 8px;
+}
+
+.project-menu > button {
+  padding: 10px 8px;
+  justify-content: flex-start;
+  color: #bdc1cf;
+  font-size: 12px;
+  gap: 10px;
+}
+
+.project-menu > button svg {
+  color: #af9cd7;
+}
+
+.project-menu > button:hover {
+  background: #b9a5f614;
+  color: #eee6ff;
+}
+
+.unified-sidebar .library .project-menu > button {
+  width: 100%;
+  height: auto;
+}
+
+/* ==========================================================================
+   Biblioteca de Blocos
+   ========================================================================== */
+
+.library {
+  width: 254px;
+  flex-shrink: 0;
+  border-right: 1px solid #2b2e37;
+  background: #191c22;
+  padding: 23px 16px;
+  overflow-y: auto;
+}
+
+.library > p {
+  color: #7b8091;
+  font-size: 11px;
+  margin-top: 6px;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid #363942;
+  background: #14171c;
+  border-radius: 7px;
+  margin: 22px 0 23px;
+  color: #6d7281;
+}
+
+.search input {
+  width: 100%;
+  padding: 10px 0;
+  background: none;
+  border: 0;
+  font-size: 11px;
+}
+
+.search kbd {
+  font-size: 14px;
+}
+
+.library section {
+  margin-bottom: 24px;
+}
+
+.library h3 {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #8f94a3;
+  font-weight: 550;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.library h3 span {
+  color: #5e6473;
+  letter-spacing: 0;
+}
+
+.library-block {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  padding: 10px 6px;
+  gap: 10px;
+  margin-bottom: 3px;
+}
+
+.library-icon {
+  height: 33px;
+  width: 33px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font: 600 18px var(--font-heading, 'Space Grotesk', sans-serif);
+  color: var(--icon-color, inherit);
+  background: color-mix(in srgb, var(--icon-color, #ffffff) 12%, transparent);
+}
+
+.library-block > span:nth-child(2) {
+  flex: 1;
+}
+
+.library-block strong {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: #d1d4df;
+}
+
+.library-block small {
+  display: block;
+  color: #737a8b;
+  font-size: 9px;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.library-block > svg {
+  color: #6d7281;
+}
+
+.unified-sidebar .library-block {
+  height: auto;
+  width: 100%;
+  color: inherit;
+}
+
+.unified-sidebar .library-block > svg {
+  flex-shrink: 0;
+}
+
+.unified-sidebar .library h3 {
+  display: flex;
+}
+
+.unified-sidebar .library .section-title > button {
+  width: 24px;
+  height: 24px;
+}
+
+.library-tip {
+  padding: 15px 12px;
+  background: linear-gradient(130deg, #b5a0ef0c, #748ca008);
+  border: 1px solid #373442;
+  border-radius: 8px;
+  margin-top: 32px;
+}
+
+.library-tip > span {
+  color: #bfa6ff;
+  margin-right: 8px;
+}
+
+.library-tip strong {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.library-tip p {
+  font-size: 10px;
+  color: #88899e;
+  margin-top: 7px;
+}
+
+.block-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: 500 10px var(--font-sans, 'DM Sans', sans-serif);
+  letter-spacing: 0;
+  background: #b9a5f615;
+  color: #bfa9ef;
+  padding: 3px 6px;
+  border-radius: 5px;
+  margin-left: 6px;
+}
+
+.no-blocks {
+  padding: 12px 0 20px;
+  color: #878fa2;
+}
+
+/* ==========================================================================
+   Flyout da Biblioteca (quando a barra lateral está recolhida)
+   ========================================================================== */
+
+.blocks-flyout.library {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 156px;
+  bottom: 16px;
+  width: 285px;
+  padding: 18px 16px;
+  overflow: auto;
+  z-index: 20;
+  border: 1px solid #44404f;
+  border-radius: 12px;
+  box-shadow: 8px 15px 45px #0008;
+  background: #1b1e25;
+}
+
+.blocks-flyout.library::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+}
+
+.unified-sidebar .blocks-flyout .search {
+  margin: 16px 0 20px;
+}
+
+/* ==========================================================================
+   Media Queries da Barra Lateral
+   ========================================================================== */
+
+@media (min-width: 1600px) {
+  .library {
+    width: 280px;
+  }
+  .unified-sidebar.is-expanded {
+    width: 280px;
+  }
+}
+
+@media (max-width: 1150px) {
+  .library {
+    width: 220px;
+  }
+  .unified-sidebar.is-expanded {
+    width: 220px;
+  }
+}
+
+@media (max-width: 900px) {
+  .library {
+    width: 195px;
+    padding: 20px 10px;
+  }
+  .rail {
+    width: 48px;
+    padding: 15px 4px;
+  }
+  .unified-sidebar.is-expanded {
+    width: 210px;
+  }
+  .unified-sidebar.is-collapsed {
+    width: 48px;
+  }
+  .unified-sidebar .expanded-content {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+@media (max-width: 700px) {
+  .library {
+    position: absolute;
+    left: 48px;
+    top: 65px;
+    bottom: 0;
+    z-index: 8;
+    width: 230px;
+    box-shadow: 15px 0 40px #0005;
+  }
+  .unified-sidebar.is-expanded {
+    position: absolute;
+    top: 65px;
+    bottom: 0;
+    left: 0;
+    width: 240px;
+    box-shadow: 15px 0 40px #0005;
+  }
+  .unified-sidebar.is-collapsed {
+    width: 48px;
+  }
+  .blocks-flyout.library {
+    width: min(285px, calc(100vw - 65px));
+    top: 156px;
+    bottom: 10px;
+  }
+  .unified-sidebar .expanded-content {
+    position: static;
+    left: auto;
+    top: auto;
+  }
+}
