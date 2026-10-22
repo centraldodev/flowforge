@@ -97,9 +97,9 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
   ],
 };
 
-function fieldsFor(kind: Kind): FieldSpec[] {
+export function fieldsFor(kind: Kind): FieldSpec[] {
   const specific = specificFields[kind] ?? [];
-  return interfaceKinds.includes(kind) ? [SCREEN_ID, ...specific] : specific;
+  return kind !== 'screen' ? [SCREEN_ID, ...specific] : specific;
 }
 
 export function screenOptions(g: Graph): Option[] {

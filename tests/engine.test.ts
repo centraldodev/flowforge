@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { demo, run, validate, parseGraph, getBlockPorts, type Graph } from '../src/engine';
+import { demo, run, validate, parseGraph, getBlockPorts, type Graph, type Kind } from '../src/engine';
 import {
   createBlock,
   addPortToBlock,
@@ -11,7 +11,10 @@ import {
   duplicateBlock,
   connect,
   connectionError,
+  findFreePosition,
 } from '../src/state/graphOps';
+import { fieldsFor } from '../src/features/inspector/blockFields';
+import { toFlowNodes } from '../src/features/canvas/toFlow';
 test('login válido navega para início; senha inválida segue ramo falso', () => {
   assert.equal(validate(demo).length, 0);
   const r = run(demo, 'btn-login', { email: 'demo@exemplo.com', password: '123456' });
@@ -437,3 +440,55 @@ test('conexões com termos reais da programação: Lado A (onClick, then, onSucc
   };
   assert.ok(connectionError(badConnection)?.includes('eventos'));
 });
+
+test('ao adicionar bloco em uma aba ativa, o bloco vincula-se automaticamente àquela aba/tela', () => {
+  const allKinds: Kind[] = [
+    'button',
+    'input',
+    'function',
+    'condition',
+    'auth',
+    'error',
+    'database',
+    'api',
+    'navigate',
+  ];
+
+  // 1. Garante que todos os tipos de blocos (exceto screen) possuem o campo screenId (Pertence à tela)
+  for (const k of allKinds) {
+    const fields = fieldsFor(k);
+    const hasScreenId = fields.some((f) => f.key === 'screenId');
+    assert.equal(hasScreenId, true, `Bloco do tipo ${k} deve ter campo screenId no inspetor`);
+  }
+  assert.equal(fieldsFor('screen').some((f) => f.key === 'screenId'), false);
+
+  // 2. Cria grafo com duas telas: 'login' e 'home'
+  let g: Graph = {
+    version: 1,
+    name: 'multi-tab-test',
+    nodes: [
+      { id: 'login', position: { x: 40, y: 40 }, data: { kind: 'screen', label: 'Tela Login', config: {} } },
+      { id: 'home', position: { x: 640, y: 40 }, data: { kind: 'screen', label: 'Tela Home', config: {} } },
+    ],
+    edges: [],
+  };
+
+  // Simula adicionar bloco na aba 'home'
+  const activeScreenTab = 'home';
+  const pos = findFreePosition(g, { x: 100, y: 100 }, activeScreenTab);
+  const newBlock = createBlock('function', pos, activeScreenTab, g);
+  newBlock.data.config.screenId = activeScreenTab;
+  g.nodes.push(newBlock);
+
+  // O novo bloco deve estar explicitamente vinculado à aba 'home'
+  assert.equal(newBlock.data.config.screenId, 'home');
+
+  // Ao visualizar nós para a aba 'home', o bloco recém-criado deve estar visível
+  const homeVisibleNodes = toFlowNodes(g, null, 'home');
+  assert.equal(homeVisibleNodes.some((n) => n.id === newBlock.id), true);
+
+  // Ao mudar para a aba 'login', o bloco da aba 'home' NÃO deve ser exibido como bloco ativo de login
+  const loginVisibleNodes = toFlowNodes(g, null, 'login');
+  assert.equal(loginVisibleNodes.some((n) => n.id === newBlock.id), false);
+});
+

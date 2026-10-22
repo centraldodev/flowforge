@@ -282,11 +282,14 @@ export function duplicateBlock(block: Block, g?: Graph): Block {
   return clone;
 }
 
-/** Procura, a partir de `base`, uma posição em grade que não sobreponha outro bloco. */
-export function findFreePosition(g: Graph, base: Position): Position {
+/** Procura, a partir de `base`, uma posição em grade que não sobreponha outro bloco da mesma tela. */
+export function findFreePosition(g: Graph, base: Position, screenId?: string): Position {
   let position = { ...base };
+  const targetNodes = screenId
+    ? g.nodes.filter((n) => n.data.kind !== 'screen' && n.data.config.screenId === screenId)
+    : g.nodes;
   const overlaps = (p: Position) =>
-    g.nodes.some((n) => Math.abs(n.position.x - p.x) < 250 && Math.abs(n.position.y - p.y) < 220);
+    targetNodes.some((n) => Math.abs(n.position.x - p.x) < 250 && Math.abs(n.position.y - p.y) < 220);
   for (let attempt = 1; overlaps(position) && attempt <= 500; attempt++) {
     position = { x: base.x + (attempt % 3) * 270, y: base.y + Math.floor(attempt / 3) * 230 };
   }

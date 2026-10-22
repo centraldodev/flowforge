@@ -54,6 +54,18 @@ export function toFlowNodes(
           expanded = true;
         }
       }
+      if (activeBlockIds.has(e.target)) {
+        const source = g.nodes.find((n) => n.id === e.source);
+        if (
+          source &&
+          source.data.kind !== 'screen' &&
+          !source.data.config.screenId &&
+          !activeBlockIds.has(e.source)
+        ) {
+          activeBlockIds.add(e.source);
+          expanded = true;
+        }
+      }
     }
   }
 

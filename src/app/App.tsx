@@ -56,6 +56,11 @@ export function App() {
   const flow = useReactFlow();
   const fileInput = useRef<HTMLInputElement>(null);
 
+  const screens = screensOf(graph);
+  const currentScreenId =
+    activeScreenId && screens.some((s) => s.id === activeScreenId)
+      ? activeScreenId
+      : screens[0]?.id || '';
   const chosen = graph.nodes.find((n) => n.id === selected);
   const errors = validate(graph);
 
@@ -68,17 +73,17 @@ export function App() {
         })
       : { x: 100, y: 100 };
 
-    const position = findFreePosition(graph, base);
+    const targetScreenId = currentScreenId;
+    const position = findFreePosition(graph, base, targetScreenId);
     void flow.setCenter(position.x + 112, position.y + 100, {
       zoom: Math.max(flow.getZoom(), 0.62),
       duration: 200,
     });
 
-    const targetScreenId =
-      chosen?.data.kind === 'screen'
-        ? chosen.id
-        : activeScreenId || screensOf(graph)[0]?.id || '';
     const newBlock = createBlock(kind, position, targetScreenId, graph);
+    if (kind !== 'screen' && targetScreenId) {
+      newBlock.data.config.screenId = targetScreenId;
+    }
     commit((g) => addBlock(g, newBlock));
     setSelected(newBlock.id);
   }
@@ -102,14 +107,25 @@ export function App() {
   function handleDuplicateChosen() {
     if (!chosen) return;
     const clone = duplicateBlock(chosen, graph);
+    if (clone.data.kind !== 'screen' && !clone.data.config.screenId && currentScreenId) {
+      clone.data.config.screenId = currentScreenId;
+    }
     commit((g) => addBlock(g, clone));
     setSelected(clone.id);
   }
 
   function handleDeleteChosen() {
     if (!chosen) return;
-    commit((g) => removeBlock(g, chosen.id));
+    const isScreen = chosen.data.kind === 'screen';
+    const deletedId = chosen.id;
+    commit((g) => removeBlock(g, deletedId));
     setSelected(null);
+    if (isScreen && activeScreenId === deletedId) {
+      const remaining = screens.filter((s) => s.id !== deletedId);
+      if (remaining[0]) {
+        setActiveScreenId(remaining[0].id);
+      }
+    }
   }
 
   function handleRenameId(newId: string) {
@@ -204,7 +220,7 @@ export function App() {
         <FlowCanvas
           graph={graph}
           selected={selected}
-          activeScreenId={activeScreenId}
+          activeScreenId={currentScreenId}
           onSelectScreen={setActiveScreenId}
           trace={simulation.trace}
           errorCount={errors.length}
@@ -257,6 +273,8 @@ export function App() {
             try {
               const imported = parseGraph(await file.text());
               commit(() => imported);
+              const firstScreen = screensOf(imported)[0]?.id || '';
+              if (firstScreen) setActiveScreenId(firstScreen);
               setSelected(null);
               setNotice('Projeto importado.');
             } catch (err) {
