@@ -1,22 +1,27 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Copy, Settings2, Trash2, Workflow } from 'lucide-react';
 import { PropertyField, type FieldDefinition } from '../../components/PropertyField';
-import { catalog, simulatedKinds, type Block } from '../../engine';
+import { catalog, simulatedKinds, type Block, type Graph } from '../../engine';
+import { BlockIdEditor } from './BlockIdEditor';
 
 type Props = {
   chosen: Block | undefined;
+  graph?: Graph;
   nameField: FieldDefinition | undefined;
   configFields: FieldDefinition[];
   connections: ReactNode;
+  onRenameId?: (newId: string) => boolean | void;
   onDuplicate: () => void;
   onDelete: () => void;
 };
 
 export function InspectorPanel({
   chosen,
+  graph,
   nameField,
   configFields,
   connections,
+  onRenameId,
   onDuplicate,
   onDelete,
 }: Props) {
@@ -55,12 +60,16 @@ export function InspectorPanel({
             <div className="kind-header-top">
               <small>{def.category}</small>
               <span className="block-id-badge" title={'ID: ' + chosen.id}>
-                #{chosen.id.length > 8 ? chosen.id.slice(0, 8) : chosen.id}
+                #{chosen.id}
               </span>
             </div>
             <h2>{def.name}</h2>
           </div>
         </div>
+
+        {graph && onRenameId && (
+          <BlockIdEditor chosen={chosen} graph={graph} onRename={onRenameId} />
+        )}
 
         {nameField && <PropertyField {...nameField} />}
 

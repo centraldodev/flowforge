@@ -27,8 +27,10 @@ import {
   removeEdge,
   removePortFromBlock,
   renameBlock,
+  renameBlockId,
   screensOf,
   updateConfig,
+  validateBlockId,
 } from '../state/graphOps';
 import { loadSavedGraph, usePersistence } from '../state/persistence';
 import { useGraphHistory } from '../state/useGraphHistory';
@@ -72,7 +74,7 @@ export function App() {
     });
 
     const screenId = chosen?.data.kind === 'screen' ? chosen.id : screensOf(graph)[0]?.id || '';
-    const newBlock = createBlock(kind, position, screenId);
+    const newBlock = createBlock(kind, position, screenId, graph);
     commit((g) => addBlock(g, newBlock));
     setSelected(newBlock.id);
   }
@@ -88,7 +90,7 @@ export function App() {
 
   function handleDuplicateChosen() {
     if (!chosen) return;
-    const clone = duplicateBlock(chosen);
+    const clone = duplicateBlock(chosen, graph);
     commit((g) => addBlock(g, clone));
     setSelected(clone.id);
   }
@@ -97,6 +99,18 @@ export function App() {
     if (!chosen) return;
     commit((g) => removeBlock(g, chosen.id));
     setSelected(null);
+  }
+
+  function handleRenameId(newId: string) {
+    if (!chosen) return false;
+    const res = validateBlockId(graph, chosen.id, newId);
+    if (!res.valid) {
+      setNotice(res.error || 'ID inválido.');
+      return false;
+    }
+    commit((g) => renameBlockId(g, chosen.id, newId));
+    setSelected(newId);
+    return true;
   }
 
   function handleOpenPreview() {
@@ -126,7 +140,7 @@ export function App() {
   const nameField = chosen
     ? {
         id: 'label',
-        label: 'Nome do bloco',
+        label: 'Título do bloco',
         value: chosen.data.label,
         onChange: (value: string) => commit((g) => renameBlock(g, chosen.id, value)),
       }
@@ -201,9 +215,11 @@ export function App() {
         >
           <InspectorPanel
             chosen={chosen}
+            graph={graph}
             nameField={nameField}
             configFields={currentConfigFields}
             connections={connections}
+            onRenameId={handleRenameId}
             onDuplicate={handleDuplicateChosen}
             onDelete={handleDeleteChosen}
           />

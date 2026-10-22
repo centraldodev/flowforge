@@ -70,7 +70,7 @@ export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
         <span className="block-icon">{def.icon}</span>
         <span>{def.name}</span>
         <span className="block-id-tag" title={'ID: ' + id}>
-          #{id.length > 8 ? id.slice(0, 8) : id}
+          #{id.length > 16 ? id.slice(0, 15) + '…' : id}
         </span>
         <span className="dots">···</span>
       </div>

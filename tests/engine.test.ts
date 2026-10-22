@@ -1,7 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { demo, run, validate, parseGraph, getBlockPorts, type Graph } from '../src/engine';
-import { createBlock, addPortToBlock, removePortFromBlock } from '../src/state/graphOps';
+import {
+  createBlock,
+  addPortToBlock,
+  removePortFromBlock,
+  validateBlockId,
+  renameBlockId,
+  generateUniqueBlockId,
+  duplicateBlock,
+} from '../src/state/graphOps';
 test('login válido navega para início; senha inválida segue ramo falso', () => {
   assert.equal(validate(demo).length, 0);
   const r = run(demo, 'enter', { email: 'demo@exemplo.com', password: '123456' });
@@ -233,4 +241,77 @@ test('novos blocos iniciam sem portas e suportam adição/remoção dinâmica de
   assert.deepEqual(getBlockPorts(afterRemove), { inputs: [], outputs: ['value'] });
   // O fio conectado à porta removida deve ter sido limpo automaticamente
   assert.equal(g.edges.length, 0);
+});
+
+test('validação de ID do bloco: impede duplicados, vazios e formatos inválidos', () => {
+  const g = structuredClone(demo);
+  // Rejeita vazio
+  assert.equal(validateBlockId(g, 'auth', '').valid, false);
+  assert.equal(validateBlockId(g, 'auth', '   ').valid, false);
+
+  // Rejeita espaços
+  assert.equal(validateBlockId(g, 'auth', 'meu bloco').valid, false);
+
+  // Rejeita início com número ou caracteres inválidos
+  assert.equal(validateBlockId(g, 'auth', '123auth').valid, false);
+  assert.equal(validateBlockId(g, 'auth', 'auth@user').valid, false);
+
+  // Rejeita IDs duplicados existentes no projeto (case-insensitive)
+  assert.equal(validateBlockId(g, 'auth', 'home').valid, false);
+  assert.equal(validateBlockId(g, 'auth', 'HOME').valid, false);
+  assert.ok(validateBlockId(g, 'auth', 'home').error?.includes('já está em uso'));
+
+  // Aceita o mesmo ID (sem alterações)
+  assert.equal(validateBlockId(g, 'auth', 'auth').valid, true);
+
+  // Aceita novo ID único e válido
+  assert.equal(validateBlockId(g, 'auth', 'auth_usuario_v2').valid, true);
+  assert.equal(validateBlockId(g, 'auth', 'login-auth').valid, true);
+});
+
+test('renomeação atômica de ID propaga para conexões, rotas e telas dependentes', () => {
+  let g = structuredClone(demo);
+
+  // Renomear o botão 'enter' para 'btn_entrar'
+  g = renameBlockId(g, 'enter', 'btn_entrar');
+  assert.ok(g.nodes.some((n) => n.id === 'btn_entrar'));
+  assert.ok(!g.nodes.some((n) => n.id === 'enter'));
+
+  // Todas as conexões que partiam de 'enter' agora devem partir de 'btn_entrar'
+  assert.ok(g.edges.some((e) => e.source === 'btn_entrar' && e.target === 'auth'));
+  assert.ok(!g.edges.some((e) => e.source === 'enter'));
+
+  // Renomear a tela 'home' para 'tela_principal'
+  g = renameBlockId(g, 'home', 'tela_principal');
+  assert.ok(g.nodes.some((n) => n.id === 'tela_principal'));
+  assert.ok(!g.nodes.some((n) => n.id === 'home'));
+
+  // O bloco pertencente à tela 'home' agora deve apontar para 'tela_principal'
+  const homeBlock = g.nodes.find((n) => n.data.config.screenId === 'tela_principal');
+  assert.ok(homeBlock);
+
+  // As rotas de transição na tela 'login' que iam para 'home' agora devem ir para 'tela_principal'
+  const loginScreen = g.nodes.find((n) => n.id === 'login')!;
+  const routes = JSON.parse(loginScreen.data.config.routes || '[]');
+  assert.ok(routes.some((r: any) => r.target === 'tela_principal'));
+  assert.ok(!routes.some((r: any) => r.target === 'home'));
+
+  // Não deve permitir renomear se o destino já existir
+  const beforeAttempt = g;
+  const afterAttempt = renameBlockId(g, 'auth', 'tela_principal');
+  assert.equal(afterAttempt, beforeAttempt);
+});
+
+test('geração de IDs únicos e legíveis para novos blocos e duplicações', () => {
+  const g = structuredClone(demo);
+
+  const b1 = createBlock('function', { x: 0, y: 0 }, '', g);
+  assert.equal(b1.id, 'function_1');
+
+  g.nodes.push(b1);
+  const b2 = createBlock('function', { x: 0, y: 0 }, '', g);
+  assert.equal(b2.id, 'function_2');
+
+  const copy = duplicateBlock(b1, g);
+  assert.equal(copy.id, 'function_1_copy');
 });

@@ -141,6 +141,141 @@
   font-weight: 550;
 }
 
+/* ==========================================================================
+   Editor de ID / Nome do Bloco (Identificador Único)
+   ========================================================================== */
+
+.block-id-editor {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  background: #14171f;
+  border: 1px solid #282d3b;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.block-id-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.block-id-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #a4adc1;
+  text-transform: uppercase;
+}
+
+.block-id-tag-help {
+  font-size: 8px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #2a203f;
+  color: #c4b1f2;
+  border: 1px solid #4a3875;
+}
+
+.block-id-input-box {
+  display: flex;
+  align-items: center;
+  background: #101218;
+  border: 1px solid #2f3442;
+  border-radius: 6px;
+  padding: 2px 8px;
+  transition: all 0.15s ease;
+}
+
+.block-id-input-box:focus-within {
+  border-color: #9d85e8;
+  box-shadow: 0 0 0 1px #9d85e844;
+}
+
+.block-id-input-box.has-error {
+  border-color: #f87171;
+  box-shadow: 0 0 0 1px #f8717133;
+}
+
+.block-id-input-box.is-valid {
+  border-color: #34d399;
+  box-shadow: 0 0 0 1px #34d39933;
+}
+
+.block-id-prefix {
+  font-family: var(--font-mono, monospace);
+  color: #727a8e;
+  font-size: 13px;
+  margin-right: 4px;
+  user-select: none;
+}
+
+.block-id-input-box input {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: #f1f3f9;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 12px;
+  padding: 5px 0;
+  min-width: 0;
+}
+
+.btn-save-id {
+  background: #34d39922;
+  color: #34d399;
+  border: 1px solid #34d39955;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 3px 8px;
+  gap: 4px;
+  margin-left: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-save-id:hover {
+  background: #34d39933;
+  color: #6ee7b7;
+}
+
+.block-id-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 10px;
+  line-height: 1.35;
+  padding: 5px 8px;
+  border-radius: 5px;
+}
+
+.block-id-message.error {
+  background: #451a1a44;
+  border: 1px solid #7f1d1d88;
+  color: #fca5a5;
+}
+
+.block-id-message.success {
+  background: #064e3b33;
+  border: 1px solid #05966955;
+  color: #6ee7b7;
+}
+
+.block-id-hint {
+  font-size: 9.5px;
+  color: #6f7687;
+  line-height: 1.35;
+  margin: 0;
+}
+
 .block-actions {
   display: flex;
   gap: 10px;
