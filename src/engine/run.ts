@@ -44,9 +44,19 @@ export function run(
     const e = edges.find((e) => Object.hasOwn(outputs, e.source)) || edges[0];
     if (!e) return defaultVal;
     const n = node(e.source);
-    return n && valueKinds.includes(n.data.kind)
-      ? inputValue(n, values)
-      : (outputs[e.source] ?? defaultVal);
+    if (n && valueKinds.includes(n.data.kind)) {
+      return inputValue(n, values);
+    }
+    const rawOutput = outputs[e.source];
+    if (
+      rawOutput &&
+      typeof rawOutput === 'object' &&
+      e.sourceHandle &&
+      e.sourceHandle in (rawOutput as Record<string, unknown>)
+    ) {
+      return (rawOutput as Record<string, unknown>)[e.sourceHandle];
+    }
+    return rawOutput ?? defaultVal;
   };
 
   function execute(n: Block): Step {
@@ -62,7 +72,7 @@ export function run(
         break;
       case 'error': {
         const errorInput = read(n.id, 'error', '');
-        const messageInput = read(n.id, 'message', '');
+        const messageInput = read(n.id, 'msg', '') || read(n.id, 'message', '');
         const msg = String(
           messageInput ||
             (errorInput && typeof errorInput === 'object' && (errorInput as any).message
@@ -71,9 +81,24 @@ export function run(
             c.message ||
             'Erro detectado no fluxo',
         );
-        out = { error: true, message: msg, type: c.type || 'toast' };
-        path = 'onDismiss';
-        message = `Alerta de erro: "${msg}"`;
+        out = { error: true, msg, message: msg, type: c.type || 'toast' };
+
+        const retriesKey = `__retries_${n.id}`;
+        const retryCount = Number(store[retriesKey]?.[0] || 0);
+        const maxRetries = Number(c.maxRetries || 1);
+        const hasRetryEdge = g.edges.some((e) => e.source === n.id && e.sourceHandle === 'retry');
+
+        if (hasRetryEdge && retryCount < maxRetries) {
+          store[retriesKey] = [retryCount + 1];
+          path = 'retry';
+          message = `Alerta de erro: "${msg}" (Tentativa ${retryCount + 1}/${maxRetries} de re-execução via retry)`;
+        } else if (hasRetryEdge && retryCount >= maxRetries) {
+          path = '';
+          message = `Alerta de erro: "${msg}" (Erro persistiu após re-execução. Finalizando fluxo com falha.)`;
+        } else {
+          path = 'onDismiss';
+          message = `Alerta de erro: "${msg}"`;
+        }
         break;
       }
       case 'input':

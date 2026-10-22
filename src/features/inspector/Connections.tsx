@@ -285,42 +285,26 @@ export function Connections({
               <button
                 type="button"
                 className="chip-btn input"
-                title="Lado B: Dispara o alerta ou tratamento do erro"
+                title="Lado B: Disparar tratamento de erro (ex: via onError)"
                 onClick={() => handleAddPreset('execute', 'input', 'Event')}
               >
                 <Plus size={12} /> execute: Event (in)
               </button>
               <button
                 type="button"
-                className="chip-btn input"
-                title="Dado: mensagem personalizada de erro recebida"
-                onClick={() => handleAddPreset('message', 'input', 'string')}
-              >
-                <Plus size={12} /> message: string (in)
-              </button>
-              <button
-                type="button"
-                className="chip-btn input"
-                title="Dado: objeto do erro lançado"
-                onClick={() => handleAddPreset('error', 'input', 'Error')}
-              >
-                <Plus size={12} /> error: Error (in)
-              </button>
-              <button
-                type="button"
                 className="chip-btn output"
-                title="Lado A: Evento disparado ao dispensar/fechar o erro"
-                onClick={() => handleAddPreset('onDismiss', 'output', 'Event')}
-              >
-                <Plus size={12} /> onDismiss: Event (out)
-              </button>
-              <button
-                type="button"
-                className="chip-btn output"
-                title="Lado A: Evento para tentar novamente a operação"
+                title="Lado A: Tentar executar novamente a função que falhou"
                 onClick={() => handleAddPreset('retry', 'output', 'Event')}
               >
                 <Plus size={12} /> retry: Event (out)
+              </button>
+              <button
+                type="button"
+                className="chip-btn output"
+                title="Lado A: Retorna a mensagem de erro tratada"
+                onClick={() => handleAddPreset('msg', 'output', 'string')}
+              >
+                <Plus size={12} /> msg: string (out)
               </button>
             </>
           )}

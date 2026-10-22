@@ -103,6 +103,7 @@ export const DEFAULT_PORT_TYPES: Record<string, string> = {
   disabled: 'boolean',
   user: 'User',
   message: 'string',
+  msg: 'string',
   error: 'Error',
   route: 'string',
   value: 'string',
@@ -136,8 +137,8 @@ const table: Record<Kind, Ports> = {
     outputs: ['onSuccess', 'onError', 'user', 'then', 'next', 'value'],
   },
   error: {
-    inputs: ['execute', 'message', 'error', 'listener', 'listenerClick', 'exec'],
-    outputs: ['onDismiss', 'retry', 'then', 'next'],
+    inputs: ['execute', 'msg'],
+    outputs: ['retry', 'msg'],
   },
   navigate: {
     inputs: ['execute', 'route', 'listener', 'listenerClick', 'exec'],

@@ -91,10 +91,8 @@ export const demo: Graph = {
       },
       ports: [
         { id: 'execute', name: 'execute', direction: 'input', type: 'Event' },
-        { id: 'message', name: 'message', direction: 'input', type: 'string' },
-        { id: 'error', name: 'error', direction: 'input', type: 'Error' },
-        { id: 'onDismiss', name: 'onDismiss', direction: 'output', type: 'Event' },
         { id: 'retry', name: 'retry', direction: 'output', type: 'Event' },
+        { id: 'msg', name: 'msg', direction: 'output', type: 'string' },
       ],
     }),
     // Tela Inicial (Home) - Destino direto da navegação
@@ -145,6 +143,13 @@ export const demo: Graph = {
       target: 'show-error',
       sourceHandle: 'onError',
       targetHandle: 'execute',
+    },
+    {
+      id: 'e-err-retry',
+      source: 'show-error',
+      target: 'auth',
+      sourceHandle: 'retry',
+      targetHandle: 'trigger',
     },
     {
       id: 'e-auth-user',

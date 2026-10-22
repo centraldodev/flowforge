@@ -329,7 +329,7 @@ test('renomeação atômica de ID propaga para conexões, rotas e telas dependen
   assert.equal(afterAttempt, beforeAttempt);
 });
 
-test('bloco de tratamento de erro captura falha e emite onDismiss', () => {
+test('bloco de tratamento de erro captura falha, expõe msg e emite onDismiss', () => {
   const g: Graph = {
     version: 1,
     name: 'err-test',
@@ -342,10 +342,41 @@ test('bloco de tratamento de erro captura falha e emite onDismiss', () => {
     ],
   };
   const res = run(g, 'btn');
-  const errOutput = res.outputs.err as { error: boolean; message: string; type: string };
+  const errOutput = res.outputs.err as { error: boolean; msg: string; message: string; type: string };
   assert.equal(errOutput.error, true);
+  assert.equal(errOutput.msg, 'Erro crítico detectado');
   assert.equal(errOutput.message, 'Erro crítico detectado');
   assert.equal(errOutput.type, 'modal');
+});
+
+test('simulação do fluxo real de erro: executa retry para re-testar função e detecta persistência da falha', () => {
+  assert.equal(validate(demo).length, 0);
+
+  // Execução com senha errada: auth falha -> show-error trata erro -> retry tenta de novo -> auth falha -> show-error encerra
+  const res = run(demo, 'btn-login', { email: 'demo@exemplo.com', password: 'senha-incorreta' });
+  
+  // Telas não devem navegar pois credenciais falharam
+  assert.equal(res.screen, undefined);
+
+  // Saída do bloco de erro deve conter o objeto e mensagem tratados
+  const errOut = res.outputs['show-error'] as { error: boolean; msg: string };
+  assert.equal(errOut.error, true);
+  assert.equal(errOut.msg, 'E-mail ou senha incorretos. Verifique suas credenciais.');
+
+  // Verifica o trace completo da simulação do ciclo de erro e retry
+  const traceLabels = res.trace.map((t) => t.id);
+  assert.deepEqual(traceLabels, [
+    'btn-login',
+    'auth',
+    'show-error',
+    'auth',
+    'show-error',
+  ]);
+
+  // Primeiro disparo do erro indica tentativa 1 de re-execução via retry
+  assert.ok(res.trace[2].message.includes('Tentativa 1/1 de re-execução via retry'));
+  // Segundo disparo após a re-execução indica que o erro persistiu e encerra com segurança
+  assert.ok(res.trace[4].message.includes('Erro persistiu após re-execução'));
 });
 
 test('geração de IDs únicos e legíveis para novos blocos e duplicações', () => {
