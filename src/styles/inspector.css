@@ -173,8 +173,275 @@
 }
 
 /* ==========================================================================
-   Linhas de Conexão no Painel
+   Linhas de Conexão e Gerenciador de Portas no Painel
    ========================================================================== */
+
+.kind-header-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.block-id-badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 8px;
+  background: #232733;
+  color: #8c93a8;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid #363b49;
+  letter-spacing: 0.2px;
+}
+
+.badge-count {
+  font-size: 9px;
+  background: #2c3140;
+  color: #a5b0cb;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: normal;
+  margin-left: 6px;
+}
+
+.connections-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ports-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.no-ports-notice {
+  padding: 10px 12px;
+  background: #16181f;
+  border: 1px dashed #343a49;
+  border-radius: 6px;
+  font-size: 10px;
+  color: #7f8698;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.port-chip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: #20242e;
+  border: 1px solid #303544;
+  border-radius: 6px;
+  gap: 8px;
+}
+
+.port-chip-info {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.direction-tag {
+  font-size: 8px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  letter-spacing: 0.3px;
+}
+
+.direction-tag.input {
+  background: #14353d;
+  color: #6ee7b7;
+  border: 1px solid #1f5763;
+}
+
+.direction-tag.output {
+  background: #2b1f48;
+  color: #c4b5fd;
+  border: 1px solid #483578;
+}
+
+.port-name {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: #f1f3f7;
+  font-weight: 600;
+}
+
+.port-edge-count {
+  font-size: 8px;
+  color: #818ba0;
+  background: #161922;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.port-idle-status {
+  font-size: 8px;
+  color: #5f6677;
+  font-style: italic;
+}
+
+.port-remove-btn {
+  background: none;
+  border: none;
+  color: #6d7486;
+  cursor: pointer;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition:
+    color 0.15s,
+    background-color 0.15s;
+}
+
+.port-remove-btn:hover {
+  color: #ef4444;
+  background: #ef444415;
+}
+
+.add-ports-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid #ffffff08;
+}
+
+.section-label {
+  font-size: 9px;
+  color: #8e96aa;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.quick-port-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip-btn {
+  font-size: 9px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: #232733;
+  color: #c2c9db;
+  border: 1px solid #363c4e;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.chip-btn:hover {
+  background: #2e3444;
+  border-color: #4f5770;
+  color: #fff;
+}
+
+.chip-btn.output:hover {
+  border-color: #8b5cf6;
+  color: #ddd6fe;
+}
+
+.chip-btn.input:hover {
+  border-color: #10b981;
+  color: #a7f3d0;
+}
+
+.custom-port-toggle-btn {
+  margin-top: 4px;
+  font-size: 9px;
+  color: #a78bfa;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.custom-port-toggle-btn:hover {
+  color: #c4b5fd;
+  text-decoration: underline;
+}
+
+.custom-port-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: #171920;
+  border: 1px solid #2e3342;
+  border-radius: 6px;
+}
+
+.direction-toggle-group {
+  display: flex;
+  gap: 6px;
+}
+
+.toggle-dir-btn {
+  flex: 1;
+  padding: 4px 0;
+  font-size: 9px;
+  border-radius: 4px;
+  background: #20242e;
+  border: 1px solid #33394a;
+  color: #8e96aa;
+  cursor: pointer;
+}
+
+.toggle-dir-btn.active {
+  background: #342858;
+  border-color: #8b5cf6;
+  color: #ddd6fe;
+  font-weight: 600;
+}
+
+.custom-input-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.custom-input-row input {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 10px;
+  background: #12141a;
+  border: 1px solid #333847;
+  border-radius: 4px;
+  color: #e2e8f0;
+}
+
+.custom-input-row button {
+  font-size: 10px;
+  padding: 5px 9px;
+}
+
+.active-edges-section {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #ffffff08;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 
 .connection-row {
   display: flex;
@@ -192,6 +459,10 @@
   font-size: 8px;
   color: #6e778b;
   margin-top: 3px;
+}
+
+.connection-row small code {
+  color: #a78bfa;
 }
 
 .connection-row button {

@@ -2,9 +2,11 @@
 import type { Connection } from '@xyflow/react';
 import {
   catalog,
+  ensureBlockPorts,
   interfaceKinds,
   isExecOutput,
   type Block,
+  type CustomPort,
   type Graph,
   type Kind,
 } from '../engine';
@@ -45,7 +47,7 @@ export const pruneEdges = (g: Graph): Graph => ({
   ),
 });
 
-/** Novo bloco com os valores padrão do catálogo, já vinculado à tela informada quando aplicável. */
+/** Novo bloco com os valores padrão do catálogo e sem conexões por padrão. */
 export function createBlock(kind: Kind, position: Position, screenId: string): Block {
   return {
     id: crypto.randomUUID(),
@@ -59,7 +61,48 @@ export function createBlock(kind: Kind, position: Position, screenId: string): B
         ...(interfaceKinds.includes(kind) ? { screenId } : {}),
         ...(kind === 'navigate' ? { target: screenId } : {}),
       },
+      ports: [],
     },
+  };
+}
+
+export function addPortToBlock(g: Graph, blockId: string, port: CustomPort): Graph {
+  return mapNode(g, blockId, (b) => {
+    const current = ensureBlockPorts(b);
+    return {
+      ...b,
+      data: {
+        ...b.data,
+        ports: [...current, port],
+      },
+    };
+  });
+}
+
+export function removePortFromBlock(g: Graph, blockId: string, portId: string): Graph {
+  const node = g.nodes.find((n) => n.id === blockId);
+  if (!node) return g;
+  const current = ensureBlockPorts(node);
+  const nextPorts = current.filter((p) => p.id !== portId);
+
+  return {
+    ...g,
+    nodes: g.nodes.map((n) =>
+      n.id === blockId
+        ? {
+            ...n,
+            data: {
+              ...n.data,
+              ports: nextPorts,
+            },
+          }
+        : n,
+    ),
+    edges: g.edges.filter(
+      (e) =>
+        !(e.source === blockId && e.sourceHandle === portId) &&
+        !(e.target === blockId && e.targetHandle === portId),
+    ),
   };
 }
 

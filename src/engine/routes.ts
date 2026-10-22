@@ -1,4 +1,4 @@
-import { isExecOutput, ports } from './ports';
+import { getBlockPorts, isExecOutput } from './ports';
 import type { Block, Graph, ScreenRoute } from './types';
 
 const WHEN: ScreenRoute['when'][] = ['true', 'false', 'always'];
@@ -40,6 +40,6 @@ export function reachableActions(g: Graph, screenId: string): Block[] {
     (n) =>
       visited.has(n.id) &&
       n.data.kind !== 'screen' &&
-      ports(n.data.kind).outputs.some((p) => isExecOutput(p)),
+      getBlockPorts(n).outputs.some((p) => isExecOutput(p)),
   );
 }

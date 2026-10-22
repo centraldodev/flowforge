@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { demo, run, validate, parseGraph, type Graph } from '../src/engine';
+import { demo, run, validate, parseGraph, getBlockPorts, type Graph } from '../src/engine';
+import { createBlock, addPortToBlock, removePortFromBlock } from '../src/state/graphOps';
 test('login válido navega para início; senha inválida segue ramo falso', () => {
   assert.equal(validate(demo).length, 0);
   const r = run(demo, 'enter', { email: 'demo@exemplo.com', password: '123456' });
@@ -196,4 +197,39 @@ test('validação detecta destino inexistente, evento de outra tela e condiçõe
   assert.ok(validate(g).some((e) => e.includes('sobrepostas')));
   page.data.config.routes = '{}';
   assert.throws(() => parseGraph(JSON.stringify(g)), /Transições/);
+});
+
+test('novos blocos iniciam sem portas e suportam adição/remoção dinâmica de conexões', () => {
+  const newBlock = createBlock('button', { x: 0, y: 0 }, '');
+  assert.deepEqual(newBlock.data.ports, []);
+  assert.deepEqual(getBlockPorts(newBlock), { inputs: [], outputs: [] });
+
+  let g: Graph = {
+    version: 1,
+    name: 'custom-ports-test',
+    nodes: [newBlock],
+    edges: [],
+  };
+
+  g = addPortToBlock(g, newBlock.id, { id: 'next', name: 'next', direction: 'output' });
+  g = addPortToBlock(g, newBlock.id, { id: 'value', name: 'value', direction: 'output' });
+
+  const updated = g.nodes.find((n) => n.id === newBlock.id)!;
+  assert.equal(updated.data.ports?.length, 2);
+  assert.deepEqual(getBlockPorts(updated), { inputs: [], outputs: ['next', 'value'] });
+
+  g.edges.push({
+    id: 'e1',
+    source: newBlock.id,
+    target: newBlock.id,
+    sourceHandle: 'next',
+    targetHandle: 'exec',
+  });
+
+  g = removePortFromBlock(g, newBlock.id, 'next');
+  const afterRemove = g.nodes.find((n) => n.id === newBlock.id)!;
+  assert.equal(afterRemove.data.ports?.length, 1);
+  assert.deepEqual(getBlockPorts(afterRemove), { inputs: [], outputs: ['value'] });
+  // O fio conectado à porta removida deve ter sido limpo automaticamente
+  assert.equal(g.edges.length, 0);
 });

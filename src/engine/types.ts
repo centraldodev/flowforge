@@ -22,10 +22,17 @@ export type Kind =
   | 'notify'
   | 'logout';
 
+export type CustomPort = {
+  id: string;
+  name: string;
+  direction: 'input' | 'output';
+};
+
 export type BlockData = {
   kind: Kind;
   label: string;
   config: Record<string, string>;
+  ports?: CustomPort[];
 };
 
 export type Block = {

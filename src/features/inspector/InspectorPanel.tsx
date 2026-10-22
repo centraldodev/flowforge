@@ -52,7 +52,12 @@ export function InspectorPanel({
         <div className="selected-kind">
           <span style={{ '--kind-color': def.color } as CSSProperties}>{def.icon}</span>
           <div>
-            <small>{def.category}</small>
+            <div className="kind-header-top">
+              <small>{def.category}</small>
+              <span className="block-id-badge" title={'ID: ' + chosen.id}>
+                #{chosen.id.length > 8 ? chosen.id.slice(0, 8) : chosen.id}
+              </span>
+            </div>
             <h2>{def.name}</h2>
           </div>
         </div>
@@ -70,7 +75,7 @@ export function InspectorPanel({
           <p>
             {isSimulated
               ? 'Este bloco usa dados locais de exemplo. Você poderá implementar a integração real no código exportado.'
-              : 'Saídas “próximo”, “sim” e “não” executam ações. Saídas “valor” alimentam entradas de dados.'}
+              : 'Saídas "next", "true" e "false" continuam a execução. Saídas "value" alimentam entradas de dados.'}
           </p>
         </div>
 

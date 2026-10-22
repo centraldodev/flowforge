@@ -1,5 +1,5 @@
 import { catalog, interfaceKinds } from './catalog';
-import { isExecOutput, ports } from './ports';
+import { getBlockPorts, isExecOutput, ports } from './ports';
 import { reachableActions, screenRoutes } from './routes';
 import type { Block, Graph } from './types';
 
@@ -91,8 +91,8 @@ export function validate(g: Graph): string[] {
       continue;
     }
     if (
-      !ports(a.data.kind).outputs.includes(e.sourceHandle || '') ||
-      !ports(b.data.kind).inputs.includes(e.targetHandle || '')
+      !getBlockPorts(a).outputs.includes(e.sourceHandle || '') ||
+      !getBlockPorts(b).inputs.includes(e.targetHandle || '')
     )
       errors.push('Porta de conexão inválida.');
     if ((e.targetHandle === 'exec') !== isExecOutput(e.sourceHandle))

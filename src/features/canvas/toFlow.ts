@@ -17,7 +17,7 @@ export function toFlowEdges(g: Graph, trace: Trace[]): Edge[] {
     type: 'smoothstep',
     animated: trace.some((t) => t.id === e.source),
     style: { stroke: isExecOutput(e.sourceHandle) ? EXEC_COLOR : DATA_COLOR, strokeWidth: 1.7 },
-    label: e.sourceHandle === 'true' ? 'Sim' : e.sourceHandle === 'false' ? 'Não' : undefined,
+    label: e.sourceHandle === 'true' ? 'true' : e.sourceHandle === 'false' ? 'false' : undefined,
   }));
 
   for (const page of g.nodes.filter((n) => n.data.kind === 'screen')) {
@@ -34,7 +34,7 @@ export function toFlowEdges(g: Graph, trace: Trace[]): Edge[] {
         deletable: false,
         selectable: false,
         style: { stroke: ROUTE_COLOR, strokeWidth: 2, strokeDasharray: '5 5' },
-        label: trigger + ' · ' + (route.when === 'always' ? 'sempre' : route.when),
+        label: trigger + ' · ' + (route.when === 'always' ? 'always' : route.when),
       });
     }
   }

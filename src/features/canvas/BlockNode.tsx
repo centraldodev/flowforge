@@ -4,13 +4,6 @@ import { catalog, ports, type Block, type BlockData } from '../../engine';
 
 export type FlowNode = Node<BlockData, 'block'>;
 
-const outputLabels: Record<string, string> = {
-  next: 'próximo',
-  value: 'valor',
-  true: 'sim',
-  false: 'não',
-};
-
 /** Linha de resumo exibida abaixo do nome do bloco. */
 function subtitle(data: Block['data']): string {
   const c = data.config;
@@ -62,20 +55,35 @@ function subtitle(data: Block['data']): string {
   }
 }
 
-export function BlockNode({ data, selected }: NodeProps<FlowNode>) {
+export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
   const def = catalog[data.kind];
-  const { inputs, outputs } = ports(data.kind);
 
-  const allOutputs = [
-    ...outputs.map((port) => ({
-      id: port,
-      label: outputLabels[port] || port,
-      isConnectable: true,
-    })),
-    ...(data.kind === 'screen' ? [{ id: 'routes', label: 'telas', isConnectable: false }] : []),
-  ];
+  const inPorts =
+    data.ports !== undefined
+      ? data.ports.filter((p) => p.direction === 'input').map((p) => ({ id: p.id, label: p.name }))
+      : ports(data.kind).inputs.map((p) => ({ id: p, label: p }));
 
-  const maxRows = Math.max(inputs.length, allOutputs.length);
+  const outPorts =
+    data.ports !== undefined
+      ? data.ports
+          .filter((p) => p.direction === 'output')
+          .map((p) => ({
+            id: p.id,
+            label: p.name,
+            isConnectable: p.id !== 'routes' || data.kind !== 'screen',
+          }))
+      : [
+          ...ports(data.kind).outputs.map((p) => ({
+            id: p,
+            label: p,
+            isConnectable: true,
+          })),
+          ...(data.kind === 'screen'
+            ? [{ id: 'routes', label: 'routes', isConnectable: false }]
+            : []),
+        ];
+
+  const maxRows = Math.max(inPorts.length, outPorts.length);
 
   return (
     <div
@@ -85,6 +93,9 @@ export function BlockNode({ data, selected }: NodeProps<FlowNode>) {
       <div className="block-heading">
         <span className="block-icon">{def.icon}</span>
         <span>{def.name}</span>
+        <span className="block-id-tag" title={'ID: ' + id}>
+          #{id.length > 8 ? id.slice(0, 8) : id}
+        </span>
         <span className="dots">···</span>
       </div>
       <strong>{data.label}</strong>
@@ -92,14 +103,14 @@ export function BlockNode({ data, selected }: NodeProps<FlowNode>) {
       {maxRows > 0 && (
         <div className="ports">
           {Array.from({ length: maxRows }, (_, i) => {
-            const inPort = inputs[i];
-            const outPort = allOutputs[i];
+            const inPort = inPorts[i];
+            const outPort = outPorts[i];
             return (
               <div key={i} className="port-row">
                 {inPort ? (
                   <div className="port in">
-                    <Handle type="target" position={Position.Left} id={inPort} />
-                    <span>{inPort === 'exec' ? 'executar' : inPort}</span>
+                    <Handle type="target" position={Position.Left} id={inPort.id} />
+                    <span>{inPort.label}</span>
                   </div>
                 ) : (
                   <div />

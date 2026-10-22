@@ -16,6 +16,7 @@ import { PreviewModal } from '../features/preview/PreviewModal';
 import { Sidebar } from '../features/sidebar/Sidebar';
 import {
   addBlock,
+  addPortToBlock,
   connect,
   connectionError,
   createBlock,
@@ -24,6 +25,7 @@ import {
   findFreePosition,
   removeBlock,
   removeEdge,
+  removePortFromBlock,
   renameBlock,
   screensOf,
   updateConfig,
@@ -144,6 +146,8 @@ export function App() {
         commit((g) => updateConfig(g, chosen!.id, { routes: JSON.stringify(routes) }))
       }
       onRemoveEdge={(edgeId: string) => commit((g) => removeEdge(g, edgeId))}
+      onAddPort={(port) => commit((g) => addPortToBlock(g, chosen!.id, port))}
+      onRemovePort={(portId) => commit((g) => removePortFromBlock(g, chosen!.id, portId))}
     />
   );
 
