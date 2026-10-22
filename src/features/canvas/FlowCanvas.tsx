@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -9,7 +10,6 @@ import {
   type Edge,
   type EdgeChange,
   type NodeChange,
-  useReactFlow,
 } from '@xyflow/react';
 import { MousePointer2, Plus, RotateCcw, Workflow } from 'lucide-react';
 import { catalog, type Block, type BlockData, type Graph, type Trace } from '../../engine';
@@ -53,6 +53,29 @@ export function FlowCanvas(p: Props) {
   const visibleNodeIds = new Set(flowNodes.map((n) => n.id));
   const flowEdges = toFlowEdges(p.graph, p.trace, visibleNodeIds);
 
+  // Rastreia o início do arrasto de conexão para permitir soltar na aba da tela
+  const connectingRef = useRef<{ nodeId: string | null; handleId: string | null } | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  function handleConnectToScreen(targetScreenId: string) {
+    if (!connectingRef.current?.nodeId || !connectingRef.current?.handleId) return;
+    if (targetScreenId === activeScreenId) return;
+
+    const sourceNodeId = connectingRef.current.nodeId;
+    const sourceHandleId = connectingRef.current.handleId;
+    const targetHandle = sourceHandleId === 'user' ? 'user' : 'onEnter';
+
+    p.onConnect({
+      source: sourceNodeId,
+      sourceHandle: sourceHandleId,
+      target: targetScreenId,
+      targetHandle,
+    });
+
+    connectingRef.current = null;
+    setIsConnecting(false);
+  }
+
   function handleSelectScreen(screenId: string) {
     p.onSelectScreen(screenId);
     p.onSelect(screenId);
@@ -83,21 +106,33 @@ export function FlowCanvas(p: Props) {
               <div className="canvas-screen-tabs" role="tablist" aria-label="Abas de telas">
                 {screens.map((screen) => {
                   const isActive = screen.id === activeScreenId;
+                  const isOther = screen.id !== activeScreenId;
                   return (
                     <button
                       key={screen.id}
                       type="button"
                       role="tab"
                       aria-selected={isActive}
-                      className={`canvas-screen-tab ${isActive ? 'active' : ''}`}
+                      data-screen-tab-id={screen.id}
+                      className={`canvas-screen-tab ${isActive ? 'active' : ''} ${
+                        isConnecting && isOther ? 'droppable-target' : ''
+                      }`}
                       onClick={() => handleSelectScreen(screen.id)}
-                      title={`Focar na tela: ${screen.data.label || screen.id}`}
+                      onMouseUp={() => handleConnectToScreen(screen.id)}
+                      title={
+                        isConnecting && isOther
+                          ? `Solte para conectar ${connectingRef.current?.handleId || ''} em ${screen.data.label}`
+                          : `Focar na tela: ${screen.data.label || screen.id}`
+                      }
                     >
                       <span className="canvas-screen-tab-icon">📱</span>
                       <span className="canvas-screen-tab-label">
                         {screen.data.label || screen.id}
                       </span>
                       {isActive && <span className="canvas-screen-tab-glow" />}
+                      {isConnecting && isOther && (
+                        <span className="screen-tab-drop-hint">conectar ↵</span>
+                      )}
                     </button>
                   );
                 })}
@@ -149,6 +184,23 @@ export function FlowCanvas(p: Props) {
         onNodesChange={handleNodesChange}
         onEdgesChange={handleEdgesChange}
         onConnect={p.onConnect}
+        onConnectStart={(_, params) => {
+          connectingRef.current = { nodeId: params.nodeId, handleId: params.handleId };
+          setIsConnecting(true);
+        }}
+        onConnectEnd={(event) => {
+          setIsConnecting(false);
+          const clientX = 'clientX' in event ? event.clientX : event.changedTouches?.[0]?.clientX;
+          const clientY = 'clientY' in event ? event.clientY : event.changedTouches?.[0]?.clientY;
+          if (clientX !== undefined && clientY !== undefined) {
+            const elem = document.elementFromPoint(clientX, clientY);
+            const tabElem = elem?.closest<HTMLElement>('[data-screen-tab-id]');
+            if (tabElem?.dataset.screenTabId) {
+              handleConnectToScreen(tabElem.dataset.screenTabId);
+            }
+          }
+          connectingRef.current = null;
+        }}
         onNodeClick={(_, n) => p.onSelect(n.id)}
         onPaneClick={() => p.onSelect(null)}
         onNodeDragStart={p.onDragStart}

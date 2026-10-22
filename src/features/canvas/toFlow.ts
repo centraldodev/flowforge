@@ -57,14 +57,11 @@ export function toFlowNodes(
     }
   }
 
-  // 2. Telas de destino (outras telas alcançadas pelas saídas dos blocos desta tela)
+  // 2. Telas de destino (outras telas do projeto disponíveis para receber conexões no topo)
   const targetScreenIds = new Set<string>();
-  for (const e of g.edges) {
-    if (activeBlockIds.has(e.source)) {
-      const target = g.nodes.find((n) => n.id === e.target);
-      if (target && target.data.kind === 'screen' && target.id !== currentScreenId) {
-        targetScreenIds.add(target.id);
-      }
+  for (const s of allScreens) {
+    if (s.id !== currentScreenId) {
+      targetScreenIds.add(s.id);
     }
   }
 
