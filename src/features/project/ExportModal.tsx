@@ -1,8 +1,14 @@
 import { useState } from 'react';
-import { Check, Code2, Download, FileJson } from 'lucide-react';
+import { Check, Code2, Copy, Download, Eye, EyeOff, FileCode, FileJson } from 'lucide-react';
 import { Modal } from '../../components/Modal';
-import type { Graph } from '../../engine';
-import { downloadGraph, exportLanguages, exportProject, type ExportLanguage } from '../../export';
+import { generateProjectCode, type Graph } from '../../engine';
+import {
+  downloadGraph,
+  downloadWorkflowScript,
+  exportLanguages,
+  exportProject,
+  type ExportLanguage,
+} from '../../export';
 
 type Props = {
   isOpen: boolean;
@@ -15,8 +21,11 @@ type Props = {
 export function ExportModal({ isOpen, onClose, graph, errors, onNotify }: Props) {
   const [lang, setLang] = useState<ExportLanguage>('typescript');
   const [busy, setBusy] = useState(false);
+  const [showCode, setShowCode] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const langInfo = exportLanguages[lang];
+  const projectCode = generateProjectCode(graph);
 
   const handleExportZip = async () => {
     setBusy(true);
@@ -32,6 +41,22 @@ export function ExportModal({ isOpen, onClose, graph, errors, onNotify }: Props)
 
   const handleExportJson = () => {
     downloadGraph(graph);
+  };
+
+  const handleExportWorkflowJs = () => {
+    downloadWorkflowScript(graph);
+    onNotify('Script executável workflow.js baixado.');
+  };
+
+  const handleCopyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(projectCode);
+      setCopied(true);
+      onNotify('Código copiado para a área de transferência.');
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      onNotify('Falha ao copiar código.');
+    }
   };
 
   return (
@@ -53,12 +78,12 @@ export function ExportModal({ isOpen, onClose, graph, errors, onNotify }: Props)
         <strong>{langInfo.title}</strong>
         <p>{langInfo.description}</p>
         <span>
-          <Check size={14} /> Código-fonte + grafo JSON + instruções
+          <Check size={14} /> Código-fonte + grafo JSON + workflow.js funcional
         </span>
       </div>
       <div className="info-box">
-        Integrações são simuladas. Cada nova linguagem precisa de um gerador próprio; esta versão
-        oferece TypeScript e Python.
+        O arquivo <strong>workflow.js</strong> contém as funções JavaScript reais dos blocos
+        conectados, com runner em memória e simulação de banco de dados e rotas.
       </div>
       {errors.length > 0 && <p className="error-text">Corrija antes de exportar: {errors[0]}</p>}
       <button
@@ -69,6 +94,29 @@ export function ExportModal({ isOpen, onClose, graph, errors, onNotify }: Props)
         <Download size={16} />
         {busy ? 'Gerando projeto...' : 'Baixar projeto .zip'}
       </button>
+
+      <button className="wide text-button" onClick={handleExportWorkflowJs}>
+        <FileCode size={14} /> Baixar script executável (workflow.js)
+      </button>
+
+      <button className="wide text-button" onClick={() => setShowCode(!showCode)}>
+        {showCode ? <EyeOff size={14} /> : <Eye size={14} />}
+        {showCode ? 'Ocultar código gerado' : 'Visualizar código JavaScript gerado'}
+      </button>
+
+      {showCode && (
+        <div className="code-preview-box">
+          <div className="code-preview-header">
+            <span>workflow.js ({graph.nodes.length} blocos compilados)</span>
+            <button className="code-preview-copy-btn" onClick={handleCopyCode}>
+              {copied ? <Check size={12} /> : <Copy size={12} />}
+              {copied ? 'Copiado!' : 'Copiar'}
+            </button>
+          </div>
+          <pre className="code-preview-content">{projectCode}</pre>
+        </div>
+      )}
+
       <button className="wide text-button" onClick={handleExportJson}>
         <FileJson size={14} /> Baixar somente o fluxo JSON
       </button>

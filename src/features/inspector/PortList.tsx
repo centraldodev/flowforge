@@ -38,7 +38,11 @@ export function PortList({ block, ports, edges, onRemovePort }: Props) {
                 {port.direction === 'input' ? 'IN' : 'OUT'}
               </span>
               <strong className="port-name">{port.name}</strong>
+              {port.mode && <span className={`port-mode-tag mode-${port.mode}`}>{port.mode}</span>}
               {type && <span className="port-type-tag">:{type}</span>}
+              {port.cardinality && (
+                <span className="port-cardinality-tag">[{port.cardinality}]</span>
+              )}
               {edgeCount > 0 ? (
                 <span className="port-edge-count">{edgeCount} fio(s)</span>
               ) : (

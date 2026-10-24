@@ -1,5 +1,6 @@
 // Interpretador compartilhado pelo editor e pelo projeto TypeScript exportado.
 import { valueKinds } from './catalog';
+import { isExecInput } from './ports';
 import { screenRoutes } from './routes';
 import type { Block, Graph, Result, Store } from './types';
 
@@ -25,6 +26,10 @@ export function inputValue(n: Block, values: Record<string, string>): unknown {
 
 type Step = { out: unknown; path: string; message: string };
 
+/**
+ * @deprecated Adaptador legado de execução direta de grafo.
+ * A partir da Fase 4, a simulação e os geradores utilizam compile() e o interpretador da ProgramIR.
+ */
 export function run(
   g: Graph,
   start: string,
@@ -90,7 +95,7 @@ export function run(
         out = { error: true, msg, message: msg, type: c.type || 'toast' };
 
         const retriesKey = `__retries_${n.id}`;
-        const retryCount = Number(store[retriesKey]?.[0] || 0);
+        const retryCount = Number((store[retriesKey] as unknown[])?.[0] || 0);
         const maxRetries = Number(c.maxRetries || 1);
         const retryEdge = g.edges.find((e) => e.source === n.id && e.sourceHandle === 'retry');
         const hasRetryEdge = Boolean(
@@ -108,6 +113,157 @@ export function run(
           path = 'onDismiss';
           message = `Alerta de erro: "${msg}"`;
         }
+        break;
+      }
+      case 'notify': {
+        const type = c.type || 'success';
+        const msg = c.message || 'Operação realizada com sucesso!';
+        out = { notified: true, type, message: msg };
+        path = 'next';
+        message = `Notificação [${type.toUpperCase()}]: ${msg}`;
+        result.messages.push(`[${type.toUpperCase()}] ${msg}`);
+        break;
+      }
+      case 'state': {
+        const op = c.operation || 'set';
+        const key = String(read(n.id, 'key') || c.key || 'variavel');
+        const valInput = read(n.id, 'value');
+        const val = valInput !== undefined ? valInput : c.value || '';
+
+        if (op === 'set') {
+          store[key] = val;
+          out = val;
+          message = `Estado [${key}] atualizado: ${JSON.stringify(val)}`;
+        } else if (op === 'toggle') {
+          store[key] = !store[key];
+          out = store[key];
+          message = `Estado [${key}] alternado para: ${store[key]}`;
+        } else if (op === 'clear' || op === 'remove') {
+          delete store[key];
+          out = null;
+          message = `Estado [${key}] limpo`;
+        } else {
+          out = store[key] !== undefined ? store[key] : val;
+          message = `Estado [${key}] lido: ${JSON.stringify(out)}`;
+        }
+        path = 'next';
+        break;
+      }
+      case 'validator': {
+        const rule = c.rule || 'required';
+        const param = c.param || '';
+        let value = read(n.id, 'value');
+        if (value === undefined || value === '') {
+          const inEdge = g.edges.find(
+            (e) =>
+              e.target === n.id && !isExecInput(e.targetHandle) && Object.hasOwn(outputs, e.source),
+          );
+          if (inEdge && outputs[inEdge.source] !== undefined) {
+            value = outputs[inEdge.source];
+          }
+        }
+        if (value === undefined || value === '') {
+          const screenInputs = g.nodes.filter(
+            (nodeItem) =>
+              nodeItem.data.kind === 'input' &&
+              nodeItem.data.config.screenId === n.data.config.screenId,
+          );
+          if (screenInputs.length > 0) {
+            value = inputValue(screenInputs[0], values);
+          }
+        }
+        if (value === undefined || value === '') {
+          value = c.value;
+        }
+
+        const strVal = String(value ?? '');
+        let isValid = false;
+        if (rule === 'required') {
+          isValid = strVal.trim().length > 0;
+        } else if (rule === 'email') {
+          isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(strVal);
+        } else if (rule === 'minLength') {
+          isValid = strVal.length >= Number(param || 6);
+        } else if (rule === 'maxLength') {
+          isValid = strVal.length <= Number(param || 100);
+        } else if (rule === 'numeric') {
+          isValid = !isNaN(Number(strVal)) && strVal.trim() !== '';
+        } else if (rule === 'cpf') {
+          const cleanCpf = strVal.replace(/\D/g, '');
+          isValid = cleanCpf.length === 11 && !/^(\d)\1{10}$/.test(cleanCpf);
+        } else if (rule === 'regex') {
+          try {
+            isValid = new RegExp(param || '.*').test(strVal);
+          } catch {
+            isValid = false;
+          }
+        } else {
+          isValid = Boolean(value);
+        }
+
+        const errorMsg = isValid ? null : c.message || 'Validação falhou';
+        out = { valid: isValid, value, error: errorMsg };
+        path = isValid ? 'valid' : 'invalid';
+        message = isValid
+          ? `Validador [${rule}]: Aprovado ("${strVal}")`
+          : `Validador [${rule}]: Falha - ${errorMsg}`;
+        break;
+      }
+      case 'switch': {
+        let value = read(n.id, 'value');
+        if (value === undefined || value === '') {
+          const inEdge = g.edges.find(
+            (e) =>
+              e.target === n.id && !isExecInput(e.targetHandle) && Object.hasOwn(outputs, e.source),
+          );
+          if (inEdge && outputs[inEdge.source] !== undefined) {
+            value = outputs[inEdge.source];
+          }
+        }
+        if (value === undefined || value === '') {
+          value = c.value;
+        }
+        const strVal = String(value ?? '')
+          .trim()
+          .toLowerCase();
+        const cases = (c.cases || '')
+          .split(',')
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean);
+
+        const outEdges = g.edges.filter((e) => e.source === n.id);
+        let matchedHandle = '';
+        const directMatchEdge = outEdges.find(
+          (e) => (e.sourceHandle || '').toLowerCase() === strVal,
+        );
+        if (directMatchEdge) {
+          matchedHandle = directMatchEdge.sourceHandle || '';
+        } else {
+          const caseIndex = cases.indexOf(strVal);
+          if (caseIndex !== -1) {
+            const targetCaseHandle = `case${caseIndex + 1}`;
+            if (outEdges.some((e) => e.sourceHandle === targetCaseHandle)) {
+              matchedHandle = targetCaseHandle;
+            }
+          }
+        }
+
+        if (!matchedHandle) {
+          matchedHandle = outEdges.some((e) => e.sourceHandle === 'default')
+            ? 'default'
+            : outEdges[0]?.sourceHandle || 'default';
+        }
+
+        path = matchedHandle;
+        out = value;
+        message = `Switch: valor "${String(value)}" seguiu caminho "${path}"`;
+        break;
+      }
+      case 'delay': {
+        const duration = Number(read(n.id, 'duration') || c.duration || 1000);
+        out = { delayed: true, duration };
+        path = 'next';
+        message = `Atraso / Timer de ${duration}ms executado`;
         break;
       }
       case 'input':
@@ -384,9 +540,51 @@ export function run(
         nextEdge = g.edges.find(
           (e) => e.source === n.id && (e.sourceHandle === 'then' || e.sourceHandle === 'next'),
         );
+      } else if (path === 'next') {
+        nextEdge = g.edges.find(
+          (e) =>
+            e.source === n.id &&
+            (e.sourceHandle === 'next' ||
+              e.sourceHandle === 'then' ||
+              e.sourceHandle === 'onDismiss'),
+        );
       } else if (path === 'onDismiss') {
         nextEdge = g.edges.find(
           (e) => e.source === n.id && (e.sourceHandle === 'then' || e.sourceHandle === 'next'),
+        );
+      } else if (path === 'valid') {
+        nextEdge = g.edges.find(
+          (e) =>
+            e.source === n.id &&
+            (e.sourceHandle === 'valid' ||
+              e.sourceHandle === 'then' ||
+              e.sourceHandle === 'next' ||
+              e.sourceHandle === 'true'),
+        );
+      } else if (path === 'invalid') {
+        nextEdge = g.edges.find(
+          (e) =>
+            e.source === n.id &&
+            (e.sourceHandle === 'invalid' ||
+              e.sourceHandle === 'error' ||
+              e.sourceHandle === 'false'),
+        );
+      } else if (path === 'default') {
+        nextEdge = g.edges.find(
+          (e) =>
+            e.source === n.id &&
+            (e.sourceHandle === 'default' ||
+              e.sourceHandle === 'then' ||
+              e.sourceHandle === 'next'),
+        );
+      } else if (path.startsWith('case')) {
+        nextEdge = g.edges.find(
+          (e) =>
+            e.source === n.id &&
+            (e.sourceHandle === path ||
+              e.sourceHandle === 'then' ||
+              e.sourceHandle === 'next' ||
+              e.sourceHandle === 'default'),
         );
       }
     }

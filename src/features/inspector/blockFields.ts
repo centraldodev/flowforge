@@ -89,6 +89,56 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
       ],
     },
   ],
+  notify: [
+    {
+      key: 'type',
+      label: 'Tipo de Notificação',
+      options: [
+        { value: 'success', label: 'Sucesso (Verde)' },
+        { value: 'warning', label: 'Aviso (Amarelo)' },
+        { value: 'info', label: 'Informativo (Azul)' },
+        { value: 'error', label: 'Erro (Vermelho)' },
+      ],
+    },
+    { key: 'message', label: 'Mensagem da notificação' },
+    { key: 'duration', label: 'Duração em tela (ms)' },
+  ],
+  state: [
+    {
+      key: 'operation',
+      label: 'Operação',
+      options: [
+        { value: 'set', label: 'Salvar valor (Set)' },
+        { value: 'get', label: 'Ler valor (Get)' },
+        { value: 'toggle', label: 'Alternar booleano (Toggle)' },
+        { value: 'clear', label: 'Limpar variável (Clear)' },
+      ],
+    },
+    { key: 'key', label: 'Nome da variável / Chave' },
+    { key: 'value', label: 'Valor fixo ou padrão' },
+  ],
+  validator: [
+    {
+      key: 'rule',
+      label: 'Regra de Validação',
+      options: [
+        { value: 'required', label: 'Obrigatório (Não vazio)' },
+        { value: 'email', label: 'Formato de E-mail' },
+        { value: 'minLength', label: 'Tamanho Mínimo (caracteres)' },
+        { value: 'maxLength', label: 'Tamanho Máximo (caracteres)' },
+        { value: 'numeric', label: 'Numérico' },
+        { value: 'cpf', label: 'CPF (11 dígitos)' },
+        { value: 'regex', label: 'Expressão Regular (Regex)' },
+      ],
+    },
+    { key: 'param', label: 'Parâmetro da regra (mín, máx ou padrão regex)' },
+    { key: 'message', label: 'Mensagem de erro se inválido' },
+  ],
+  switch: [
+    { key: 'cases', label: 'Casos possíveis (separados por vírgula)' },
+    { key: 'defaultCase', label: 'Rótulo do caso padrão' },
+  ],
+  delay: [{ key: 'duration', label: 'Tempo de espera (ms)' }],
   navigate: [{ key: 'target', label: 'Tela de destino', options: 'screens' }],
   api: [
     { key: 'method', label: 'Método HTTP', options: same('GET', 'POST', 'PUT', 'PATCH', 'DELETE') },
@@ -100,13 +150,124 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
       key: 'operation',
       label: 'Operação',
       options: [
-        { value: 'query', label: 'Consultar todos' },
-        { value: 'insert', label: 'Inserir registro' },
+        { value: 'query', label: 'Consultar (Query)' },
+        { value: 'get', label: 'Buscar por ID (Get)' },
+        { value: 'insert', label: 'Inserir registro (Insert)' },
+        { value: 'update', label: 'Atualizar registro (Update)' },
+        { value: 'delete', label: 'Excluir registro (Delete)' },
       ],
     },
     { key: 'table', label: 'Nome da tabela' },
+    { key: 'filterField', label: 'Campo do filtro (Query)' },
+    { key: 'filterValue', label: 'Valor do filtro (Query)' },
+    { key: 'limit', label: 'Limite / Page size (Query)' },
+    { key: 'offset', label: 'Deslocamento / Offset (Query)' },
+    { key: 'orderBy', label: 'Ordenar por (Query)' },
+    {
+      key: 'orderDirection',
+      label: 'Direção da ordenação',
+      options: [
+        { value: 'asc', label: 'Crescente (ASC)' },
+        { value: 'desc', label: 'Decrescente (DESC)' },
+      ],
+    },
+    { key: 'recordId', label: 'ID do registro (Get/Update/Delete)' },
     { key: 'mock', label: 'Registros iniciais (array JSON)', area: true },
   ],
+  constant: [
+    {
+      key: 'valueType',
+      label: 'Tipo da Constante',
+      options: [
+        { value: 'string', label: 'Texto (string)' },
+        { value: 'number', label: 'Número (number)' },
+        { value: 'boolean', label: 'Booleano (boolean)' },
+        { value: 'json', label: 'JSON / Objeto' },
+      ],
+    },
+    { key: 'value', label: 'Valor da Constante' },
+  ],
+  math: [
+    {
+      key: 'operation',
+      label: 'Operação Matemática',
+      options: [
+        { value: 'add', label: 'Soma (+)' },
+        { value: 'sub', label: 'Subtração (-)' },
+        { value: 'mul', label: 'Multiplicação (*)' },
+        { value: 'div', label: 'Divisão (/)' },
+        { value: 'mod', label: 'Resto da divisão (%)' },
+        { value: 'pow', label: 'Potência (**)' },
+        { value: 'round', label: 'Arredondar' },
+        { value: 'abs', label: 'Valor absoluto' },
+      ],
+    },
+    { key: 'a', label: 'Valor A (padrão se desconectado)' },
+    { key: 'b', label: 'Valor B (padrão se desconectado)' },
+  ],
+  text: [
+    {
+      key: 'operation',
+      label: 'Operação de Texto',
+      options: [
+        { value: 'concat', label: 'Concatenar / Juntar' },
+        { value: 'upper', label: 'Converter para MAIÚSCULAS' },
+        { value: 'lower', label: 'Converter para minúsculas' },
+        { value: 'trim', label: 'Aparar espaços nas pontas' },
+        { value: 'split', label: 'Dividir por caractere' },
+        { value: 'replace', label: 'Substituir termo' },
+      ],
+    },
+    { key: 'value', label: 'Texto base' },
+    { key: 'arg', label: 'Argumento extra / Separador / Substituto' },
+  ],
+  compare: [
+    {
+      key: 'operator',
+      label: 'Operador de Comparação',
+      options: [
+        { value: 'eq', label: 'Igual a (==)' },
+        { value: 'neq', label: 'Diferente de (!=)' },
+        { value: 'gt', label: 'Maior que (>)' },
+        { value: 'gte', label: 'Maior ou igual a (>=)' },
+        { value: 'lt', label: 'Menor que (<)' },
+        { value: 'lte', label: 'Menor ou igual a (<=)' },
+        { value: 'contains', label: 'Texto contém substring' },
+      ],
+    },
+    { key: 'left', label: 'Valor à Esquerda (A)' },
+    { key: 'right', label: 'Valor à Direita (B)' },
+  ],
+  boolean: [
+    {
+      key: 'operation',
+      label: 'Operação Lógica',
+      options: [
+        { value: 'and', label: 'E lógico (AND)' },
+        { value: 'or', label: 'OU lógico (OR)' },
+        { value: 'not', label: 'NÃO lógico (NOT)' },
+      ],
+    },
+    {
+      key: 'a',
+      label: 'Valor A',
+      options: [
+        { value: 'true', label: 'Verdadeiro' },
+        { value: 'false', label: 'Falso' },
+      ],
+    },
+    {
+      key: 'b',
+      label: 'Valor B',
+      options: [
+        { value: 'true', label: 'Verdadeiro' },
+        { value: 'false', label: 'Falso' },
+      ],
+      visible: (c) => c.operation !== 'not',
+    },
+  ],
+  object: [{ key: 'fields', label: 'Campos do objeto (JSON ou chaves separadas por vírgula)' }],
+  array: [{ key: 'items', label: 'Itens iniciais (separados por vírgula)' }],
 };
 
 const CODE_FIELD: FieldSpec = {

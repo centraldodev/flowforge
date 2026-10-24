@@ -4,7 +4,7 @@ import { download } from './download';
 import { addPythonProject } from './python';
 import { addTypeScriptProject } from './typescript';
 
-export { download, downloadGraph } from './download';
+export { download, downloadGraph, downloadWorkflowScript, downloadScreenScript } from './download';
 
 export type ExportLanguage = 'typescript' | 'python';
 

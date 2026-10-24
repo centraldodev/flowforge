@@ -43,9 +43,11 @@ export function Connections({
     onAddPort({ id: uniquePortId(name, portIds), name, direction, type });
   }
 
-  function addCustom(name: string, direction: 'input' | 'output') {
-    const base = name.toLowerCase().replace(/\s+/g, '_');
-    onAddPort({ id: uniquePortId(base, portIds), name, direction });
+  function addCustom(port: CustomPort) {
+    onAddPort({
+      ...port,
+      id: uniquePortId(port.id, portIds),
+    });
   }
 
   return (

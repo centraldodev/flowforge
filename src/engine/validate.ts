@@ -1,5 +1,5 @@
 import { catalog, interfaceKinds } from './catalog';
-import { getBlockPorts, isExecInput, isExecOutput } from './ports';
+import { validateConnection } from './ports';
 import { reachableActions, screenRoutes } from './routes';
 import type { Block, Graph } from './types';
 
@@ -75,19 +75,8 @@ export function validate(g: Graph): string[] {
   }
 
   for (const e of g.edges) {
-    const a = g.nodes.find((n) => n.id === e.source);
-    const b = g.nodes.find((n) => n.id === e.target);
-    if (!a || !b) {
-      errors.push('Conexão com bloco inexistente.');
-      continue;
-    }
-    if (
-      !getBlockPorts(a).outputs.includes(e.sourceHandle || '') ||
-      !getBlockPorts(b).inputs.includes(e.targetHandle || '')
-    )
-      errors.push('Porta de conexão inválida.');
-    if (isExecInput(e.targetHandle) !== isExecOutput(e.sourceHandle))
-      errors.push('Conecte eventos (Lado A) a ouvintes de execução (Lado B) e dados a dados.');
+    const err = validateConnection(g, e);
+    if (err) errors.push(err);
   }
 
   return [...new Set(errors)];

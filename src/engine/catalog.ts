@@ -70,6 +70,68 @@ export const catalog: Record<Kind, BlockDefinition> = {
     color: '#f87171',
     defaults: { message: 'Ocorreu um erro no fluxo', type: 'toast' },
   },
+  notify: {
+    name: 'Notificação',
+    category: 'Lógica',
+    description: 'Exibe alerta visual ou mensagem toast (sucesso, aviso, info, erro)',
+    icon: '🔔',
+    color: '#34d399',
+    defaults: {
+      type: 'success',
+      message: 'Operação realizada com sucesso!',
+      duration: '3000',
+      screenId: '',
+    },
+  },
+  state: {
+    name: 'Estado / Store',
+    category: 'Dados',
+    description: 'Armazena, lê, alterna ou remove variáveis em memória',
+    icon: '🗄️',
+    color: '#818cf8',
+    defaults: {
+      operation: 'set',
+      key: 'variavel',
+      value: '',
+      screenId: '',
+    },
+  },
+  validator: {
+    name: 'Validador',
+    category: 'Lógica',
+    description: 'Valida dados com regras (obrigatório, e-mail, tamanho, número)',
+    icon: '✓',
+    color: '#fbbf24',
+    defaults: {
+      rule: 'required',
+      param: '',
+      message: 'Campo obrigatório ou formato inválido',
+      screenId: '',
+    },
+  },
+  switch: {
+    name: 'Alternador / Switch',
+    category: 'Lógica',
+    description: 'Roteia o fluxo para múltiplos caminhos com base no valor avaliado',
+    icon: '⑂',
+    color: '#f472b6',
+    defaults: {
+      cases: 'opcao1, opcao2',
+      defaultCase: 'default',
+      screenId: '',
+    },
+  },
+  delay: {
+    name: 'Atraso / Timer',
+    category: 'Lógica',
+    description: 'Aguarda um intervalo de tempo em milissegundos antes de prosseguir',
+    icon: '⏱️',
+    color: '#38bdf8',
+    defaults: {
+      duration: '1000',
+      screenId: '',
+    },
+  },
   navigate: {
     name: 'Navegação',
     category: 'Lógica',
@@ -81,12 +143,20 @@ export const catalog: Record<Kind, BlockDefinition> = {
   database: {
     name: 'Banco de dados',
     category: 'Dados',
-    description: 'Consultar ou inserir registros em memória',
+    description:
+      'Operações CRUD completas (query, get, insert, update, delete) com paginação e filtros',
     icon: '▤',
     color: DATA,
     defaults: {
       operation: 'query',
       table: 'usuarios',
+      filterField: '',
+      filterValue: '',
+      limit: '10',
+      offset: '0',
+      orderBy: '',
+      orderDirection: 'asc',
+      recordId: '',
       mock: JSON.stringify(
         [
           {
@@ -117,6 +187,62 @@ export const catalog: Record<Kind, BlockDefinition> = {
     color: DATA,
     defaults: { method: 'GET', url: '/api/example', mock: '{"ok":true}' },
   },
+  constant: {
+    name: 'Constante / Literal',
+    category: 'Dados',
+    description: 'Valor fixo tipado (texto, número, booleano ou json)',
+    icon: '🔤',
+    color: '#a78bfa',
+    defaults: { valueType: 'string', value: '' },
+  },
+  math: {
+    name: 'Operação Matemática',
+    category: 'Lógica',
+    description: 'Cálculos matemáticos (soma, subtração, multiplicação, divisão)',
+    icon: '➕',
+    color: '#fb923c',
+    defaults: { operation: 'add', a: '0', b: '0' },
+  },
+  text: {
+    name: 'Operação de Texto',
+    category: 'Lógica',
+    description: 'Transformação de texto (maiusc., minusc., aparar, juntar)',
+    icon: '✂️',
+    color: '#34d399',
+    defaults: { operation: 'concat', value: '', arg: '' },
+  },
+  compare: {
+    name: 'Comparação',
+    category: 'Lógica',
+    description: 'Compara dois valores e ramifica o fluxo',
+    icon: '⚖️',
+    color: '#f4bf70',
+    defaults: { operator: 'eq', left: '', right: '' },
+  },
+  boolean: {
+    name: 'Lógica Booleana',
+    category: 'Lógica',
+    description: 'Operações lógicas E (AND), OU (OR) e NÃO (NOT)',
+    icon: '☯',
+    color: '#f472b6',
+    defaults: { operation: 'and', a: 'false', b: 'false' },
+  },
+  object: {
+    name: 'Objeto',
+    category: 'Dados',
+    description: 'Cria ou manipula um dicionário chave/valor',
+    icon: '📦',
+    color: '#60a5fa',
+    defaults: { fields: 'nome, email' },
+  },
+  array: {
+    name: 'Lista / Array',
+    category: 'Dados',
+    description: 'Cria uma lista a partir de itens conectados',
+    icon: '📑',
+    color: '#38bdf8',
+    defaults: { items: '' },
+  },
 };
 
 export const categories = ['Interface', 'Lógica', 'Dados'] as const;
@@ -127,17 +253,29 @@ export const visibleKinds: Kind[] = [
   'input',
   'function',
   'condition',
+  'validator',
+  'switch',
+  'delay',
+  'notify',
+  'state',
   'auth',
   'error',
   'database',
   'api',
+  'constant',
+  'math',
+  'text',
+  'compare',
+  'boolean',
+  'object',
+  'array',
 ];
 
 /** Blocos que pertencem a uma tela (têm `config.screenId`). */
 export const interfaceKinds: Kind[] = ['input', 'button'];
 
 /** Blocos que fornecem um valor diretamente, sem precisar ser executados. */
-export const valueKinds: Kind[] = ['input'];
+export const valueKinds: Kind[] = ['input', 'constant'];
 
 /** Blocos cuja integração é simulada. */
 export const simulatedKinds: Kind[] = ['auth', 'api', 'database'];

@@ -1,26 +1,35 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { run, parseGraph, type Store } from './engine';
+import { createProgram } from './program';
 import { ScreenFields } from './ScreenFields';
 import './style.css';
 import graph from './graph.json';
+import type { Graph } from './engine/types';
 
-const g = parseGraph(JSON.stringify(graph));
+const g = graph as unknown as Graph;
+const program = createProgram();
 
 function App() {
-  const [screen, setScreen] = useState(g.nodes.find((n) => n.data.kind === 'screen')?.id);
+  const [screen, setScreen] = useState(
+    program.getScreen() || g.nodes.find((n) => n.data.kind === 'screen')?.id,
+  );
   const [values, setValues] = useState<Record<string, string>>({});
+  const [store, setStore] = useState<Record<string, unknown>>(program.getState() || {});
   const [log, setLog] = useState('');
   const [messages, setMessages] = useState<string[]>([]);
-  const store = useRef<Store>({});
   const page = g.nodes.find((n) => n.id === screen);
 
-  function action(id: string) {
+  async function action(id: string) {
     try {
-      const r = run(g, id, values, store.current, screen);
+      const r = await program.dispatch(id, values);
       if (r.screen) setScreen(r.screen);
       setMessages(r.messages);
-      setLog(r.trace.map((t) => t.label + ': ' + t.message).join('\n'));
+      setStore({ ...program.getState() });
+      setLog(
+        r.trace
+          .map((t: { label: string; message: string }) => `${t.label}: ${t.message}`)
+          .join('\n'),
+      );
     } catch (e) {
       setLog(String(e));
     }
@@ -28,12 +37,13 @@ function App() {
 
   return (
     <main>
-      <small>PROTÓTIPO · Integrações simuladas</small>
+      <small>PROTÓTIPO · Executado a partir da ProgramIR</small>
       <h1>{page?.data.config.title || page?.data.label || 'Adicione uma tela'}</h1>
       <ScreenFields
         graph={g}
         screen={screen}
         values={values}
+        store={store}
         onChange={(id, value) => setValues((v) => ({ ...v, [id]: value }))}
         onAction={action}
       />

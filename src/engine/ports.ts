@@ -1,4 +1,13 @@
-import type { Block, CustomPort, Kind } from './types';
+import type {
+  Block,
+  CustomPort,
+  Graph,
+  Kind,
+  PortCardinality,
+  PortDefinition,
+  PortMode,
+  ValueType,
+} from './types';
 
 export type Ports = { inputs: string[]; outputs: string[] };
 
@@ -10,6 +19,12 @@ export const EXEC_OUTPUTS = [
   'next',
   'true',
   'false',
+  'valid',
+  'invalid',
+  'default',
+  'case1',
+  'case2',
+  'case3',
   'onSuccess',
   'onError',
   'success',
@@ -49,34 +64,6 @@ const KNOWN_EXEC_INPUTS = new Set([
   'ontrigger',
 ]);
 
-export const isExecInput = (handle?: string | null): boolean => {
-  const h = (handle || '').toLowerCase();
-  return (
-    EXEC_INPUTS.some((p) => p.toLowerCase() === h) ||
-    KNOWN_EXEC_INPUTS.has(h) ||
-    h.includes('listener') ||
-    h.includes('handler') ||
-    h.includes('trigger') ||
-    h === 'call' ||
-    h === 'exec' ||
-    h === 'execute' ||
-    h === 'onenter'
-  );
-};
-
-export const isExecOutput = (handle?: string | null): boolean => {
-  const h = (handle || '').toLowerCase();
-  if (KNOWN_EXEC_INPUTS.has(h)) return false;
-  return (
-    EXEC_OUTPUTS.some((p) => p.toLowerCase() === h) ||
-    h.startsWith('on') ||
-    h.endsWith('click') ||
-    h === 'true' ||
-    h === 'false' ||
-    h === 'then'
-  );
-};
-
 export const DEFAULT_PORT_TYPES: Record<string, string> = {
   // Events / Triggers
   onClick: 'Event',
@@ -90,6 +77,13 @@ export const DEFAULT_PORT_TYPES: Record<string, string> = {
   onChange: 'Event',
   onOpen: 'Event',
   then: 'Event',
+  next: 'Event',
+  valid: 'Event',
+  invalid: 'Event',
+  default: 'Event',
+  case1: 'Event',
+  case2: 'Event',
+  case3: 'Event',
   execute: 'Event',
   exec: 'Event',
   listener: 'Event',
@@ -107,6 +101,9 @@ export const DEFAULT_PORT_TYPES: Record<string, string> = {
   error: 'Error',
   route: 'string',
   value: 'string',
+  key: 'string',
+  stored: 'any',
+  duration: 'number',
   data: 'object',
   response: 'object',
   body: 'object',
@@ -119,45 +116,1226 @@ export function getPortType(portId: string, customType?: string): string {
   return DEFAULT_PORT_TYPES[portId] || '';
 }
 
-const table: Record<Kind, Ports> = {
-  // Interface
-  screen: { inputs: ['onEnter', 'user', 'listener', 'exec'], outputs: [] },
-  button: { inputs: ['disabled'], outputs: ['onClick', 'next', 'value'] },
-  input: { inputs: ['disabled'], outputs: ['value', 'onChange'] },
-  // Lógica
-  function: {
-    inputs: ['execute', 'message', 'listener', 'listenerClick', 'exec', 'value'],
-    outputs: ['onDismiss', 'then', 'next', 'result', 'value'],
-  },
-  condition: {
-    inputs: ['execute', 'listener', 'listenerClick', 'exec', 'value'],
-    outputs: ['true', 'false', 'value'],
-  },
-  auth: {
-    inputs: ['trigger', 'email', 'password', 'token', 'listener', 'listenerClick', 'exec'],
-    outputs: ['onSuccess', 'onError', 'user', 'then', 'next', 'value'],
-  },
-  error: {
-    inputs: ['execute', 'msg'],
-    outputs: ['retry', 'msg'],
-  },
-  navigate: {
-    inputs: ['execute', 'route', 'listener', 'listenerClick', 'exec'],
-    outputs: ['onComplete', 'then', 'next', 'value'],
-  },
-  // Dados
-  database: {
-    inputs: ['execute', 'listener', 'listenerClick', 'exec', 'value', 'data', 'user'],
-    outputs: ['onSuccess', 'onError', 'data', 'then', 'next', 'value'],
-  },
-  api: {
-    inputs: ['execute', 'body', 'listener', 'listenerClick', 'exec'],
-    outputs: ['onSuccess', 'onError', 'response', 'then', 'next', 'value'],
-  },
+/** Converte representação textual de tipo em ValueType estruturado */
+export function parseValueType(typeStr?: string): ValueType {
+  const s = (typeStr || '').trim();
+  if (!s || s === 'any') return { kind: 'any' };
+  if (s === 'string') return { kind: 'string' };
+  if (s === 'number') return { kind: 'number' };
+  if (s === 'boolean') return { kind: 'boolean' };
+  if (s === 'null') return { kind: 'null' };
+  if (s.toLowerCase() === 'error') return { kind: 'error' };
+  if (s === 'object') return { kind: 'object' };
+  if (s.endsWith('[]')) {
+    return { kind: 'array', item: parseValueType(s.slice(0, -2)) };
+  }
+  if (s.includes('|')) {
+    const members = s.split('|').map((part) => parseValueType(part.trim()));
+    return { kind: 'union', members };
+  }
+  if (s === 'Event') return { kind: 'any' };
+  // Tipo objeto nominal (ex: 'User', 'Product')
+  return { kind: 'object', name: s };
+}
+
+/** Formata ValueType para exibição legível na interface e em mensagens de diagnóstico */
+export function formatValueType(vt?: ValueType): string {
+  if (!vt) return 'any';
+  switch (vt.kind) {
+    case 'any':
+      return 'any';
+    case 'string':
+      return 'string';
+    case 'number':
+      return 'number';
+    case 'boolean':
+      return 'boolean';
+    case 'null':
+      return 'null';
+    case 'error':
+      return 'error';
+    case 'object':
+      return vt.name ? vt.name : 'object';
+    case 'array':
+      return `${formatValueType(vt.item)}[]`;
+    case 'union':
+      return vt.members.map(formatValueType).join(' | ');
+  }
+}
+
+/** Verifica compatibilidade formal de tipos entre origem e destino */
+export function isTypeCompatible(source?: ValueType, target?: ValueType): boolean {
+  if (!source || !target) return true;
+  if (target.kind === 'any' || source.kind === 'any') return true;
+
+  if (source.kind === 'union') {
+    return source.members.every((m) => isTypeCompatible(m, target));
+  }
+  if (target.kind === 'union') {
+    return target.members.some((m) => isTypeCompatible(source, m));
+  }
+
+  if (source.kind !== target.kind) return false;
+
+  if (source.kind === 'object' && target.kind === 'object') {
+    if (target.name) {
+      return source.name === target.name;
+    }
+    return true;
+  }
+
+  if (source.kind === 'array' && target.kind === 'array') {
+    return isTypeCompatible(source.item, target.item);
+  }
+
+  return true;
+}
+
+/** Catálogo formal de portas para todos os 15 Kinds do FlowForge */
+export const PORT_DEFINITIONS: Record<Kind, PortDefinition[]> = {
+  screen: [
+    { id: 'onEnter', name: 'onEnter', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'user',
+      name: 'user',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'object', name: 'User' },
+    },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'exec', name: 'exec', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'routes', name: 'routes', direction: 'output', mode: 'control', cardinality: 'many' },
+  ],
+  button: [
+    {
+      id: 'disabled',
+      name: 'disabled',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'boolean' },
+    },
+    { id: 'onClick', name: 'onClick', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'next', name: 'next', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'string' },
+    },
+  ],
+  input: [
+    {
+      id: 'disabled',
+      name: 'disabled',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'boolean' },
+    },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'string' },
+    },
+    { id: 'onChange', name: 'onChange', direction: 'output', mode: 'control', cardinality: 'many' },
+  ],
+  function: [
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'message',
+      name: 'message',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'string' },
+    },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'listenerClick',
+      name: 'listenerClick',
+      direction: 'input',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    { id: 'exec', name: 'exec', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'any' },
+    },
+    {
+      id: 'onDismiss',
+      name: 'onDismiss',
+      direction: 'output',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    { id: 'then', name: 'then', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'next', name: 'next', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'result',
+      name: 'result',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'any' },
+    },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'any' },
+    },
+  ],
+  condition: [
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'listenerClick',
+      name: 'listenerClick',
+      direction: 'input',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    { id: 'exec', name: 'exec', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'any' },
+    },
+    { id: 'true', name: 'true', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'false', name: 'false', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'any' },
+    },
+  ],
+  validator: [
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'listenerClick',
+      name: 'listenerClick',
+      direction: 'input',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    { id: 'exec', name: 'exec', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'any' },
+    },
+    { id: 'valid', name: 'valid', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'invalid', name: 'invalid', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'next', name: 'next', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'then', name: 'then', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'any' },
+    },
+    {
+      id: 'error',
+      name: 'error',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'string' },
+    },
+  ],
+  switch: [
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'listenerClick',
+      name: 'listenerClick',
+      direction: 'input',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    { id: 'exec', name: 'exec', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'any' },
+    },
+    { id: 'case1', name: 'case1', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'case2', name: 'case2', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'case3', name: 'case3', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'default', name: 'default', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'any' },
+    },
+  ],
+  delay: [
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'listenerClick',
+      name: 'listenerClick',
+      direction: 'input',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    { id: 'exec', name: 'exec', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'duration',
+      name: 'duration',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'number' },
+    },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'any' },
+    },
+    { id: 'next', name: 'next', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'then', name: 'then', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'onComplete',
+      name: 'onComplete',
+      direction: 'output',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'any' },
+    },
+  ],
+  auth: [
+    { id: 'trigger', name: 'trigger', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'email',
+      name: 'email',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'string' },
+    },
+    {
+      id: 'password',
+      name: 'password',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'string' },
+    },
+    {
+      id: 'token',
+      name: 'token',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'string' },
+    },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'listenerClick',
+      name: 'listenerClick',
+      direction: 'input',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    { id: 'exec', name: 'exec', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'onSuccess',
+      name: 'onSuccess',
+      direction: 'output',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    {
+      id: 'onError',
+      name: 'onError',
+      direction: 'output',
+      mode: 'error',
+      cardinality: 'many',
+      valueType: { kind: 'error' },
+    },
+    {
+      id: 'user',
+      name: 'user',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'object', name: 'User' },
+    },
+    { id: 'then', name: 'then', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'next', name: 'next', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'any' },
+    },
+  ],
+  error: [
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'msg',
+      name: 'msg',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'string' },
+    },
+    { id: 'retry', name: 'retry', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'msg',
+      name: 'msg',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'string' },
+    },
+  ],
+  notify: [
+    { id: 'trigger', name: 'trigger', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'listenerClick',
+      name: 'listenerClick',
+      direction: 'input',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    { id: 'exec', name: 'exec', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'message',
+      name: 'message',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'string' },
+    },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'any' },
+    },
+    { id: 'next', name: 'next', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'onDismiss',
+      name: 'onDismiss',
+      direction: 'output',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    { id: 'then', name: 'then', direction: 'output', mode: 'control', cardinality: 'many' },
+  ],
+  navigate: [
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'route',
+      name: 'route',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'string' },
+    },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'listenerClick',
+      name: 'listenerClick',
+      direction: 'input',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    { id: 'exec', name: 'exec', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'onComplete',
+      name: 'onComplete',
+      direction: 'output',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    { id: 'then', name: 'then', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'next', name: 'next', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'string' },
+    },
+  ],
+  state: [
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'listenerClick',
+      name: 'listenerClick',
+      direction: 'input',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    { id: 'exec', name: 'exec', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'any' },
+    },
+    {
+      id: 'key',
+      name: 'key',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'string' },
+    },
+    { id: 'next', name: 'next', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'then', name: 'then', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'any' },
+    },
+    {
+      id: 'stored',
+      name: 'stored',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'any' },
+    },
+  ],
+  database: [
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'listenerClick',
+      name: 'listenerClick',
+      direction: 'input',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    { id: 'exec', name: 'exec', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'any' },
+    },
+    {
+      id: 'data',
+      name: 'data',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'any' },
+    },
+    {
+      id: 'user',
+      name: 'user',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'object', name: 'User' },
+    },
+    {
+      id: 'id',
+      name: 'id',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'any' },
+    },
+    {
+      id: 'filter',
+      name: 'filter',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'any' },
+    },
+    {
+      id: 'limit',
+      name: 'limit',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'number' },
+    },
+    {
+      id: 'offset',
+      name: 'offset',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'number' },
+    },
+    {
+      id: 'onSuccess',
+      name: 'onSuccess',
+      direction: 'output',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    {
+      id: 'onError',
+      name: 'onError',
+      direction: 'output',
+      mode: 'error',
+      cardinality: 'many',
+      valueType: { kind: 'error' },
+    },
+    {
+      id: 'data',
+      name: 'data',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'any' },
+    },
+    { id: 'then', name: 'then', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'next', name: 'next', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'any' },
+    },
+    {
+      id: 'total',
+      name: 'total',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'number' },
+    },
+    {
+      id: 'deletedCount',
+      name: 'deletedCount',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'number' },
+    },
+  ],
+  api: [
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'body',
+      name: 'body',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'any' },
+    },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'listenerClick',
+      name: 'listenerClick',
+      direction: 'input',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    { id: 'exec', name: 'exec', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'onSuccess',
+      name: 'onSuccess',
+      direction: 'output',
+      mode: 'control',
+      cardinality: 'many',
+    },
+    {
+      id: 'onError',
+      name: 'onError',
+      direction: 'output',
+      mode: 'error',
+      cardinality: 'many',
+      valueType: { kind: 'error' },
+    },
+    {
+      id: 'response',
+      name: 'response',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'any' },
+    },
+    { id: 'then', name: 'then', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'next', name: 'next', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'any' },
+    },
+  ],
+  constant: [
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'then', name: 'then', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'next', name: 'next', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'any' },
+    },
+  ],
+  math: [
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'a',
+      name: 'a',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'number' },
+    },
+    {
+      id: 'b',
+      name: 'b',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'number' },
+    },
+    { id: 'then', name: 'then', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'next', name: 'next', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'result',
+      name: 'result',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'number' },
+    },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'number' },
+    },
+  ],
+  text: [
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'string' },
+    },
+    {
+      id: 'arg',
+      name: 'arg',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'string' },
+    },
+    { id: 'then', name: 'then', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'next', name: 'next', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'result',
+      name: 'result',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'string' },
+    },
+  ],
+  compare: [
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'left',
+      name: 'left',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'any' },
+    },
+    {
+      id: 'right',
+      name: 'right',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'any' },
+    },
+    { id: 'true', name: 'true', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'false', name: 'false', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'then', name: 'then', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'result',
+      name: 'result',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'boolean' },
+    },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'boolean' },
+    },
+  ],
+  boolean: [
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'a',
+      name: 'a',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'boolean' },
+    },
+    {
+      id: 'b',
+      name: 'b',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'boolean' },
+    },
+    { id: 'then', name: 'then', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'next', name: 'next', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'result',
+      name: 'result',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'boolean' },
+    },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'boolean' },
+    },
+  ],
+  object: [
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'data',
+      name: 'data',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'any' },
+    },
+    { id: 'then', name: 'then', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'next', name: 'next', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'object',
+      name: 'object',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'object' },
+    },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'object' },
+    },
+  ],
+  array: [
+    { id: 'execute', name: 'execute', direction: 'input', mode: 'control', cardinality: 'many' },
+    { id: 'listener', name: 'listener', direction: 'input', mode: 'control', cardinality: 'many' },
+    {
+      id: 'item',
+      name: 'item',
+      direction: 'input',
+      mode: 'data',
+      cardinality: 'one',
+      valueType: { kind: 'any' },
+    },
+    { id: 'then', name: 'then', direction: 'output', mode: 'control', cardinality: 'many' },
+    { id: 'next', name: 'next', direction: 'output', mode: 'control', cardinality: 'many' },
+    {
+      id: 'array',
+      name: 'array',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'array', item: { kind: 'any' } },
+    },
+    {
+      id: 'value',
+      name: 'value',
+      direction: 'output',
+      mode: 'data',
+      cardinality: 'many',
+      valueType: { kind: 'array', item: { kind: 'any' } },
+    },
+  ],
 };
+
+const table: Record<Kind, Ports> = Object.fromEntries(
+  (Object.keys(PORT_DEFINITIONS) as Kind[]).map((k) => [
+    k,
+    {
+      inputs: PORT_DEFINITIONS[k]
+        .filter(
+          (p) =>
+            p.direction === 'input' &&
+            (k !== 'database' || !['id', 'filter', 'limit', 'offset'].includes(p.id)),
+        )
+        .map((p) => p.id),
+      outputs: PORT_DEFINITIONS[k]
+        .filter(
+          (p) =>
+            p.direction === 'output' &&
+            (k !== 'screen' || p.id !== 'routes') &&
+            (k !== 'database' || !['total', 'deletedCount'].includes(p.id)),
+        )
+        .map((p) => p.id),
+    },
+  ]),
+) as Record<Kind, Ports>;
 
 export function ports(kind: Kind): Ports {
   return table[kind];
+}
+
+/** Normaliza um CustomPort legado ou parcial em uma definição formal completa */
+export function normalizeCustomPort(port: CustomPort, blockKind?: Kind): PortDefinition {
+  let mode: PortMode | undefined = port.mode;
+  let cardinality: PortCardinality | undefined = port.cardinality;
+  let valueType: ValueType | undefined = port.valueType;
+
+  // Busca correspondência no catálogo padrão
+  if (blockKind && PORT_DEFINITIONS[blockKind]) {
+    const catalogPort = PORT_DEFINITIONS[blockKind].find(
+      (p) => p.id === port.id && p.direction === port.direction,
+    );
+    if (catalogPort) {
+      mode = mode || catalogPort.mode;
+      cardinality = cardinality || catalogPort.cardinality;
+      valueType = valueType || catalogPort.valueType;
+    }
+  }
+
+  // Inferência semântica baseada no tipo textual legado ou características
+  if (!mode) {
+    const typeStr = port.type || DEFAULT_PORT_TYPES[port.id];
+    if (typeStr === 'Event') {
+      mode = 'control';
+      cardinality = cardinality || 'many';
+    } else if (typeStr === 'Error' || port.id === 'onError') {
+      mode = 'error';
+      cardinality = cardinality || 'many';
+      valueType = valueType || { kind: 'error' };
+    } else if (typeStr) {
+      mode = 'data';
+      cardinality = cardinality || (port.direction === 'input' ? 'one' : 'many');
+      valueType = valueType || parseValueType(typeStr);
+    } else if (isExecInput(port.id) || isExecOutput(port.id)) {
+      mode = 'control';
+      cardinality = cardinality || 'many';
+    } else {
+      mode = 'data';
+      cardinality = cardinality || (port.direction === 'input' ? 'one' : 'many');
+      valueType = valueType || { kind: 'any' };
+    }
+  }
+
+  if (mode === 'data' && !valueType) {
+    valueType = parseValueType(port.type || DEFAULT_PORT_TYPES[port.id] || 'any');
+  }
+
+  if (!cardinality) {
+    cardinality = port.direction === 'input' && mode === 'data' ? 'one' : 'many';
+  }
+
+  return {
+    id: port.id,
+    name: port.name || port.id,
+    direction: port.direction,
+    mode,
+    cardinality,
+    valueType,
+    required: port.required,
+  };
+}
+
+/** Obtém a lista de definições formais de portas de um bloco */
+export function getBlockPortDefinitions(block: Block): PortDefinition[] {
+  if (block.data.ports !== undefined && block.data.ports.length > 0) {
+    return block.data.ports.map((p) => normalizeCustomPort(p, block.data.kind));
+  }
+  return PORT_DEFINITIONS[block.data.kind] || [];
+}
+
+/** Localiza a definição formal de uma porta em um bloco ou Kind */
+export function getPortDefinition(
+  blockOrKind: Block | Kind,
+  portId: string,
+  direction?: 'input' | 'output',
+): PortDefinition | undefined {
+  if (typeof blockOrKind === 'string') {
+    const defs = PORT_DEFINITIONS[blockOrKind] || [];
+    return defs.find((p) => p.id === portId && (!direction || p.direction === direction));
+  }
+  if (blockOrKind.data.ports !== undefined && blockOrKind.data.ports.length > 0) {
+    const found = blockOrKind.data.ports.find(
+      (p) => p.id === portId && (!direction || p.direction === direction),
+    );
+    if (found) {
+      return normalizeCustomPort(found, blockOrKind.data.kind);
+    }
+  }
+  const catalogDefs = PORT_DEFINITIONS[blockOrKind.data.kind] || [];
+  return catalogDefs.find((p) => p.id === portId && (!direction || p.direction === direction));
+}
+
+/** Normaliza todas as portas salvas no bloco para garantir formato semântico completo */
+export function normalizeBlockPorts(block: Block): Block {
+  if (block.data.ports === undefined) return block;
+  return {
+    ...block,
+    data: {
+      ...block.data,
+      ports: block.data.ports.map((p) => {
+        const norm = normalizeCustomPort(p, block.data.kind);
+        return {
+          ...p,
+          mode: norm.mode,
+          cardinality: norm.cardinality,
+          valueType: norm.valueType,
+          type: p.type || formatValueType(norm.valueType),
+        };
+      }),
+    },
+  };
+}
+
+/** Normaliza todos os blocos e portas de um grafo ao carregar de persistência */
+export function normalizeGraph(graph: Graph): Graph {
+  return {
+    ...graph,
+    nodes: graph.nodes.map(normalizeBlockPorts),
+  };
+}
+
+export const isExecInput = (handle?: string | null, block?: Block): boolean => {
+  if (block && handle) {
+    const def = getPortDefinition(block, handle, 'input');
+    if (def) return def.mode === 'control' || def.mode === 'error';
+  }
+  const h = (handle || '').toLowerCase();
+  return (
+    EXEC_INPUTS.some((p) => p.toLowerCase() === h) ||
+    KNOWN_EXEC_INPUTS.has(h) ||
+    h.includes('listener') ||
+    h.includes('handler') ||
+    h.includes('trigger') ||
+    h === 'call' ||
+    h === 'exec' ||
+    h === 'execute' ||
+    h === 'onenter'
+  );
+};
+
+export const isExecOutput = (handle?: string | null, block?: Block): boolean => {
+  if (block && handle) {
+    const def = getPortDefinition(block, handle, 'output');
+    if (def) return def.mode === 'control' || def.mode === 'error';
+  }
+  const h = (handle || '').toLowerCase();
+  if (KNOWN_EXEC_INPUTS.has(h)) return false;
+  return (
+    EXEC_OUTPUTS.some((p) => p.toLowerCase() === h) ||
+    h.startsWith('on') ||
+    h.endsWith('click') ||
+    h.startsWith('case') ||
+    h === 'true' ||
+    h === 'false' ||
+    h === 'valid' ||
+    h === 'invalid' ||
+    h === 'default' ||
+    h === 'then'
+  );
+};
+
+/** Validação formal de conexão: direção, modo, tipo e cardinalidade sem heurísticas de nome */
+export function validateConnection(
+  g: Graph,
+  c: {
+    source?: string | null;
+    target?: string | null;
+    sourceHandle?: string | null;
+    targetHandle?: string | null;
+    id?: string;
+  },
+): string | null {
+  if (!c.source || !c.target || c.source === c.target) {
+    return 'Escolha dois blocos diferentes.';
+  }
+
+  const sourceNode = g.nodes.find((n) => n.id === c.source);
+  const targetNode = g.nodes.find((n) => n.id === c.target);
+  if (!sourceNode || !targetNode) {
+    return 'Conexão com bloco inexistente.';
+  }
+
+  const sourceHandle = c.sourceHandle || '';
+  const targetHandle = c.targetHandle || '';
+
+  const sourcePort =
+    getPortDefinition(sourceNode, sourceHandle, 'output') ||
+    getPortDefinition(sourceNode, sourceHandle) ||
+    (sourceNode.data.kind === 'screen' && sourceHandle === 'routes'
+      ? {
+          id: 'routes',
+          name: 'routes',
+          direction: 'output' as const,
+          mode: 'control' as const,
+          cardinality: 'many' as const,
+        }
+      : undefined);
+
+  const targetPort =
+    getPortDefinition(targetNode, targetHandle, 'input') ||
+    getPortDefinition(targetNode, targetHandle);
+
+  if (!sourcePort || !targetPort) {
+    return 'Porta de conexão inválida.';
+  }
+
+  // 1. Direção
+  if (sourcePort.direction !== 'output' || targetPort.direction !== 'input') {
+    return `Direção inválida: conecte uma saída (OUT) a uma entrada (IN). Bloco "${sourceNode.data.label}" (${sourcePort.name}) -> Bloco "${targetNode.data.label}" (${targetPort.name}).`;
+  }
+
+  // 2. Modo
+  const modeValid =
+    sourcePort.mode === targetPort.mode ||
+    (sourcePort.mode === 'error' && (targetPort.mode === 'control' || targetPort.mode === 'error'));
+
+  if (!modeValid) {
+    const sMode =
+      sourcePort.mode === 'control'
+        ? 'controle/evento'
+        : sourcePort.mode === 'error'
+          ? 'erro'
+          : 'dados';
+    const tMode =
+      targetPort.mode === 'control'
+        ? 'controle/evento'
+        : targetPort.mode === 'error'
+          ? 'erro'
+          : 'dados';
+    return `Incompatibilidade de modo: porta de ${sMode} "${sourcePort.name}" (${sourceNode.data.label}) não pode conectar à porta de ${tMode} "${targetPort.name}" (${targetNode.data.label}). Conecte eventos (Lado A) a ouvintes de execução (Lado B) e dados a dados.`;
+  }
+
+  // 3. Tipo (quando ambas forem de dados)
+  if (sourcePort.mode === 'data' && targetPort.mode === 'data') {
+    if (!isTypeCompatible(sourcePort.valueType, targetPort.valueType)) {
+      const sType = formatValueType(sourcePort.valueType);
+      const tType = formatValueType(targetPort.valueType);
+      return `Tipo incompatível: Bloco "${sourceNode.data.label}" (porta "${sourcePort.name}") do tipo ${sType} é incompatível com Bloco "${targetNode.data.label}" (porta "${targetPort.name}") do tipo ${tType}.`;
+    }
+  }
+
+  // 4. Cardinalidade
+  const existingEdges = g.edges.filter((e) => !c.id || e.id !== c.id);
+
+  if (sourcePort.cardinality === 'one') {
+    const outCount = existingEdges.filter(
+      (e) => e.source === c.source && (e.sourceHandle || '') === sourceHandle,
+    ).length;
+    if (outCount >= 1) {
+      return `Limite de cardinalidade excedido: a saída "${sourcePort.name}" do bloco "${sourceNode.data.label}" aceita apenas 1 conexão (cardinalidade: one).`;
+    }
+  }
+
+  if (targetPort.cardinality === 'one') {
+    const inCount = existingEdges.filter(
+      (e) => e.target === c.target && (e.targetHandle || '') === targetHandle,
+    ).length;
+    if (inCount >= 1) {
+      return `Limite de cardinalidade excedido: a entrada "${targetPort.name}" do bloco "${targetNode.data.label}" aceita apenas 1 conexão de origem (cardinalidade: one).`;
+    }
+  }
+
+  return null;
 }
 
 /** Retorna as portas efetivas de um bloco (customizadas pelo usuário ou padrão por tipo). */
@@ -178,18 +1356,26 @@ export function getBlockPorts(block: Block): Ports {
 /** Retorna a lista de portas configuradas ou inicializa a partir do padrão se indefinido. */
 export function ensureBlockPorts(block: Block): CustomPort[] {
   if (block.data.ports !== undefined) {
-    return block.data.ports;
+    return block.data.ports.map((p) => {
+      const norm = normalizeCustomPort(p, block.data.kind);
+      return {
+        ...p,
+        mode: norm.mode,
+        cardinality: norm.cardinality,
+        valueType: norm.valueType,
+        type: p.type || formatValueType(norm.valueType),
+      };
+    });
   }
-  const def = ports(block.data.kind);
-  const result: CustomPort[] = [];
-  for (const p of def.inputs) {
-    result.push({ id: p, name: p, direction: 'input', type: getPortType(p) });
-  }
-  for (const p of def.outputs) {
-    result.push({ id: p, name: p, direction: 'output', type: getPortType(p) });
-  }
-  if (block.data.kind === 'screen') {
-    result.push({ id: 'routes', name: 'routes', direction: 'output' });
-  }
-  return result;
+  const defs = PORT_DEFINITIONS[block.data.kind] || [];
+  return defs.map((d) => ({
+    id: d.id,
+    name: d.name,
+    direction: d.direction,
+    mode: d.mode,
+    cardinality: d.cardinality,
+    valueType: d.valueType,
+    type: formatValueType(d.valueType),
+    required: d.required,
+  }));
 }

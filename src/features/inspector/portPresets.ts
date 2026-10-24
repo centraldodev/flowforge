@@ -125,6 +125,123 @@ export const portPresets: Partial<Record<Kind, PortPreset[]>> = {
       title: 'Lado A: Retorna a mensagem de erro tratada',
     },
   ],
+  notify: [
+    exec('Lado B: Disparar a notificação'),
+    {
+      name: 'message',
+      direction: 'input',
+      type: 'string',
+      title: 'Dado: Mensagem personalizada dinâmica',
+    },
+    {
+      name: 'next',
+      direction: 'output',
+      type: 'Event',
+      title: 'Lado A: Prossegue para a próxima ação após exibir a notificação',
+    },
+    {
+      name: 'onDismiss',
+      direction: 'output',
+      type: 'Event',
+      title: 'Lado A: Disparado quando o usuário fecha ou a notificação expira',
+    },
+  ],
+  state: [
+    exec('Lado B: Executa operação de estado'),
+    {
+      name: 'value',
+      direction: 'input',
+      type: 'any',
+      title: 'Dado: Valor a ser salvo ou atualizado',
+    },
+    {
+      name: 'key',
+      direction: 'input',
+      type: 'string',
+      title: 'Dado: Nome da variável/chave',
+    },
+    {
+      name: 'next',
+      direction: 'output',
+      type: 'Event',
+      title: 'Lado A: Prossegue após atualizar ou ler o estado',
+    },
+    {
+      name: 'value',
+      direction: 'output',
+      type: 'any',
+      title: 'Dado: Valor atual da variável no estado',
+    },
+  ],
+  validator: [
+    exec('Lado B: Executa validação dos dados'),
+    {
+      name: 'value',
+      direction: 'input',
+      type: 'string',
+      title: 'Dado: Valor ou texto a ser validado',
+    },
+    {
+      name: 'valid',
+      direction: 'output',
+      type: 'Event',
+      title: 'Lado A: Valor válido de acordo com a regra',
+    },
+    {
+      name: 'invalid',
+      direction: 'output',
+      type: 'Event',
+      title: 'Lado A: Falha na validação',
+    },
+    {
+      name: 'error',
+      direction: 'output',
+      type: 'string',
+      title: 'Dado: Mensagem de erro de validação',
+    },
+  ],
+  switch: [
+    exec('Lado B: Avalia o valor e ramifica o fluxo'),
+    {
+      name: 'value',
+      direction: 'input',
+      type: 'string',
+      title: 'Dado: Valor a ser comparado com os casos',
+    },
+    {
+      name: 'case1',
+      direction: 'output',
+      type: 'Event',
+      title: 'Lado A: Ramificação correspondente ao Caso 1',
+    },
+    {
+      name: 'case2',
+      direction: 'output',
+      type: 'Event',
+      title: 'Lado A: Ramificação correspondente ao Caso 2',
+    },
+    {
+      name: 'default',
+      direction: 'output',
+      type: 'Event',
+      title: 'Lado A: Ramificação padrão se nenhum caso coincidir',
+    },
+  ],
+  delay: [
+    exec('Lado B: Dispara a contagem do timer'),
+    {
+      name: 'duration',
+      direction: 'input',
+      type: 'number',
+      title: 'Dado: Duração em milissegundos',
+    },
+    {
+      name: 'next',
+      direction: 'output',
+      type: 'Event',
+      title: 'Lado A: Prossegue após o tempo configurado',
+    },
+  ],
   auth: [
     {
       name: 'trigger',

@@ -1,4 +1,5 @@
 import { catalog } from './catalog';
+import { normalizeGraph } from './ports';
 import { screenRoutes } from './routes';
 import type { Graph, Kind } from './types';
 
@@ -37,5 +38,5 @@ export function parseGraph(text: string): Graph {
     if (typeof e.id !== 'string' || typeof e.source !== 'string' || typeof e.target !== 'string')
       throw Error('Conexão inválida');
   }
-  return g;
+  return normalizeGraph(g);
 }

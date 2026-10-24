@@ -9,6 +9,7 @@ import { ExportModal } from '../features/project/ExportModal';
 import { NewProjectModal } from '../features/project/NewProjectModal';
 import { SettingsModal } from '../features/project/SettingsModal';
 import { PreviewModal } from '../features/preview/PreviewModal';
+import { CodeViewerModal } from '../features/preview/CodeViewerModal';
 import { Sidebar } from '../features/sidebar/Sidebar';
 import { loadSavedGraph, usePersistence } from '../state/persistence';
 import { useGraphHistory } from '../state/useGraphHistory';
@@ -17,7 +18,7 @@ import { useSimulation } from '../state/useSimulation';
 import { Header } from './Header';
 import { useEditorActions } from './useEditorActions';
 
-type ModalType = 'preview' | 'export' | 'new' | 'settings' | null;
+type ModalType = 'preview' | 'export' | 'new' | 'settings' | 'code' | null;
 
 export function App() {
   const { graph, setGraph, commit, remember, undo, redo, canUndo, canRedo, beginDrag, endDrag } =
@@ -49,6 +50,7 @@ export function App() {
       <Header
         projectName={graph.name}
         onRenameProject={(name) => setGraph((g) => ({ ...g, name }))}
+        onViewCode={() => setModal('code')}
         onSimulate={() => actions.preparePreview() && setModal('preview')}
       />
 
@@ -148,6 +150,14 @@ export function App() {
         onClose={closeModal}
         graph={graph}
         simulation={simulation}
+      />
+
+      <CodeViewerModal
+        isOpen={modal === 'code'}
+        onClose={closeModal}
+        graph={graph}
+        initialScreenId={editor.currentScreenId}
+        onNotify={setNotice}
       />
     </div>
   );

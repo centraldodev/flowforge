@@ -6,7 +6,10 @@ import {
   generateBlockCode,
   isExecInput,
   isExecOutput,
+  normalizeCustomPort,
+  PORT_DEFINITIONS,
   syncGraphCode,
+  validateConnection,
   type Block,
   type CustomPort,
   type FlowStage,
@@ -250,11 +253,31 @@ export function createBlock(kind: Kind, position: Position, screenId: string, g?
 export function addPortToBlock(g: Graph, blockId: string, port: CustomPort): Graph {
   return mapNode(g, blockId, (b) => {
     const current = ensureBlockPorts(b);
+    const normalized = normalizeCustomPort(port, b.data.kind);
+
+    // Portas personalizadas devem exigir mode, cardinality e tipo quando forem de dados
+    if (normalized.mode === 'data') {
+      const hasType = port.type || port.valueType;
+      const isCatalogPort = (PORT_DEFINITIONS[b.data.kind] || []).some(
+        (p) => p.id === port.id && p.direction === port.direction,
+      );
+      if (!hasType && !isCatalogPort) {
+        throw new Error('Portas de dados personalizadas devem especificar tipo de dado.');
+      }
+    }
+
+    const fullPort: CustomPort = {
+      ...port,
+      mode: normalized.mode,
+      cardinality: normalized.cardinality,
+      valueType: normalized.valueType,
+    };
+
     return {
       ...b,
       data: {
         ...b.data,
-        ports: [...current, port],
+        ports: [...current, fullPort],
       },
     };
   });
@@ -486,26 +509,29 @@ export function removeFlowFromGraph(g: Graph, flowId: string): Graph {
 }
 
 /** Mensagem de erro se a conexão for inválida; `null` se puder ser criada. */
-export function connectionError(c: Connection): string | null {
+export function connectionError(c: Connection, g?: Graph): string | null {
   if (!c.source || !c.target || c.source === c.target) return 'Escolha dois blocos diferentes.';
+  if (g) {
+    return validateConnection(g, c);
+  }
   if (isExecOutput(c.sourceHandle) !== isExecInput(c.targetHandle))
-    return 'Conecte eventos (Lado A: onClick, then, onSuccess) a ouvintes de execução (Lado B: listener, listenerClick, handler), e dados a entradas de dados.';
+    return 'Incompatibilidade de modo: conecte eventos (Lado A) a ouvintes de execução (Lado B) e dados a dados.';
   return null;
 }
 
 /**
- * Adiciona a conexão substituindo a anterior: cada saída de execução tem um único destino
- * e cada entrada de dados tem uma única origem.
+ * Adiciona a conexão validando modo, tipo e cardinalidade.
+ * Não substitui conexões silenciosamente: lança erro se a cardinalidade for excedida.
  */
 export function connect(g: Graph, c: Connection): Graph {
-  const exec = isExecOutput(c.sourceHandle);
-  const replaced = (e: Graph['edges'][number]) =>
-    exec
-      ? e.source === c.source && e.sourceHandle === c.sourceHandle
-      : e.target === c.target && e.targetHandle === c.targetHandle;
+  const err = validateConnection(g, c);
+  if (err) {
+    throw new Error(err);
+  }
+  const edgeId = (c as { id?: string }).id || crypto.randomUUID();
   const nextGraph: Graph = {
     ...g,
-    edges: [...g.edges.filter((e) => !replaced(e)), { ...c, id: crypto.randomUUID() }],
+    edges: [...g.edges, { ...c, id: edgeId }],
   };
   return syncGraphCode(nextGraph, c.source && c.target ? [c.source, c.target] : undefined);
 }

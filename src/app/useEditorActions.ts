@@ -101,7 +101,7 @@ export function useEditorActions({ graph, commit, notify, resetSimulation, canva
   }
 
   function connectBlocks(c: Connection) {
-    const err = connectionError(c);
+    const err = connectionError(c, graph);
     if (err) {
       notify(err);
       return;

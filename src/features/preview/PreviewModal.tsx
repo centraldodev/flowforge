@@ -90,6 +90,7 @@ export function PreviewModal({ isOpen, onClose, graph, simulation }: Props) {
               graph={graph}
               screen={screen}
               values={values}
+              store={simulation.store}
               onChange={setValue}
               onAction={execute}
             />

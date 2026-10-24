@@ -1,42 +1,62 @@
 {
   "screen": {
     "description": "Ciclo de vida e montagem da tela",
-    "template": "function {{id}}() {\n  // Monta a tela {{label}}\n  console.log('Tela {{id}} ativa');\n  {{nextCall}}\n}"
+    "template": "function {{id}}() {\n  if (typeof __step === 'function') __step('{{id}}');\n  // Monta a tela {{label}}\n  navigateTo('{{id}}');\n  console.log('Tela {{id}} ativa');\n  {{nextCall}}\n}"
   },
   "input": {
     "description": "Função de leitura e obtenção do valor do campo",
-    "template": "function {{id}}() {\n  // Retorna o valor atual do campo {{label}}\n  return read('{{id}}', 'value');\n}"
+    "template": "function {{id}}() {\n  if (typeof __step === 'function') __step('{{id}}');\n  // Retorna o valor atual do campo {{label}}\n  return read('{{id}}', 'value', {{defaultValue}});\n}"
   },
   "button": {
     "description": "Manipulador de evento de clique do botão",
-    "template": "function {{id}}() {\n  // Disparado ao clicar no botão {{label}}\n  {{targetCall}}\n}"
+    "template": "function {{id}}() {\n  if (typeof __step === 'function') __step('{{id}}');\n  // Disparado ao clicar no botão {{label}}\n  {{targetCall}}\n}"
   },
   "function": {
     "description": "Função de lógica, validação ou transformação",
-    "template": "function {{id}}({{params}}) {\n  {{inputReads}}\n  {{body}}\n  {{returnCall}}\n}"
+    "template": "function {{id}}({{params}}) {\n  if (typeof __step === 'function') __step('{{id}}');\n  if (value && typeof value.then === 'function') {\n    return value.then((resolved) => {{id}}(resolved));\n  }\n  {{inputReads}}\n  try {\n    {{body}}\n    {{returnCall}}\n  } catch (error) {\n    {{errorBranch}}\n  }\n}"
   },
   "condition": {
     "description": "Função de decisão condicional (true / false)",
-    "template": "function {{id}}({{params}}) {\n  const isValid = {{condition}};\n  if (isValid) {\n    {{trueBranch}}\n  } else {\n    {{falseBranch}}\n  }\n}"
+    "template": "function {{id}}({{params}}) {\n  if (typeof __step === 'function') __step('{{id}}');\n  {{paramExtraction}}const isValid = {{condition}};\n  if (isValid) {\n    {{trueBranch}}\n  } else {\n    {{falseBranch}}\n  }\n}"
   },
   "auth": {
     "description": "Função de autenticação e sessão",
-    "template": "function {{id}}({{params}}) {\n  {{authBody}}\n  if (user) {\n    {{successBranch}}\n  } else {\n    {{errorBranch}}\n  }\n}"
+    "template": "function {{id}}({{params}}) {\n  if (typeof __step === 'function') __step('{{id}}');\n  {{authBody}}\n  if (user) {\n    {{successBranch}}\n  } else {\n    {{errorBranch}}\n  }\n}"
   },
   "error": {
     "description": "Função de captura e alerta de exceções",
-    "template": "function {{id}}(error) {\n  const message = '{{message}}';\n  console.error(message, error);\n  {{retryBranch}}\n}"
+    "template": "function {{id}}(error) {\n  if (typeof __step === 'function') __step('{{id}}');\n  const message = {{message}};\n  console.error(message, error);\n  {{retryBranch}}\n  return { error: true, message: message || (error && error.message) };\n}"
+  },
+  "notify": {
+    "description": "Função de feedback visual e notificação (toast / alerta)",
+    "template": "function {{id}}(payload) {\n  if (typeof __step === 'function') __step('{{id}}');\n  const message = {{message}};\n  const type = {{type}};\n  notify({ type, message, data: payload, duration: {{duration}} });\n  {{nextCall}}\n  return { notified: true, type, message };\n}"
+  },
+  "state": {
+    "description": "Função de leitura, escrita ou controle de variáveis no estado (store)",
+    "template": "function {{id}}(payload) {\n  if (typeof __step === 'function') __step('{{id}}');\n  const key = {{key}};\n  const op = {{op}};\n  let result;\n  if (op === 'set') {\n    const val = payload !== undefined ? payload : {{valExpr}};\n    result = setVar(key, val);\n  } else if (op === 'toggle') {\n    result = setVar(key, !getVar(key));\n  } else if (op === 'clear' || op === 'remove') {\n    result = clearVar(key);\n  } else {\n    result = getVar(key, {{valExpr}});\n  }\n  {{nextCall}}\n  return result;\n}"
+  },
+  "validator": {
+    "description": "Função de validação de dados de entrada com regra configurável",
+    "template": "function {{id}}(payload) {\n  if (typeof __step === 'function') __step('{{id}}');\n  if (payload && typeof payload.then === 'function') {\n    return payload.then((resolved) => {{id}}(resolved));\n  }\n  {{valExtraction}}  const validation = validate(value, {{rule}}, {{param}}, {{message}});\n  if (validation.valid) {\n    {{validBranch}}\n  } else {\n    {{invalidBranch}}\n  }\n}"
+  },
+  "switch": {
+    "description": "Função de desvio de múltiplos caminhos por valor",
+    "template": "function {{id}}(payload) {\n  if (typeof __step === 'function') __step('{{id}}');\n  if (payload && typeof payload.then === 'function') {\n    return payload.then((resolved) => {{id}}(resolved));\n  }\n  const value = payload !== undefined ? payload : {{valExpr}};\n  {{switchBranches}}\n}"
+  },
+  "delay": {
+    "description": "Função assíncrona de pausa/atraso temporizado",
+    "template": "async function {{id}}(payload) {\n  if (typeof __step === 'function') __step('{{id}}');\n  await sleep({{duration}});\n  {{nextCall}}\n  return payload;\n}"
   },
   "api": {
     "description": "Função de chamada de serviço HTTP",
-    "template": "async function {{id}}(body) {\n  const response = await fetch('{{url}}', {\n    method: '{{method}}',\n    headers: { 'Content-Type': 'application/json' },\n    body: body ? JSON.stringify(body) : undefined\n  });\n  const data = await response.json();\n  {{successBranch}}\n}"
+    "template": "async function {{id}}(body) {\n  if (typeof __step === 'function') __step('{{id}}');\n  try {\n    {{apiBody}}\n    {{successBranch}}\n  } catch (error) {\n    {{errorBranch}}\n  }\n}"
   },
   "database": {
     "description": "Função de persistência no banco de dados",
-    "template": "async function {{id}}(payload) {\n  {{dbBody}}\n  {{successBranch}}\n}"
+    "template": "async function {{id}}(payload) {\n  if (typeof __step === 'function') __step('{{id}}');\n  try {\n    {{dbBody}}\n    {{successBranch}}\n  } catch (error) {\n    {{errorBranch}}\n  }\n}"
   },
   "navigate": {
     "description": "Função de transição para outra rota de tela",
-    "template": "function {{id}}() {\n  // Navega para a tela de destino\n  navigateTo('{{target}}');\n}"
+    "template": "function {{id}}() {\n  if (typeof __step === 'function') __step('{{id}}');\n  // Navega para a tela de destino\n  return navigateTo('{{target}}');\n}"
   }
 }

@@ -1,6 +1,13 @@
 import type { CSSProperties } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { catalog, ports, getPortType, type BlockData, type FlowStage } from '../../engine';
+import {
+  catalog,
+  ensureBlockPorts,
+  formatValueType,
+  getPortType,
+  type BlockData,
+  type FlowStage,
+} from '../../engine';
 import { getGraphFlows, resolveBlockFlow } from './constants';
 
 export type FlowNode = Node<BlockData, 'block'>;
@@ -31,27 +38,14 @@ export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
   const rawPorts =
     data.ports !== undefined
       ? data.ports
-      : [
-          ...ports(data.kind).inputs.map((p) => ({
-            id: p,
-            name: p,
-            direction: 'input' as const,
-            type: getPortType(p),
-          })),
-          ...ports(data.kind).outputs.map((p) => ({
-            id: p,
-            name: p,
-            direction: 'output' as const,
-            type: getPortType(p),
-          })),
-        ];
+      : ensureBlockPorts({ id, data, position: { x: 0, y: 0 } });
 
   const inPorts = rawPorts
     .filter((p) => p.direction === 'input')
     .map((p) => ({
       id: p.id,
       label: p.name || p.id,
-      type: p.type || getPortType(p.id),
+      type: p.type || (p.valueType ? formatValueType(p.valueType) : getPortType(p.id)),
       value:
         (p as { value?: string }).value ||
         (p.id === 'route' && data.config.target ? `/${data.config.target}` : undefined),
@@ -62,7 +56,7 @@ export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
     .map((p) => ({
       id: p.id,
       label: p.name || p.id,
-      type: p.type || getPortType(p.id),
+      type: p.type || (p.valueType ? formatValueType(p.valueType) : getPortType(p.id)),
       value: (p as { value?: string }).value,
       isConnectable: p.id !== 'routes' || data.kind !== 'screen',
     }));

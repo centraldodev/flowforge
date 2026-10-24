@@ -430,6 +430,36 @@
   font-weight: 500;
 }
 
+.port-mode-tag {
+  font-family: var(--font-mono, monospace);
+  font-size: 8px;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.port-mode-tag.mode-control {
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+}
+
+.port-mode-tag.mode-data {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+
+.port-mode-tag.mode-error {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+.port-cardinality-tag {
+  font-family: var(--font-mono, monospace);
+  font-size: 8px;
+  color: #71717a;
+}
+
 .port-edge-count {
   font-size: 8px;
   color: #818ba0;

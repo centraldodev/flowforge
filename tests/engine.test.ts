@@ -7,6 +7,8 @@ import {
   parseGraph,
   getBlockPorts,
   generateBlockCode,
+  generateProjectCode,
+  executeProjectCode,
   syncGraphCode,
   type Graph,
   type Kind,
@@ -1083,4 +1085,362 @@ test('alinhamento à grade invisível: blocos novos, duplicados e ajustados alin
   const adjustedBlock = adjusted.find((n) => n.id === overlappingBlock.id)!;
   assert.equal(adjustedBlock.position.x % GRID_SNAP_SIZE, 0);
   assert.equal(adjustedBlock.position.y % GRID_SNAP_SIZE, 0);
+});
+
+test('validação de código real executável: projeto demo executa JavaScript nativo via executeProjectCode com sucesso e captura erros', async () => {
+  // 1. Executa fluxo completo com credenciais válidas
+  const resSuccess = await executeProjectCode(demo, 'btn_entrar', {
+    email: 'demo@exemplo.com',
+    senha: '123456',
+  });
+  assert.equal(resSuccess.screen, 'home', 'Deve ter navegado para a tela home');
+  assert.ok(resSuccess.store.__session, 'Deve conter sessão ativa do usuário');
+  assert.ok(resSuccess.logs.some((l) => l.msg.includes('Navegou para a tela: home')));
+
+  // 2. Executa fluxo com senha errada: deve acionar show_error e não navegar
+  const resError = await executeProjectCode(demo, 'btn_entrar', {
+    email: 'demo@exemplo.com',
+    senha: 'senha-incorreta',
+  });
+  assert.notEqual(resError.screen, 'home', 'Não deve navegar para home com credenciais inválidas');
+  assert.equal((resError.result as { error: boolean }).error, true);
+});
+
+test('validação de código real executável: projeto criado do zero (checkout e pedidos com condição e banco) gera JavaScript funcional e autônomo', async () => {
+  const g: Graph = {
+    version: 1,
+    name: 'Loja Virtual',
+    nodes: [
+      {
+        id: 'tela_checkout',
+        position: { x: 40, y: 40 },
+        data: { kind: 'screen', label: 'Checkout', config: {} },
+      },
+      {
+        id: 'campo_qtd',
+        position: { x: 440, y: 80 },
+        data: {
+          kind: 'input',
+          label: 'Quantidade',
+          config: { value: '4', screenId: 'tela_checkout' },
+        },
+      },
+      {
+        id: 'campo_preco',
+        position: { x: 440, y: 240 },
+        data: { kind: 'input', label: 'Preço', config: { value: '35', screenId: 'tela_checkout' } },
+      },
+      {
+        id: 'btn_fechar_pedido',
+        position: { x: 440, y: 400 },
+        data: { kind: 'button', label: 'Concluir Compra', config: { screenId: 'tela_checkout' } },
+      },
+      {
+        id: 'calcular_subtotal',
+        position: { x: 860, y: 140 },
+        data: {
+          kind: 'function',
+          label: 'Calcular Subtotal',
+          config: {
+            screenId: 'tela_checkout',
+            code: 'const qtd = Number(read("campo_qtd", "value", 1));\n  const preco = Number(read("campo_preco", "value", 0));\n  return qtd * preco;',
+          },
+        },
+      },
+      {
+        id: 'checar_desconto_vip',
+        position: { x: 1280, y: 140 },
+        data: {
+          kind: 'condition',
+          label: 'Valor > 100?',
+          config: { screenId: 'tela_checkout', operator: 'gt', compare: '100' },
+        },
+      },
+      {
+        id: 'aplicar_desconto_10',
+        position: { x: 1700, y: 100 },
+        data: {
+          kind: 'function',
+          label: 'Aplica 10%',
+          config: {
+            screenId: 'tela_checkout',
+            code: 'return { cliente: "VIP", totalOriginal: value, totalFinal: value * 0.9, descontoAplicado: true };',
+          },
+        },
+      },
+      {
+        id: 'salvar_pedido_db',
+        position: { x: 2140, y: 100 },
+        data: {
+          kind: 'database',
+          label: 'Salvar Pedido',
+          config: { screenId: 'tela_checkout', operation: 'insert', table: 'pedidos' },
+        },
+      },
+      {
+        id: 'ir_tela_sucesso',
+        position: { x: 2560, y: 100 },
+        data: {
+          kind: 'navigate',
+          label: 'Ir para Confirmação',
+          config: { screenId: 'tela_checkout', target: 'tela_sucesso' },
+        },
+      },
+      {
+        id: 'tela_sucesso',
+        position: { x: 2980, y: 100 },
+        data: { kind: 'screen', label: 'Pedido Confirmado', config: {} },
+      },
+    ],
+    edges: [
+      {
+        id: 'e1',
+        source: 'btn_fechar_pedido',
+        target: 'calcular_subtotal',
+        sourceHandle: 'onClick',
+        targetHandle: 'listener',
+      },
+      {
+        id: 'e2',
+        source: 'calcular_subtotal',
+        target: 'checar_desconto_vip',
+        sourceHandle: 'then',
+        targetHandle: 'listener',
+      },
+      {
+        id: 'e3',
+        source: 'checar_desconto_vip',
+        target: 'aplicar_desconto_10',
+        sourceHandle: 'true',
+        targetHandle: 'listener',
+      },
+      {
+        id: 'e4',
+        source: 'aplicar_desconto_10',
+        target: 'salvar_pedido_db',
+        sourceHandle: 'then',
+        targetHandle: 'payload',
+      },
+      {
+        id: 'e5',
+        source: 'salvar_pedido_db',
+        target: 'ir_tela_sucesso',
+        sourceHandle: 'onSuccess',
+        targetHandle: 'listener',
+      },
+    ],
+  };
+
+  // Garante que o código de todos os nós seja sincronizado com as conexões
+  const synced = syncGraphCode(g);
+
+  // Gera o código JavaScript completo do projeto
+  const generatedJs = generateProjectCode(synced);
+  assert.ok(generatedJs.includes('export function createFlowRunner'));
+  assert.ok(generatedJs.includes('function btn_fechar_pedido()'));
+  assert.ok(generatedJs.includes('function checar_desconto_vip('));
+  assert.ok(generatedJs.includes('async function salvar_pedido_db('));
+
+  // Executa o projeto a partir do clique no botão com inputs de 4 * 35 = 140 (> 100)
+  const execResult = await executeProjectCode(synced, 'btn_fechar_pedido', {
+    campo_qtd: '4',
+    campo_preco: '35',
+  });
+
+  // O pedido com desconto deve ter sido inserido no banco de dados com totalFinal = 126
+  assert.equal(execResult.screen, 'tela_sucesso', 'Deve navegar para a tela_sucesso');
+  const pedidos = execResult.store.pedidos as Array<Record<string, unknown>>;
+  assert.ok(Array.isArray(pedidos), 'Deve ter criado a tabela pedidos');
+  assert.equal(pedidos.length, 1);
+  assert.equal(pedidos[0].totalOriginal, 140);
+  assert.equal(pedidos[0].totalFinal, 126);
+  assert.equal(pedidos[0].descontoAplicado, true);
+});
+
+test('validação de código real executável: projeto criado do zero (cadastro com validação, auth register e alerta de erro) gera JavaScript funcional', async () => {
+  const g: Graph = {
+    version: 1,
+    name: 'Sistema de Registro',
+    nodes: [
+      {
+        id: 'tela_registro',
+        position: { x: 40, y: 40 },
+        data: { kind: 'screen', label: 'Cadastro', config: {} },
+      },
+      {
+        id: 'input_email',
+        position: { x: 440, y: 80 },
+        data: { kind: 'input', label: 'E-mail', config: { screenId: 'tela_registro' } },
+      },
+      {
+        id: 'input_senha',
+        position: { x: 440, y: 220 },
+        data: { kind: 'input', label: 'Senha', config: { screenId: 'tela_registro' } },
+      },
+      {
+        id: 'btn_cadastrar_novo',
+        position: { x: 440, y: 360 },
+        data: { kind: 'button', label: 'Criar Minha Conta', config: { screenId: 'tela_registro' } },
+      },
+      {
+        id: 'validar_preenchimento',
+        position: { x: 860, y: 140 },
+        data: {
+          kind: 'condition',
+          label: 'Campos preenchidos?',
+          config: { screenId: 'tela_registro', operator: 'truthy' },
+        },
+      },
+      {
+        id: 'alerta_campos_vazios',
+        position: { x: 1280, y: 300 },
+        data: {
+          kind: 'error',
+          label: 'Erro Validação',
+          config: { screenId: 'tela_registro', message: 'Preencha todos os campos obrigatórios' },
+        },
+      },
+      {
+        id: 'registrar_usuario_auth',
+        position: { x: 1280, y: 100 },
+        data: {
+          kind: 'auth',
+          label: 'Registrar Auth',
+          config: { screenId: 'tela_registro', provider: 'email', mode: 'register' },
+        },
+      },
+      {
+        id: 'ir_para_dashboard',
+        position: { x: 1700, y: 100 },
+        data: {
+          kind: 'navigate',
+          label: 'Ir para Dashboard',
+          config: { screenId: 'tela_registro', target: 'tela_dashboard' },
+        },
+      },
+      {
+        id: 'tela_dashboard',
+        position: { x: 2120, y: 100 },
+        data: { kind: 'screen', label: 'Dashboard', config: {} },
+      },
+    ],
+    edges: [
+      {
+        id: 'e1',
+        source: 'btn_cadastrar_novo',
+        target: 'validar_preenchimento',
+        sourceHandle: 'onClick',
+        targetHandle: 'listener',
+      },
+      {
+        id: 'e2',
+        source: 'validar_preenchimento',
+        target: 'alerta_campos_vazios',
+        sourceHandle: 'false',
+        targetHandle: 'execute',
+      },
+      {
+        id: 'e3',
+        source: 'validar_preenchimento',
+        target: 'registrar_usuario_auth',
+        sourceHandle: 'true',
+        targetHandle: 'trigger',
+      },
+      {
+        id: 'e4',
+        source: 'registrar_usuario_auth',
+        target: 'ir_para_dashboard',
+        sourceHandle: 'onSuccess',
+        targetHandle: 'listener',
+      },
+    ],
+  };
+
+  const synced = syncGraphCode(g);
+
+  // Cenário 1: Tentativa com campos vazios -> Dispara alerta_campos_vazios
+  const emptyRes = await executeProjectCode(synced, 'btn_cadastrar_novo', {
+    input_email: '',
+    input_senha: '',
+  });
+  assert.notEqual(emptyRes.screen, 'tela_dashboard');
+  assert.equal((emptyRes.result as { error: boolean; message: string }).error, true);
+  assert.equal(
+    (emptyRes.result as { message: string }).message,
+    'Preencha todos os campos obrigatórios',
+  );
+
+  // Cenário 2: Dados válidos informados -> Cria usuário, salva na sessão e navega para tela_dashboard
+  const successRes = await executeProjectCode(synced, 'btn_cadastrar_novo', {
+    input_email: 'novo.cliente@empresa.com',
+    input_senha: 'senhaSegura123',
+  });
+  assert.equal(successRes.screen, 'tela_dashboard');
+  const session = successRes.store.__session as Array<Record<string, unknown>>;
+  assert.ok(Array.isArray(session));
+  assert.equal(session[0].email, 'novo.cliente@empresa.com');
+
+  // Cenário 3: Usuário gravado na tabela usuarios
+  const usuarios = successRes.store.usuarios as Array<Record<string, unknown>>;
+  assert.ok(usuarios.some((u) => u.email === 'novo.cliente@empresa.com'));
+});
+
+test('validação sintática: todos os tipos de blocos do catálogo compilam para JavaScript executável válido sem erros de sintaxe', () => {
+  const allKinds: Kind[] = [
+    'screen',
+    'input',
+    'button',
+    'function',
+    'condition',
+    'auth',
+    'error',
+    'api',
+    'database',
+    'navigate',
+    'notify',
+    'state',
+    'validator',
+    'switch',
+    'delay',
+  ];
+
+  for (const kind of allKinds) {
+    const block = createBlock(kind, { x: 0, y: 0 }, 'tela_teste');
+    const dummyGraph: Graph = {
+      version: 1,
+      name: `Teste ${kind}`,
+      nodes: [block],
+      edges: [],
+    };
+    const blockCode = generateBlockCode(dummyGraph, block);
+
+    // Valida que a função compila sem lançar erro de sintaxe
+    assert.doesNotThrow(() => {
+      new Function(
+        'read',
+        'navigateTo',
+        'db',
+        'authenticate',
+        'authenticateGoogle',
+        'registerUser',
+        'notify',
+        'setVar',
+        'getVar',
+        'clearVar',
+        'validate',
+        'sleep',
+        blockCode,
+      );
+    }, `O código gerado para o bloco "${kind}" deve ser JavaScript válido.`);
+
+    // Valida que o projeto contendo este bloco compila e produz createFlowRunner executável
+    const projectJs = generateProjectCode(dummyGraph);
+    const executableScript = projectJs.replace(
+      /export function createFlowRunner/,
+      'function createFlowRunner',
+    );
+    assert.doesNotThrow(() => {
+      new Function(`${executableScript}; return createFlowRunner;`);
+    }, `O projeto contendo o bloco "${kind}" deve compilar para JavaScript executável.`);
+  }
 });

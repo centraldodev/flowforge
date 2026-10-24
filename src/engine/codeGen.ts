@@ -1,5 +1,5 @@
-// Gerador dinâmico de código JavaScript a partir do catálogo e das conexões do grafo.
 import codeCatalog from './codeCatalog.json';
+import { isExecInput } from './ports';
 import type { Block, Graph, Kind } from './types';
 
 type CatalogEntry = {
@@ -8,6 +8,31 @@ type CatalogEntry = {
 };
 
 const catalog = codeCatalog as Record<Kind, CatalogEntry>;
+
+/**
+ * Emite um literal JavaScript seguro a partir de qualquer valor,
+ * prevenindo quebras de sintaxe e injeção de código.
+ */
+export function jsLiteral(value: unknown, quote: "'" | '"' = "'"): string {
+  if (value === undefined) return 'undefined';
+  if (value === null) return 'null';
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'string') {
+    const escaped = value
+      .replace(/\\/g, '\\\\')
+      .replace(/\r/g, '\\r')
+      .replace(/\n/g, '\\n')
+      .replace(/\t/g, '\\t')
+      .replace(/\u2028/g, '\\u2028')
+      .replace(/\u2029/g, '\\u2029');
+    if (quote === "'") {
+      return `'${escaped.replace(/'/g, "\\'")}'`;
+    } else {
+      return `"${escaped.replace(/"/g, '\\"')}"`;
+    }
+  }
+  return JSON.stringify(value);
+}
 
 /** Sanitiza um ID de bloco para ser um identificador de função JavaScript válido. */
 export function toSafeFunctionName(id: string): string {
@@ -26,6 +51,7 @@ export function generateBlockCode(graph: Graph, block: Block): string {
   const fnName = toSafeFunctionName(block.id);
   const config = block.data.config;
   const label = block.data.label || block.id;
+  const safeCommentLabel = (label || block.id).replace(/[\r\n*/]/g, ' ');
 
   // Arestas de saída deste bloco
   const outEdges = graph.edges.filter((e) => e.source === block.id);
@@ -50,27 +76,50 @@ export function generateBlockCode(graph: Graph, block: Block): string {
 
   let code = entry.template;
   code = code.replace(/\{\{id\}\}/g, fnName);
-  code = code.replace(/\{\{label\}\}/g, label);
+  code = code.replace(/\{\{label\}\}/g, safeCommentLabel);
 
   switch (kind) {
     case 'button': {
       const clickCall =
         getCallForHandle('onClick') ||
+        getCallForHandle('click') ||
+        getCallForHandle('then') ||
         (outEdges[0]
           ? `return ${toSafeFunctionName(outEdges[0].target)}();`
-          : '// Conecte a um bloco para acionar');
+          : "return '// Sem conexão: configure um destino no editor';");
       code = code.replace(/\{\{targetCall\}\}/g, clickCall);
       break;
     }
 
     case 'input': {
+      const defaultValue = jsLiteral(config.value || '');
+      code = code.replace(/\{\{defaultValue\}\}/g, defaultValue);
       break;
     }
 
     case 'function': {
-      // Identifica entradas de dados conectadas (excluindo botões e saídas de trigger)
+      // Procura chamadas de saída (then, next, ou qualquer aresta conectada que não seja erro)
+      const nextEdge =
+        outEdges.find(
+          (e) =>
+            e.sourceHandle === 'then' ||
+            e.sourceHandle === 'next' ||
+            (e.sourceHandle !== 'onError' && e.sourceHandle !== 'error'),
+        ) || outEdges[0];
+
+      const nextTargetNode = nextEdge ? graph.nodes.find((n) => n.id === nextEdge.target) : null;
+      const nextTargetFn = nextTargetNode ? toSafeFunctionName(nextTargetNode.id) : '';
+
+      // Identifica entradas de dados conectadas (excluindo conexões de controle/execução)
       const directDataInputs = inEdges
-        .filter((e) => e.sourceHandle !== 'onClick' && e.sourceHandle !== 'click')
+        .filter(
+          (e) =>
+            !isExecInput(e.targetHandle) &&
+            e.sourceHandle !== 'onClick' &&
+            e.sourceHandle !== 'click' &&
+            e.sourceHandle !== 'then' &&
+            e.sourceHandle !== 'next',
+        )
         .map((e) => graph.nodes.find((n) => n.id === e.source))
         .filter((n): n is Block => Boolean(n))
         .filter((n) => n.data.kind !== 'button');
@@ -86,42 +135,70 @@ export function generateBlockCode(graph: Graph, block: Block): string {
               )
             : [];
 
+      // Gera leituras seguras para variáveis dos inputs da tela (sem colidir com 'value' e sem sombrear o próximo destino)
       const inputReads = relevantInputs
+        .filter(
+          (n) => toSafeFunctionName(n.id) !== 'value' && toSafeFunctionName(n.id) !== nextTargetFn,
+        )
         .map((n) => {
           const varName = toSafeFunctionName(n.id);
-          return `const ${varName} = read('${n.id}', 'value');`;
+          const defaultVal = jsLiteral(n.data.config.value || '');
+          return `const ${varName} = (typeof value === 'object' && value !== null && value.${varName} !== undefined) ? value.${varName} : read(${jsLiteral(n.id)}, 'value', ${defaultVal});`;
         })
         .join('\n  ');
 
-      const params = relevantInputs.map((n) => toSafeFunctionName(n.id)).join(', ');
+      const paramNames = relevantInputs
+        .map((n) => toSafeFunctionName(n.id))
+        .filter((name) => name !== 'value' && name !== nextTargetFn);
 
-      // Procura chamadas de saída (then, next, ou qualquer aresta conectada)
-      const nextEdge =
-        outEdges.find((e) => e.sourceHandle === 'then' || e.sourceHandle === 'next') || outEdges[0];
+      const paramsArg =
+        paramNames.length > 1 ? `{ ${paramNames.join(', ')} }` : paramNames[0] || 'value';
 
-      let returnCall = 'return value;';
-      if (nextEdge) {
-        const targetNode = graph.nodes.find((n) => n.id === nextEdge.target);
-        if (targetNode) {
-          const targetFn = toSafeFunctionName(targetNode.id);
-          const args = params || 'value';
-          returnCall = `return ${targetFn}(${args});`;
+      let bodyText = '// Lógica personalizada da função';
+      let returnCall = paramNames.length > 0 ? `return ${paramsArg};` : 'return value;';
+
+      let customLogic = '';
+      if (config.code) {
+        if (!config.code.startsWith('function ') && !config.code.startsWith('async function ')) {
+          customLogic = config.code;
+        } else if (config.code.includes('(() => {')) {
+          const match = config.code.match(/\(\(\)\s*=>\s*\{([\s\S]*?)\}\)\(\);/);
+          if (match) customLogic = match[1].trim();
+        } else if (config.code.includes('// Lógica:\n')) {
+          const match = config.code.match(
+            /\/\/\s*Lógica:\s*([\s\S]*?)(?=\n\s*if\s*\(computed|\n\s*return|\n\})/,
+          );
+          if (match) customLogic = match[1].trim();
         }
       }
 
-      let bodyText = '// Lógica personalizada da função';
-      if (config.code && !config.code.startsWith('function ')) {
-        bodyText = `// Lógica:\n  ${config.code}`;
+      if (customLogic) {
+        if (nextTargetFn) {
+          bodyText = `// Lógica personalizada do bloco\n    const computed = (() => {\n      ${customLogic}\n    })();\n    if (computed && typeof computed.then === 'function') {\n      return computed.then((resolved) => ${nextTargetFn}(resolved !== undefined ? resolved : ${paramsArg}));\n    }`;
+          returnCall = `return ${nextTargetFn}(computed !== undefined ? computed : ${paramsArg});`;
+        } else {
+          bodyText = `// Lógica:\n    const computed = (() => {\n      ${customLogic}\n    })();\n    if (computed && typeof computed.then === 'function') {\n      return computed.then((resolved) => resolved !== undefined ? resolved : value);\n    }\n    return computed !== undefined ? computed : value;`;
+          returnCall = '';
+        }
       } else if (
         outEdges.some((e) => graph.nodes.find((n) => n.id === e.target)?.data.kind === 'database')
       ) {
-        bodyText = `// Prepara payload para inserção no banco de dados\n  const payload = { id: Date.now(), ${params || 'value'}, provider: 'email' };`;
+        bodyText = `// Prepara payload para inserção no banco de dados\n    const payload = { id: Date.now(), ${paramNames.length > 0 ? paramNames.join(', ') : 'value'}, provider: 'email' };`;
+        if (nextTargetFn) {
+          returnCall = `return ${nextTargetFn}(payload);`;
+        }
+      } else if (nextTargetFn) {
+        returnCall = `return ${nextTargetFn}(${paramsArg});`;
       }
 
-      code = code.replace(/\{\{params\}\}/g, params);
+      const errorCall = getCallForHandle('onError', 'error') || getCallForHandle('error', 'error');
+      const errorBranch = errorCall || 'throw error;';
+
+      code = code.replace(/\{\{params\}\}/g, 'value = ""');
       code = code.replace(/\{\{inputReads\}\}/g, inputReads ? `${inputReads}\n  ` : '');
       code = code.replace(/\{\{body\}\}/g, bodyText);
       code = code.replace(/\{\{returnCall\}\}/g, returnCall);
+      code = code.replace(/\{\{errorBranch\}\}/g, errorBranch);
       break;
     }
 
@@ -138,39 +215,78 @@ export function generateBlockCode(graph: Graph, block: Block): string {
           )
         : [];
 
-      let conditionParam = 'value';
+      let rawInputs: Block[] = [];
       if (sourceNodes.some((n) => n.data.kind === 'input')) {
-        conditionParam = sourceNodes
-          .filter((n) => n.data.kind === 'input')
-          .map((n) => toSafeFunctionName(n.id))
-          .join(', ');
+        rawInputs = sourceNodes.filter((n) => n.data.kind === 'input');
       } else if (screenInputs.length > 0) {
-        conditionParam = screenInputs.map((n) => toSafeFunctionName(n.id)).join(', ');
-      } else if (sourceNodes.length > 0) {
-        conditionParam = sourceNodes.map((n) => toSafeFunctionName(n.id)).join(', ');
+        rawInputs = screenInputs;
       }
 
-      const paramList = conditionParam
-        .split(',')
-        .map((p) => p.trim())
-        .filter(Boolean);
+      let conditionParamsDecl = 'value';
+      let paramExtraction = '';
+      let conditionExpr = 'Boolean(value)';
+      let passArg = 'value';
 
-      let conditionExpr = 'value';
-      if (config.operator === 'equals') {
-        conditionExpr = `${conditionParam} === '${config.compare || ''}'`;
-      } else if (config.operator === 'gt') {
-        conditionExpr = `Number(${conditionParam}) > ${Number(config.compare || 0)}`;
-      } else if (paramList.length > 1) {
-        conditionExpr = paramList.map((p) => `Boolean(${p})`).join(' && ');
+      // Se a condição recebe dados de uma função anterior, o dado de entrada é o resultado computado (value)
+      const isInputFromFunction = inEdges.some((e) => {
+        const src = graph.nodes.find((n) => n.id === e.source);
+        return src && src.data.kind === 'function';
+      });
+
+      if (isInputFromFunction) {
+        paramExtraction = `if (value && typeof value.then === 'function') {\n    return value.then((resolved) => ${fnName}(resolved));\n  }\n  `;
+        conditionParamsDecl = 'value = ""';
+        if (config.operator === 'equals') {
+          conditionExpr = `value === ${jsLiteral(config.compare ?? '')}`;
+        } else if (config.operator === 'gt') {
+          conditionExpr = `Number(value) > ${Number(config.compare || 0)}`;
+        } else {
+          conditionExpr = `Boolean(value)`;
+        }
+        passArg = 'value';
+      } else if (rawInputs.length > 1) {
+        conditionParamsDecl = 'inputArgs = {}';
+        const safeNames = rawInputs.map((n) => toSafeFunctionName(n.id));
+        const extractions = rawInputs.map((n) => {
+          const safe = toSafeFunctionName(n.id);
+          const defaultVal = jsLiteral(n.data.config.value || '');
+          return `const ${safe} = (typeof inputArgs === 'object' && inputArgs !== null && inputArgs.${safe} !== undefined) ? inputArgs.${safe} : read(${jsLiteral(n.id)}, 'value', ${defaultVal});`;
+        });
+        paramExtraction = extractions.join('\n  ') + '\n  ';
+        conditionExpr = safeNames.map((s) => `Boolean(${s})`).join(' && ');
+        passArg = `{ ${safeNames.join(', ')} }`;
+      } else if (rawInputs.length === 1) {
+        const single = rawInputs[0];
+        const safe = toSafeFunctionName(single.id);
+        const defaultVal = jsLiteral(single.data.config.value || '');
+        conditionParamsDecl = `${safe} = read(${jsLiteral(single.id)}, 'value', ${defaultVal})`;
+        if (config.operator === 'equals') {
+          conditionExpr = `${safe} === ${jsLiteral(config.compare ?? '')}`;
+        } else if (config.operator === 'gt') {
+          conditionExpr = `Number(${safe}) > ${Number(config.compare || 0)}`;
+        } else {
+          conditionExpr = `Boolean(${safe})`;
+        }
+        passArg = safe;
       } else {
-        conditionExpr = `Boolean(${conditionParam})`;
+        paramExtraction = `if (value && typeof value.then === 'function') {\n    return value.then((resolved) => ${fnName}(resolved));\n  }\n  `;
+        conditionParamsDecl = 'value';
+        if (config.operator === 'equals') {
+          conditionExpr = `value === ${jsLiteral(config.compare ?? '')}`;
+        } else if (config.operator === 'gt') {
+          conditionExpr = `Number(value) > ${Number(config.compare || 0)}`;
+        } else {
+          conditionExpr = `Boolean(value)`;
+        }
+        passArg = 'value';
       }
 
-      const trueBranch = getCallForHandle('true', conditionParam) || 'return true;';
+      const trueBranch = getCallForHandle('true', passArg) || 'return true;';
       const falseBranch =
         getCallForHandle('false', 'new Error("Dados inválidos")') || 'return false;';
 
-      code = code.replace(/\{\{params\}\}/g, conditionParam);
+      code = code.replace(/\{\{params\}\}/g, conditionParamsDecl);
+      code = code.replace(/\{\{paramExtraction\}\}/g, paramExtraction);
       code = code.replace(/\{\{condition\}\}/g, conditionExpr);
       code = code.replace(/\{\{trueBranch\}\}/g, trueBranch);
       code = code.replace(/\{\{falseBranch\}\}/g, falseBranch);
@@ -180,13 +296,36 @@ export function generateBlockCode(graph: Graph, block: Block): string {
     case 'auth': {
       const provider = config.provider || 'email';
       const successBranch =
-        getCallForHandle('onSuccess', 'user') || "console.log('Login autorizado', user);";
+        getCallForHandle('onSuccess', 'user') || 'return { success: true, user };';
       const errorBranch =
         getCallForHandle('onError', 'new Error("Credenciais inválidas")') ||
-        'throw new Error("Falha na autenticação");';
+        'return { success: false, error: new Error("Falha na autenticação") };';
+
+      // Identifica campos de input na mesma tela para leitura precisa caso nomes sejam customizados
+      const screenInputs = block.data.config.screenId
+        ? graph.nodes.filter(
+            (n) => n.data.kind === 'input' && n.data.config.screenId === block.data.config.screenId,
+          )
+        : [];
+      const emailInput = screenInputs.find(
+        (n) => n.data.config.field === 'email' || n.id.includes('email'),
+      );
+      const passInput = screenInputs.find(
+        (n) =>
+          n.data.config.field === 'password' || n.id.includes('senha') || n.id.includes('password'),
+      );
+
+      const emailFallbackId = emailInput ? emailInput.id : 'email';
+      const passFallbackId = passInput ? passInput.id : 'senha';
+      const safeEmailKey = toSafeFunctionName(emailFallbackId);
+      const safePassKey = toSafeFunctionName(passFallbackId);
 
       let params = 'email, password';
-      let authBody = `// Autenticação de usuário com e-mail e senha\n  const user = authenticate('email', email, password);`;
+      let authBody = `// Obtém credenciais de entrada (objeto ou argumentos) ou lê da tela
+  const creds = typeof email === 'object' && email !== null ? email : { email, password };
+  const authEmail = creds.email || creds.${safeEmailKey} || read(${jsLiteral(emailFallbackId)}, 'value') || read('email', 'value') || '';
+  const authPassword = creds.password || creds.senha || creds.${safePassKey} || read(${jsLiteral(passFallbackId)}, 'value') || read('senha', 'value') || read('password', 'value') || '';
+  const user = authenticate('email', authEmail, authPassword);`;
 
       if (provider === 'google') {
         const clientId = config.clientId || 'google-oauth-flowforge.apps.googleusercontent.com';
@@ -195,9 +334,20 @@ export function generateBlockCode(graph: Graph, block: Block): string {
         const googleName = config.googleName || 'Google Teste';
 
         params = 'token';
-        authBody = `const googleToken = token || '${mockToken}';\n  // Valida token fictício e autentica sessão do Google\n  const user = authenticateGoogle({\n    clientId: '${clientId}',\n    token: googleToken,\n    email: '${googleEmail}',\n    name: '${googleName}'\n  });`;
+        authBody = `const googleToken = token || ${jsLiteral(mockToken)};
+  // Valida token fictício e autentica sessão do Google
+  const user = authenticateGoogle({
+    clientId: ${jsLiteral(clientId)},
+    token: googleToken,
+    email: ${jsLiteral(googleEmail)},
+    name: ${jsLiteral(googleName)}
+  });`;
       } else if (config.mode === 'register') {
-        authBody = `// Cria e registra nova conta com e-mail e senha\n  const user = registerUser(email, password);`;
+        authBody = `// Registra nova conta com e-mail e senha
+  const creds = typeof email === 'object' && email !== null ? email : { email, password };
+  const regEmail = creds.email || creds.${safeEmailKey} || read(${jsLiteral(emailFallbackId)}, 'value') || read('email', 'value') || '';
+  const regPassword = creds.password || creds.senha || creds.${safePassKey} || read(${jsLiteral(passFallbackId)}, 'value') || read('senha', 'value') || read('password', 'value') || '';
+  const user = registerUser(regEmail, regPassword);`;
       }
 
       code = code.replace(/\{\{params\}\}/g, params);
@@ -209,12 +359,130 @@ export function generateBlockCode(graph: Graph, block: Block): string {
 
     case 'error': {
       const message = config.message || 'Erro detectado no fluxo';
-      const retryBranch =
-        getCallForHandle('retry') ||
-        "alert(message || (error && error.message) || 'Ocorreu um erro');";
+      const retryCall = getCallForHandle('retry');
+      const retryBranch = retryCall
+        ? `if (canRetry(${jsLiteral(block.id)}, 1)) {\n    ${retryCall}\n  }`
+        : '';
 
-      code = code.replace(/\{\{message\}\}/g, message);
+      code = code.replace(/\{\{message\}\}/g, jsLiteral(message));
       code = code.replace(/\{\{retryBranch\}\}/g, retryBranch);
+      break;
+    }
+
+    case 'notify': {
+      const message = config.message || 'Operação realizada com sucesso!';
+      const type = config.type || 'success';
+      const duration = Number(config.duration || 3000);
+      const nextCall =
+        getCallForHandle('next', 'payload') ||
+        getCallForHandle('then', 'payload') ||
+        getCallForHandle('onDismiss', 'payload') ||
+        '';
+
+      code = code.replace(/\{\{message\}\}/g, jsLiteral(message));
+      code = code.replace(/\{\{type\}\}/g, jsLiteral(type));
+      code = code.replace(/\{\{duration\}\}/g, String(duration));
+      code = code.replace(/\{\{nextCall\}\}/g, nextCall);
+      break;
+    }
+
+    case 'state': {
+      const key = config.key || 'variavel';
+      const op = config.operation || 'set';
+      const valExpr = jsLiteral(config.value ?? '');
+      const nextCall =
+        getCallForHandle('next', 'result') || getCallForHandle('then', 'result') || '';
+
+      code = code.replace(/\{\{key\}\}/g, jsLiteral(key));
+      code = code.replace(/\{\{op\}\}/g, jsLiteral(op));
+      code = code.replace(/\{\{valExpr\}\}/g, valExpr);
+      code = code.replace(/\{\{nextCall\}\}/g, nextCall);
+      break;
+    }
+
+    case 'validator': {
+      const rule = config.rule || 'required';
+      const param = config.param || '';
+      const message = config.message || 'Campo obrigatório ou formato inválido';
+
+      const sourceInputs = inEdges
+        .map((e) => graph.nodes.find((n) => n.id === e.source))
+        .filter((n): n is Block => Boolean(n && n.data.kind === 'input'));
+      const screenInputs = block.data.config.screenId
+        ? graph.nodes.filter(
+            (n) => n.data.kind === 'input' && n.data.config.screenId === block.data.config.screenId,
+          )
+        : [];
+      const inputId = sourceInputs[0]?.id || screenInputs[0]?.id || '';
+
+      const valExtraction = inputId
+        ? `const value = typeof payload === 'string' && payload ? payload : read(${jsLiteral(inputId)}, 'value', '');\n`
+        : `const value = payload !== undefined ? payload : '';\n`;
+
+      const validBranch =
+        getCallForHandle('valid', 'value') ||
+        getCallForHandle('then', 'value') ||
+        getCallForHandle('next', 'value') ||
+        'return { valid: true, value };';
+
+      const invalidBranch =
+        getCallForHandle('invalid', 'validation.error') ||
+        getCallForHandle('error', 'validation.error') ||
+        getCallForHandle('false', 'validation.error') ||
+        'return { valid: false, error: validation.error };';
+
+      code = code.replace(/\{\{valExtraction\}\}/g, valExtraction);
+      code = code.replace(/\{\{rule\}\}/g, jsLiteral(rule));
+      code = code.replace(/\{\{param\}\}/g, jsLiteral(param));
+      code = code.replace(/\{\{message\}\}/g, jsLiteral(message));
+      code = code.replace(/\{\{validBranch\}\}/g, validBranch);
+      code = code.replace(/\{\{invalidBranch\}\}/g, invalidBranch);
+      break;
+    }
+
+    case 'switch': {
+      const cases = (config.cases || 'opcao1, opcao2')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const valExpr = jsLiteral(config.value ?? '');
+
+      const branchLines: string[] = [];
+      cases.forEach((caseName, idx) => {
+        const caseHandle = `case${idx + 1}`;
+        const targetCall =
+          getCallForHandle(caseHandle, 'value') || getCallForHandle(caseName, 'value');
+        if (targetCall) {
+          branchLines.push(
+            `if (String(value).toLowerCase() === ${jsLiteral(caseName.toLowerCase(), '"')}) {\n    ${targetCall}\n  }`,
+          );
+        }
+      });
+
+      const defaultCall =
+        getCallForHandle('default', 'value') ||
+        getCallForHandle('then', 'value') ||
+        getCallForHandle('next', 'value') ||
+        'return value;';
+      branchLines.push(`// Rota padrão (default)\n  ${defaultCall}`);
+
+      const switchBranches = branchLines.join(' else ');
+
+      code = code.replace(/\{\{valExpr\}\}/g, valExpr);
+      code = code.replace(/\{\{switchBranches\}\}/g, switchBranches);
+      break;
+    }
+
+    case 'delay': {
+      const duration = Number(config.duration || 1000);
+      const nextCall =
+        getCallForHandle('next', 'payload') ||
+        getCallForHandle('then', 'payload') ||
+        getCallForHandle('onComplete', 'payload') ||
+        '';
+
+      code = code.replace(/\{\{duration\}\}/g, String(duration));
+      code = code.replace(/\{\{nextCall\}\}/g, nextCall);
       break;
     }
 
@@ -222,10 +490,44 @@ export function generateBlockCode(graph: Graph, block: Block): string {
       const method = config.method || 'GET';
       const url = config.url || '/api/endpoint';
       const successBranch = getCallForHandle('onSuccess', 'data') || 'return data;';
+      const errorCall = getCallForHandle('onError', 'error') || getCallForHandle('error', 'error');
+      const errorBranch = errorCall || 'throw error;';
 
-      code = code.replace(/\{\{method\}\}/g, method);
-      code = code.replace(/\{\{url\}\}/g, url);
+      let apiBody = '';
+      if (config.mode === 'real' || config.useRealApi === 'true') {
+        apiBody = `const fetchBody = (['POST', 'PUT', 'PATCH'].includes(${jsLiteral(method)}) && body) ? JSON.stringify(body) : undefined;
+    const response = await fetch(${jsLiteral(url)}, {
+      method: ${jsLiteral(method)},
+      headers: { 'Content-Type': 'application/json' },
+      body: fetchBody
+    });
+    if (!response.ok) {
+      throw new Error('Falha na requisição API: HTTP ' + response.status);
+    }
+    const data = await response.json();`;
+      } else {
+        const hasError = Boolean(
+          config.simulateError === 'true' || (config.status && Number(config.status) >= 400),
+        );
+        const errorMsg = config.errorMessage || 'Falha na chamada da API';
+        let mockDataStr = '{ ok: true }';
+        if (config.mock) {
+          try {
+            mockDataStr = JSON.stringify(JSON.parse(config.mock));
+          } catch {
+            mockDataStr = JSON.stringify({ ok: true, data: config.mock });
+          }
+        }
+        apiBody = `if (${hasError}) {
+      throw new Error(${jsLiteral(errorMsg)});
+    }
+    const data = ${mockDataStr};
+    log('API simulada [' + ${jsLiteral(method)} + ']: ' + ${jsLiteral(url)}, data);`;
+      }
+
+      code = code.replace(/\{\{apiBody\}\}/g, apiBody);
       code = code.replace(/\{\{successBranch\}\}/g, successBranch);
+      code = code.replace(/\{\{errorBranch\}\}/g, errorBranch);
       break;
     }
 
@@ -233,14 +535,29 @@ export function generateBlockCode(graph: Graph, block: Block): string {
       const operation = config.operation || 'query';
       const table = config.table || 'usuarios';
       const successBranch = getCallForHandle('onSuccess', 'data') || 'return data;';
+      const errorCall = getCallForHandle('onError', 'error') || getCallForHandle('error', 'error');
+      const errorBranch = errorCall || 'throw error;';
 
-      let dbBody = `// Consulta registros da tabela '${table}'\n  const data = await db.query('${table}', payload);`;
+      const hasError = config.simulateError === 'true';
+      const errorMsg = config.errorMessage || 'Falha na operação de banco de dados';
+
+      let dbBody = `// Consulta registros da tabela ${jsLiteral(table)}
+    if (${hasError}) {
+      throw new Error(${jsLiteral(errorMsg)});
+    }
+    const data = await db.query(${jsLiteral(table)}, typeof payload === 'object' ? payload : undefined);`;
       if (operation === 'insert') {
-        dbBody = `// Insere novo registro na tabela '${table}' do banco de dados\n  const data = await db.insert('${table}', payload || { email, senha });`;
+        dbBody = `// Insere novo registro na tabela ${jsLiteral(table)} do banco de dados
+    if (${hasError}) {
+      throw new Error(${jsLiteral(errorMsg)});
+    }
+    const record = typeof payload === 'object' && payload !== null ? payload : { value: payload };
+    const data = await db.insert(${jsLiteral(table)}, record);`;
       }
 
       code = code.replace(/\{\{dbBody\}\}/g, dbBody);
       code = code.replace(/\{\{successBranch\}\}/g, successBranch);
+      code = code.replace(/\{\{errorBranch\}\}/g, errorBranch);
       break;
     }
 
@@ -253,8 +570,8 @@ export function generateBlockCode(graph: Graph, block: Block): string {
 
     case 'screen': {
       const nextCall = outEdges[0]
-        ? `// Início automático do fluxo da tela\n  ${toSafeFunctionName(outEdges[0].target)}();`
-        : '// Aguardando ações do usuário na tela';
+        ? `// Início automático do fluxo da tela\n  return ${toSafeFunctionName(outEdges[0].target)}();`
+        : `return { id: ${jsLiteral(block.id)}, label: ${jsLiteral(label)} };`;
       code = code.replace(/\{\{nextCall\}\}/g, nextCall);
       break;
     }
@@ -286,4 +603,550 @@ export function syncGraphCode(graph: Graph, targetNodeIds?: string[]): Graph {
       };
     }),
   };
+}
+
+/**
+ * Compila todo o projeto em um script JavaScript modular, real e executável.
+ */
+export function generateProjectCode(graph: Graph): string {
+  const initialDbData: Record<string, unknown[]> = {};
+  for (const n of graph.nodes) {
+    if (n.data.kind === 'database') {
+      const table = n.data.config.table || 'usuarios';
+      try {
+        initialDbData[table] = JSON.parse(n.data.config.mock || '[]');
+      } catch {
+        initialDbData[table] = [];
+      }
+    }
+  }
+
+  const initialInputs: Record<string, unknown> = {};
+  for (const n of graph.nodes) {
+    if (n.data.kind === 'input') {
+      initialInputs[n.id] = n.data.config.value || '';
+    }
+  }
+
+  const blockFunctions = graph.nodes.map((node) => generateBlockCode(graph, node)).join('\n\n');
+
+  return `// ============================================================================
+// FlowForge - Programa JavaScript Completo e Funcional
+// Projeto: ${graph.name || 'Fluxo FlowForge'}
+// Gerado automaticamente com base nos blocos, conexões e propriedades.
+// ============================================================================
+
+export function createFlowRunner(initialInputs = {}, customStore = {}, options = {}) {
+  // 1. Contexto de execução compartilhado e controle de passos (proteção contra ciclos)
+  const __stepLimit = Number(options.maxSteps || 100);
+  let __currentSteps = 0;
+  function __step(blockId) {
+    __currentSteps++;
+    if (__currentSteps > __stepLimit) {
+      throw new Error('Fluxo interrompido: limite de ' + __stepLimit + ' passos (possível ciclo).');
+    }
+  }
+
+  // 2. Estado em memória e Store do projeto
+  const currentInputs = { ...${JSON.stringify(initialInputs, null, 2)}, ...initialInputs };
+  const store = {
+    ...${JSON.stringify(initialDbData, null, 2)},
+    ...customStore
+  };
+  let currentScreen = ${jsLiteral(graph.nodes.find((n) => n.data.kind === 'screen')?.id || '')};
+  const executionLog = [];
+
+  function log(msg, data) {
+    executionLog.push({ timestamp: Date.now(), msg, data });
+  }
+
+  // 3. Runtime Helpers
+  function read(id, field, fallback = '') {
+    if (currentInputs[id] !== undefined) return currentInputs[id];
+    if (currentInputs[field] !== undefined) return currentInputs[field];
+    return fallback;
+  }
+
+  function navigateTo(targetScreenId) {
+    currentScreen = targetScreenId;
+    log('Navegou para a tela: ' + targetScreenId);
+    return { screen: targetScreenId };
+  }
+
+  const notifications = [];
+  function notify(opts) {
+    const item = typeof opts === 'string' ? { message: opts, type: 'info' } : (opts || {});
+    item.id = Date.now();
+    item.timestamp = Date.now();
+    item.type = item.type || 'success';
+    item.duration = item.duration || 3000;
+    notifications.push(item);
+    log('[Notificação ' + item.type.toUpperCase() + '] ' + item.message, item);
+    return item;
+  }
+
+  const retryCounters = {};
+  function canRetry(blockId, max = 1) {
+    retryCounters[blockId] = (retryCounters[blockId] || 0) + 1;
+    return retryCounters[blockId] <= max;
+  }
+
+  const db = {
+    async query(table, filter) {
+      if (!table) throw new Error('Nome da tabela não informado para consulta no banco.');
+      const rows = store[table] || [];
+      if (!filter || typeof filter !== 'object') return rows;
+      return rows.filter((r) =>
+        Object.entries(filter).every(([k, v]) => r[k] === v)
+      );
+    },
+    async insert(table, record) {
+      if (!table) throw new Error('Nome da tabela não informado para inserção no banco.');
+      if (!store[table]) store[table] = [];
+      const newRecord = { id: Date.now(), ...record };
+      store[table].push(newRecord);
+      log('Inserido em ' + table, newRecord);
+      return newRecord;
+    }
+  };
+
+  function authenticate(provider, email, password) {
+    const users = store['usuarios'] || [];
+    const found = users.find((u) => u.email === email && (u.senha === password || u.password === password));
+    if (found) {
+      store.__session = [found];
+      return found;
+    }
+    if (email === 'demo@exemplo.com' && password === '123456') {
+      const demoUser = { id: 1, email, nome: 'Usuário Demo' };
+      store.__session = [demoUser];
+      return demoUser;
+    }
+    return null;
+  }
+
+  function authenticateGoogle(opts) {
+    const users = store['usuarios'] || (store['usuarios'] = []);
+    let user = users.find((u) => u.email === opts.email);
+    if (!user) {
+      user = { id: Date.now(), email: opts.email, nome: opts.name, provider: 'google', token: opts.token };
+      users.push(user);
+    } else {
+      user.token = opts.token;
+      user.provider = 'google';
+    }
+    store.__session = [user];
+    return user;
+  }
+
+  function registerUser(email, password) {
+    const users = store['usuarios'] || (store['usuarios'] = []);
+    if (users.some((u) => u.email === email)) {
+      throw new Error('Usuário já cadastrado');
+    }
+    const newUser = { id: Date.now(), email, senha: password };
+    users.push(newUser);
+    store.__session = [newUser];
+    return newUser;
+  }
+
+  function setVar(key, val) {
+    store[key] = val;
+    log('Estado atualizado: ' + key, val);
+    return val;
+  }
+
+  function getVar(key, fallback = '') {
+    return store[key] !== undefined ? store[key] : fallback;
+  }
+
+  function clearVar(key) {
+    delete store[key];
+    log('Estado removido: ' + key);
+    return null;
+  }
+
+  function validate(value, rule, param, message) {
+    const strVal = String(value ?? '');
+    let valid = false;
+    if (rule === 'required') {
+      valid = strVal.trim().length > 0;
+    } else if (rule === 'email') {
+      valid = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(strVal);
+    } else if (rule === 'minLength') {
+      valid = strVal.length >= Number(param || 6);
+    } else if (rule === 'maxLength') {
+      valid = strVal.length <= Number(param || 100);
+    } else if (rule === 'numeric') {
+      valid = !isNaN(Number(strVal)) && strVal.trim() !== '';
+    } else if (rule === 'cpf') {
+      const clean = strVal.replace(/[^0-9]/g, '');
+      valid = clean.length === 11 && !clean.split('').every((c) => c === clean[0]);
+    } else if (rule === 'regex') {
+      try { valid = new RegExp(param || '.*').test(strVal); } catch { valid = false; }
+    } else {
+      valid = Boolean(value);
+    }
+    return {
+      valid,
+      value,
+      error: valid ? null : (message || 'Validação falhou')
+    };
+  }
+
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, Number(ms) || 0));
+  }
+
+  // 4. Funções dos Blocos Conectados
+  ${blockFunctions.split('\n').join('\n  ')}
+
+  // 5. API de execução do fluxo
+  return {
+    store,
+    getScreen: () => currentScreen,
+    getLogs: () => executionLog,
+    getNotifications: () => notifications,
+    setInputs: (newInputs) => Object.assign(currentInputs, newInputs),
+    blocks: {
+      ${graph.nodes.map((n) => `${toSafeFunctionName(n.id)}`).join(',\n      ')}
+    }
+  };
+}
+`;
+}
+
+/**
+ * Executa o código JavaScript real compilado a partir do grafo para validação fim a fim.
+ */
+export async function executeProjectCode(
+  graph: Graph,
+  startBlockId: string,
+  inputs: Record<string, unknown> = {},
+  options: { maxSteps?: number } = {},
+): Promise<{
+  result: unknown;
+  screen: string;
+  store: Record<string, unknown>;
+  logs: Array<{ timestamp: number; msg: string; data?: unknown }>;
+  notifications: Array<{ id: number; type: string; message: string; duration: number }>;
+}> {
+  const code = generateProjectCode(graph);
+  // Remove 'export ' para execução em new Function
+  const executableScript = code.replace(
+    /export function createFlowRunner/,
+    'function createFlowRunner',
+  );
+  const factory = new Function(`${executableScript}; return createFlowRunner;`)() as (
+    initInputs?: Record<string, unknown>,
+    customStore?: Record<string, unknown>,
+    options?: { maxSteps?: number },
+  ) => {
+    store: Record<string, unknown>;
+    getScreen: () => string;
+    getLogs: () => Array<{ timestamp: number; msg: string; data?: unknown }>;
+    getNotifications?: () => Array<{
+      id: number;
+      type: string;
+      message: string;
+      duration: number;
+    }>;
+    blocks: Record<string, (...args: unknown[]) => unknown>;
+  };
+
+  const runner = factory(inputs, {}, options);
+  const fnName = toSafeFunctionName(startBlockId);
+  if (typeof runner.blocks[fnName] !== 'function') {
+    throw new Error(`Bloco inicial "${startBlockId}" não gerou função executável.`);
+  }
+
+  const result = await runner.blocks[fnName]();
+  return {
+    result,
+    screen: runner.getScreen(),
+    store: runner.store,
+    logs: runner.getLogs(),
+    notifications: runner.getNotifications ? runner.getNotifications() : [],
+  };
+}
+
+/**
+ * Retorna os blocos pertencentes a uma tela específica.
+ */
+export function getBlocksForScreen(graph: Graph, screenId: string): Block[] {
+  const allScreens = graph.nodes.filter((n) => n.data.kind === 'screen');
+  const targetScreen = allScreens.find((s) => s.id === screenId) || allScreens[0];
+  if (!targetScreen) return graph.nodes;
+
+  return graph.nodes.filter((node) => {
+    if (node.id === targetScreen.id) return true;
+    if (node.data.kind === 'screen') return false;
+    // Se explicitamente vinculado à tela
+    if (node.data.config.screenId === targetScreen.id) return true;
+    // Se o projeto tem apenas uma tela e não tem screenId explícito
+    if (allScreens.length === 1 && !node.data.config.screenId) return true;
+    return false;
+  });
+}
+
+/**
+ * Compila o arquivo JavaScript funcional e autônomo específico de uma tela,
+ * contendo apenas os blocos que pertencem a ela.
+ */
+export function generateScreenCode(graph: Graph, screenId: string): string {
+  const allScreens = graph.nodes.filter((n) => n.data.kind === 'screen');
+  const targetScreen = allScreens.find((s) => s.id === screenId) || allScreens[0];
+  const screenName = targetScreen ? targetScreen.data.label || targetScreen.id : screenId;
+  const targetScreenId = targetScreen ? targetScreen.id : screenId;
+
+  const screenBlocks = getBlocksForScreen(graph, targetScreenId);
+
+  const initialDbData: Record<string, unknown[]> = {};
+  for (const n of screenBlocks) {
+    if (n.data.kind === 'database') {
+      const table = n.data.config.table || 'usuarios';
+      try {
+        initialDbData[table] = JSON.parse(n.data.config.mock || '[]');
+      } catch {
+        initialDbData[table] = [];
+      }
+    }
+  }
+
+  const initialInputs: Record<string, unknown> = {};
+  for (const n of screenBlocks) {
+    if (n.data.kind === 'input') {
+      initialInputs[n.id] = n.data.config.value || '';
+    }
+  }
+
+  const blockFunctions = screenBlocks.map((node) => generateBlockCode(graph, node)).join('\n\n');
+
+  const safeScreenFnName = toSafeFunctionName(targetScreenId);
+  const runnerFactoryName = `create${safeScreenFnName.charAt(0).toUpperCase() + safeScreenFnName.slice(1)}Runner`;
+
+  return `// ============================================================================
+// FlowForge - Tela: ${screenName} (${targetScreenId}.js)
+// Arquivo de código autônomo gerado com base nos blocos e conexões desta tela.
+// ============================================================================
+
+export const SCREEN_ID = ${JSON.stringify(targetScreenId)};
+export const SCREEN_NAME = ${JSON.stringify(screenName)};
+
+export function createScreenRunner(initialInputs = {}, customStore = {}, options = {}) {
+  // 1. Contexto de execução compartilhado e controle de passos (proteção contra ciclos)
+  const __stepLimit = Number(options.maxSteps || 100);
+  let __currentSteps = 0;
+  function __step(blockId) {
+    __currentSteps++;
+    if (__currentSteps > __stepLimit) {
+      throw new Error('Fluxo interrompido: limite de ' + __stepLimit + ' passos (possível ciclo).');
+    }
+  }
+
+  // 2. Estado em memória e Store desta tela
+  const currentInputs = { ...${JSON.stringify(initialInputs, null, 2)}, ...initialInputs };
+  const store = {
+    ...${JSON.stringify(initialDbData, null, 2)},
+    ...customStore
+  };
+  let currentScreen = ${jsLiteral(targetScreenId)};
+  const executionLog = [];
+
+  function log(msg, data) {
+    executionLog.push({ timestamp: Date.now(), msg, data });
+  }
+
+  // 3. Runtime Helpers
+  function read(id, field, fallback = '') {
+    if (currentInputs[id] !== undefined) return currentInputs[id];
+    if (currentInputs[field] !== undefined) return currentInputs[field];
+    return fallback;
+  }
+
+  function navigateTo(targetScreenId) {
+    currentScreen = targetScreenId;
+    log('Navegou para a tela: ' + targetScreenId);
+    return { screen: targetScreenId };
+  }
+
+  const notifications = [];
+  function notify(opts) {
+    const item = typeof opts === 'string' ? { message: opts, type: 'info' } : (opts || {});
+    item.id = Date.now();
+    item.timestamp = Date.now();
+    item.type = item.type || 'success';
+    item.duration = item.duration || 3000;
+    notifications.push(item);
+    log('[Notificação ' + item.type.toUpperCase() + '] ' + item.message, item);
+    return item;
+  }
+
+  // Navegadores para telas do projeto
+  ${graph.nodes
+    .filter((n) => n.data.kind === 'screen')
+    .map(
+      (s) =>
+        `function ${toSafeFunctionName(s.id)}() { if (typeof __step === 'function') __step(${jsLiteral(s.id)}); return navigateTo(${jsLiteral(s.id)}); }`,
+    )
+    .join('\n  ')}
+
+  const retryCounters = {};
+  function canRetry(blockId, max = 1) {
+    retryCounters[blockId] = (retryCounters[blockId] || 0) + 1;
+    return retryCounters[blockId] <= max;
+  }
+
+  const db = {
+    async query(table, filter) {
+      if (!table) throw new Error('Nome da tabela não informado para consulta no banco.');
+      const rows = store[table] || [];
+      if (!filter || typeof filter !== 'object') return rows;
+      return rows.filter((r) =>
+        Object.entries(filter).every(([k, v]) => r[k] === v)
+      );
+    },
+    async insert(table, record) {
+      if (!table) throw new Error('Nome da tabela não informado para inserção no banco.');
+      if (!store[table]) store[table] = [];
+      const newRecord = { id: Date.now(), ...record };
+      store[table].push(newRecord);
+      log('Inserido em ' + table, newRecord);
+      return newRecord;
+    }
+  };
+
+  function authenticate(provider, email, password) {
+    const users = store['usuarios'] || [];
+    const found = users.find((u) => u.email === email && (u.senha === password || u.password === password));
+    if (found) {
+      store.__session = [found];
+      return found;
+    }
+    if (email === 'demo@exemplo.com' && password === '123456') {
+      const demoUser = { id: 1, email, nome: 'Usuário Demo' };
+      store.__session = [demoUser];
+      return demoUser;
+    }
+    return null;
+  }
+
+  function authenticateGoogle(opts) {
+    const users = store['usuarios'] || (store['usuarios'] = []);
+    let user = users.find((u) => u.email === opts.email);
+    if (!user) {
+      user = { id: Date.now(), email: opts.email, nome: opts.name, provider: 'google', token: opts.token };
+      users.push(user);
+    } else {
+      user.token = opts.token;
+      user.provider = 'google';
+    }
+    store.__session = [user];
+    return user;
+  }
+
+  function registerUser(email, password) {
+    const users = store['usuarios'] || (store['usuarios'] = []);
+    if (users.some((u) => u.email === email)) {
+      throw new Error('Usuário já cadastrado');
+    }
+    const newUser = { id: Date.now(), email, senha: password };
+    users.push(newUser);
+    store.__session = [newUser];
+    return newUser;
+  }
+
+  function setVar(key, val) {
+    store[key] = val;
+    log('Estado atualizado: ' + key, val);
+    return val;
+  }
+
+  function getVar(key, fallback = '') {
+    return store[key] !== undefined ? store[key] : fallback;
+  }
+
+  function clearVar(key) {
+    delete store[key];
+    log('Estado removido: ' + key);
+    return null;
+  }
+
+  function validate(value, rule, param, message) {
+    const strVal = String(value ?? '');
+    let valid = false;
+    if (rule === 'required') {
+      valid = strVal.trim().length > 0;
+    } else if (rule === 'email') {
+      valid = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(strVal);
+    } else if (rule === 'minLength') {
+      valid = strVal.length >= Number(param || 6);
+    } else if (rule === 'maxLength') {
+      valid = strVal.length <= Number(param || 100);
+    } else if (rule === 'numeric') {
+      valid = !isNaN(Number(strVal)) && strVal.trim() !== '';
+    } else if (rule === 'cpf') {
+      const clean = strVal.replace(/[^0-9]/g, '');
+      valid = clean.length === 11 && !clean.split('').every((c) => c === clean[0]);
+    } else if (rule === 'regex') {
+      try { valid = new RegExp(param || '.*').test(strVal); } catch { valid = false; }
+    } else {
+      valid = Boolean(value);
+    }
+    return {
+      valid,
+      value,
+      error: valid ? null : (message || 'Validação falhou')
+    };
+  }
+
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, Number(ms) || 0));
+  }
+
+  // 4. Funções dos Blocos Desta Tela
+  ${blockFunctions.split('\n').join('\n  ')}
+
+  const blocks = {
+    ${screenBlocks.map((n) => `${toSafeFunctionName(n.id)}`).join(',\n    ')}
+  };
+
+  // 5. API de execução da tela
+  return {
+    screenId: ${jsLiteral(targetScreenId)},
+    screenName: ${JSON.stringify(screenName)},
+    store,
+    getScreen: () => currentScreen,
+    getLogs: () => executionLog,
+    getNotifications: () => notifications,
+    setInputs: (newInputs) => Object.assign(currentInputs, newInputs),
+    blocks,
+    async execute(blockId, inputs = {}) {
+      if (inputs && typeof inputs === 'object') {
+        Object.assign(currentInputs, inputs);
+      }
+      const fn = blocks[blockId] || blocks[blockId.replace(/[^a-zA-Z0-9_$]/g, '_')];
+      if (typeof fn !== 'function') {
+        throw new Error('Bloco "' + blockId + '" não encontrado na tela ' + ${jsLiteral(targetScreenId)});
+      }
+      return await fn();
+    }
+  };
+}
+
+export const ${runnerFactoryName} = createScreenRunner;
+`;
+}
+
+/**
+ * Retorna um mapa contendo o arquivo de código de cada tela do projeto:
+ * { [screenId]: screenCode }
+ */
+export function generateAllScreensCode(graph: Graph): Record<string, string> {
+  const screens = graph.nodes.filter((n) => n.data.kind === 'screen');
+  const result: Record<string, string> = {};
+  for (const s of screens) {
+    result[s.id] = generateScreenCode(graph, s.id);
+  }
+  return result;
 }

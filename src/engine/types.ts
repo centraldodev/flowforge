@@ -8,14 +8,54 @@ export type Kind =
   | 'database'
   | 'api'
   | 'error'
-  | 'navigate';
+  | 'navigate'
+  | 'notify'
+  | 'state'
+  | 'validator'
+  | 'switch'
+  | 'delay'
+  | 'constant'
+  | 'math'
+  | 'text'
+  | 'compare'
+  | 'boolean'
+  | 'object'
+  | 'array';
+
+export type PortMode = 'control' | 'data' | 'error';
+export type PortCardinality = 'one' | 'many';
+
+export type ValueType =
+  | { kind: 'any' }
+  | { kind: 'string' }
+  | { kind: 'number' }
+  | { kind: 'boolean' }
+  | { kind: 'null' }
+  | { kind: 'error' }
+  | { kind: 'object'; name?: string }
+  | { kind: 'array'; item: ValueType }
+  | { kind: 'union'; members: ValueType[] };
+
+export type PortDefinition = {
+  id: string;
+  name: string;
+  direction: 'input' | 'output';
+  mode: PortMode;
+  valueType?: ValueType;
+  cardinality: PortCardinality;
+  required?: boolean;
+};
 
 export type CustomPort = {
   id: string;
   name: string;
   direction: 'input' | 'output';
+  mode?: PortMode;
+  cardinality?: PortCardinality;
+  valueType?: ValueType;
   type?: string;
   value?: string;
+  required?: boolean;
 };
 
 export type BlockData = {
@@ -71,7 +111,7 @@ export type Result = {
 };
 
 /** Memória da simulação: tabelas, variáveis, usuários e sessão. */
-export type Store = Record<string, unknown[]>;
+export type Store = Record<string, unknown>;
 
 export type BlockDefinition = {
   name: string;

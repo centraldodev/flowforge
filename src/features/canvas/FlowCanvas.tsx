@@ -23,6 +23,7 @@ import {
 import {
   catalog,
   syncGraphCode,
+  validateConnection,
   type Block,
   type BlockData,
   type Graph,
@@ -290,6 +291,7 @@ export function FlowCanvas(p: Props) {
         nodeTypes={nodeTypes}
         onNodesChange={handleNodesChange}
         onEdgesChange={handleEdgesChange}
+        isValidConnection={(c) => !validateConnection(p.graph, c)}
         onConnect={p.onConnect}
         onConnectStart={(_, params) => {
           connectingRef.current = { nodeId: params.nodeId, handleId: params.handleId };

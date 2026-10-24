@@ -46,15 +46,17 @@ export function resolveBlockFlow(
   else if (
     kind === 'function' ||
     kind === 'condition' ||
+    kind === 'validator' ||
+    kind === 'switch' ||
     id?.includes('valida') ||
     id?.includes('checa')
   ) {
     targetId = 'validation';
-  } else if (kind === 'database') {
+  } else if (kind === 'database' || kind === 'state') {
     targetId = 'database';
   } else if (kind === 'auth' || kind === 'api') {
     targetId = 'auth';
-  } else if (kind === 'error' || kind === 'navigate') {
+  } else if (kind === 'error' || kind === 'navigate' || kind === 'notify' || kind === 'delay') {
     targetId = 'destination';
   }
 
