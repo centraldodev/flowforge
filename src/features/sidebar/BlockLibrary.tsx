@@ -1,10 +1,11 @@
-import { useState, type CSSProperties } from 'react';
+import { useState } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { catalog, categories, visibleKinds, type BlockDefinition, type Kind } from '../../engine';
 
 // Apenas blocos de componentes e lógica (telas agora são abas superiores).
-const allEntries = (Object.entries(catalog) as [Kind, BlockDefinition][])
-  .filter(([kind]) => visibleKinds.includes(kind));
+const allEntries = (Object.entries(catalog) as [Kind, BlockDefinition][]).filter(([kind]) =>
+  visibleKinds.includes(kind),
+);
 
 export function BlockLibrary({ onAdd }: { onAdd: (kind: Kind) => void }) {
   const [search, setSearch] = useState('');

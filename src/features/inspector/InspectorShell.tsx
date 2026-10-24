@@ -4,7 +4,6 @@ import {
   PanelRightOpen,
   Settings2,
   GitBranch,
-  Type,
   SlidersHorizontal,
   KeyRound,
   Globe,

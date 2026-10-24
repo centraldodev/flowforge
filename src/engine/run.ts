@@ -1,12 +1,20 @@
 // Interpretador compartilhado pelo editor e pelo projeto TypeScript exportado.
 import { valueKinds } from './catalog';
-import { isExecOutput } from './ports';
 import { screenRoutes } from './routes';
 import type { Block, Graph, Result, Store } from './types';
 
 const MAX_STEPS = 100;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DEMO_USER = { email: 'demo@exemplo.com', password: '123456' };
+
+/** Verifica se o valor é um objeto de erro com `message` textual. */
+function hasMessage(value: unknown): value is { message: string } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { message?: unknown }).message === 'string' &&
+    (value as { message: string }).message !== ''
+  );
+}
 
 type User = { email: string; password: string };
 
@@ -75,9 +83,7 @@ export function run(
         const messageInput = read(n.id, 'msg', '') || read(n.id, 'message', '');
         const msg = String(
           messageInput ||
-            (errorInput && typeof errorInput === 'object' && (errorInput as any).message
-              ? (errorInput as any).message
-              : errorInput) ||
+            (hasMessage(errorInput) ? errorInput.message : errorInput) ||
             c.message ||
             'Erro detectado no fluxo',
         );

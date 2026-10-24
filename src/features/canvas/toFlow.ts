@@ -78,9 +78,7 @@ export function toFlowNodes(
   }
 
   // Monta nós visíveis (blocos da tela ativa + abas de telas de destino)
-  const visibleNodes = g.nodes.filter(
-    (n) => activeBlockIds.has(n.id) || targetScreenIds.has(n.id),
-  );
+  const visibleNodes = g.nodes.filter((n) => activeBlockIds.has(n.id) || targetScreenIds.has(n.id));
 
   return visibleNodes.map((n) => ({
     ...n,
@@ -90,11 +88,7 @@ export function toFlowNodes(
 }
 
 /** Conexões do grafo com identificação visual de eventos (onClick, onSuccess, onError, true, false, dados). */
-export function toFlowEdges(
-  g: Graph,
-  trace: Trace[],
-  visibleNodeIds?: Set<string>,
-): Edge[] {
+export function toFlowEdges(g: Graph, trace: Trace[], visibleNodeIds?: Set<string>): Edge[] {
   const edgesList = visibleNodeIds
     ? g.edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target))
     : g.edges;

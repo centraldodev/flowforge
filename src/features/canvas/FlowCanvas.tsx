@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type RefObject } from 'react';
 import {
   ReactFlow,
   Background,
@@ -14,10 +14,11 @@ import {
 import { MousePointer2, Plus, RotateCcw, Workflow } from 'lucide-react';
 import { catalog, type Block, type BlockData, type Graph, type Trace } from '../../engine';
 import { pruneEdges } from '../../state/graphOps';
-import { nodeTypes, type FlowNode } from './BlockNode';
+import { BlockNode, type FlowNode } from './BlockNode';
+import { DEFAULT_VIEWPORT } from './constants';
 import { toFlowEdges, toFlowNodes } from './toFlow';
 
-export const DEFAULT_VIEWPORT = { x: 30, y: 70, zoom: 0.72 };
+const nodeTypes = { block: BlockNode };
 
 type Props = {
   graph: Graph;
@@ -37,6 +38,8 @@ type Props = {
   onConnect: (c: Connection) => void;
   onDragStart: () => void;
   onDragStop: () => void;
+  /** Ref para o elemento da área do canvas (usada para centralizar novos blocos). */
+  containerRef?: RefObject<HTMLElement | null>;
 };
 
 export function FlowCanvas(p: Props) {
@@ -95,7 +98,7 @@ export function FlowCanvas(p: Props) {
     );
 
   return (
-    <main className="canvas-area">
+    <main className="canvas-area" ref={p.containerRef}>
       <div className="canvas-bar">
         <div className="canvas-bar-left">
           <span className="canvas-dot" /> Editor de fluxo <span className="divider">/</span>
@@ -172,7 +175,9 @@ export function FlowCanvas(p: Props) {
         <div className="blank-canvas">
           <Workflow size={36} />
           <h2>Esta tela está vazia.</h2>
-          <p>Adicione botões, entradas e funções na barra lateral para construir o fluxo desta tela.</p>
+          <p>
+            Adicione botões, entradas e funções na barra lateral para construir o fluxo desta tela.
+          </p>
         </div>
       )}
 

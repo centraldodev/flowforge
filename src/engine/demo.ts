@@ -7,6 +7,9 @@ const block = (id: string, x: number, y: number, data: BlockData): Block => ({
   data,
 });
 
+/** Tela e bloco destacados ao abrir o exemplo. */
+export const DEMO_FOCUS = { screenId: 'login', blockId: 'auth' } as const;
+
 /**
  * Projeto de exemplo refatorado no padrão real de programação (Lado IN / Lado OUT):
  *  - Navegação direta para tela: conexão de evento diretamente na página destino (#home [onEnter])
@@ -24,9 +27,7 @@ export const demo: Graph = {
       config: {
         title: 'Bem-vindo de volta',
       },
-      ports: [
-        { id: 'onEnter', name: 'onEnter', direction: 'input', type: 'Event' },
-      ],
+      ports: [{ id: 'onEnter', name: 'onEnter', direction: 'input', type: 'Event' }],
     }),
     // Campos de Entrada da Tela de Login
     block('email', 40, 160, {
@@ -118,17 +119,13 @@ export const demo: Graph = {
         screenId: 'home',
         value: 'Painel Principal do Usuário',
       },
-      ports: [
-        { id: 'value', name: 'value', direction: 'output', type: 'string' },
-      ],
+      ports: [{ id: 'value', name: 'value', direction: 'output', type: 'string' }],
     }),
     block('btn-logout', 360, 280, {
       kind: 'button',
       label: 'Sair da Conta',
       config: { screenId: 'home' },
-      ports: [
-        { id: 'onClick', name: 'onClick', direction: 'output', type: 'Event' },
-      ],
+      ports: [{ id: 'onClick', name: 'onClick', direction: 'output', type: 'Event' }],
     }),
   ],
   edges: [

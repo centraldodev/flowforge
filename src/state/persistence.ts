@@ -1,7 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { demo, parseGraph, type Graph } from '../engine';
 
 const STORAGE_KEY = 'flowforge-v1';
+/** Intervalo sem alterações antes de gravar (evita gravar a cada frame durante arrastes). */
+const SAVE_DELAY_MS = 400;
 
 /** Projeto salvo no navegador, ou o exemplo quando não há nada salvo. */
 export function loadSavedGraph(): Graph {
@@ -14,14 +16,41 @@ export function loadSavedGraph(): Graph {
   return structuredClone(demo);
 }
 
-/** Salva o grafo no localStorage a cada alteração. */
+/** Salva o grafo no localStorage com debounce e garante a gravação ao fechar a página. */
 export function usePersistence(graph: Graph, onError: (message: string) => void) {
+  const latest = useRef(graph);
+  const onErrorRef = useRef(onError);
+  const dirty = useRef(false);
+
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(graph));
-    } catch {
-      onError('Não foi possível salvar no navegador. Baixe o JSON.');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    onErrorRef.current = onError;
+  }, [onError]);
+
+  useEffect(() => {
+    latest.current = graph;
+    dirty.current = true;
+    const timer = window.setTimeout(() => save(), SAVE_DELAY_MS);
+    return () => window.clearTimeout(timer);
   }, [graph]);
+
+  useEffect(() => {
+    const flush = () => save();
+    window.addEventListener('beforeunload', flush);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      flush();
+      window.removeEventListener('beforeunload', flush);
+      window.removeEventListener('pagehide', flush);
+    };
+  }, []);
+
+  function save() {
+    if (!dirty.current) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(latest.current));
+      dirty.current = false;
+    } catch {
+      onErrorRef.current('Não foi possível salvar no navegador. Baixe o JSON.');
+    }
+  }
 }

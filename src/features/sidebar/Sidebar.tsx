@@ -11,7 +11,7 @@ import {
   Layers,
   X,
 } from 'lucide-react';
-import { catalog, visibleKinds, type Kind } from '../../engine';
+import { visibleKinds, type Kind } from '../../engine';
 import { BlockLibrary } from './BlockLibrary';
 
 type Props = {

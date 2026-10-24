@@ -3,13 +3,13 @@ import type { Connection } from '@xyflow/react';
 import {
   catalog,
   ensureBlockPorts,
-  interfaceKinds,
   isExecInput,
   isExecOutput,
   type Block,
   type CustomPort,
   type Graph,
   type Kind,
+  type ScreenRoute,
 } from '../engine';
 
 type Position = { x: number; y: number };
@@ -153,7 +153,7 @@ export function renameBlockId(g: Graph, oldId: string, newId: string): Graph {
         const routes = JSON.parse(nextConfig.routes);
         if (Array.isArray(routes)) {
           let routesChanged = false;
-          const updatedRoutes = routes.map((r: any) => {
+          const updatedRoutes = routes.map((r: ScreenRoute) => {
             let tr = r.trigger;
             let tg = r.target;
             let itemChanged = false;
@@ -204,7 +204,7 @@ export function renameBlockId(g: Graph, oldId: string, newId: string): Graph {
 
 /** Novo bloco com os valores padrão do catálogo e sem conexões por padrão. */
 export function createBlock(kind: Kind, position: Position, screenId: string, g?: Graph): Block {
-  const id = g ? generateUniqueBlockId(g, kind) : generateUniqueBlockId({ nodes: [] } as any, kind);
+  const id = generateUniqueBlockId(g ?? emptyGraph(''), kind);
   return {
     id,
     type: 'block',
@@ -289,7 +289,9 @@ export function findFreePosition(g: Graph, base: Position, screenId?: string): P
     ? g.nodes.filter((n) => n.data.kind !== 'screen' && n.data.config.screenId === screenId)
     : g.nodes;
   const overlaps = (p: Position) =>
-    targetNodes.some((n) => Math.abs(n.position.x - p.x) < 250 && Math.abs(n.position.y - p.y) < 220);
+    targetNodes.some(
+      (n) => Math.abs(n.position.x - p.x) < 250 && Math.abs(n.position.y - p.y) < 220,
+    );
   for (let attempt = 1; overlaps(position) && attempt <= 500; attempt++) {
     position = { x: base.x + (attempt % 3) * 270, y: base.y + Math.floor(attempt / 3) * 230 };
   }

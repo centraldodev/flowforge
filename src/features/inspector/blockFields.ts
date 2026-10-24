@@ -1,5 +1,5 @@
 // Campos editáveis de cada tipo de bloco no inspetor.
-import { interfaceKinds, type Block, type Graph, type Kind } from '../../engine';
+import { type Block, type Graph, type Kind } from '../../engine';
 import type { FieldDefinition } from '../../components/PropertyField';
 
 type Option = { value: string; label: string };

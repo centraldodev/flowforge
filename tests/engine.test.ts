@@ -1,13 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { demo, run, validate, parseGraph, getBlockPorts, type Graph, type Kind } from '../src/engine';
+import {
+  demo,
+  run,
+  validate,
+  parseGraph,
+  getBlockPorts,
+  type Graph,
+  type Kind,
+} from '../src/engine';
 import {
   createBlock,
   addPortToBlock,
   removePortFromBlock,
   validateBlockId,
   renameBlockId,
-  generateUniqueBlockId,
   duplicateBlock,
   connect,
   connectionError,
@@ -30,14 +37,42 @@ test('cadastro local é reutilizado no login e rejeita duplicação', () => {
     version: 1,
     name: 'auth-reg',
     nodes: [
-      { id: 'signup', position: { x: 0, y: 0 }, data: { kind: 'button', label: 'Cadastrar', config: {} } },
-      { id: 'register', position: { x: 0, y: 0 }, data: { kind: 'auth', label: 'Reg', config: { provider: 'email', mode: 'register' } } },
-      { id: 'enter', position: { x: 0, y: 0 }, data: { kind: 'button', label: 'Entrar', config: {} } },
-      { id: 'login', position: { x: 0, y: 0 }, data: { kind: 'auth', label: 'Login', config: { provider: 'email', mode: 'login' } } },
+      {
+        id: 'signup',
+        position: { x: 0, y: 0 },
+        data: { kind: 'button', label: 'Cadastrar', config: {} },
+      },
+      {
+        id: 'register',
+        position: { x: 0, y: 0 },
+        data: { kind: 'auth', label: 'Reg', config: { provider: 'email', mode: 'register' } },
+      },
+      {
+        id: 'enter',
+        position: { x: 0, y: 0 },
+        data: { kind: 'button', label: 'Entrar', config: {} },
+      },
+      {
+        id: 'login',
+        position: { x: 0, y: 0 },
+        data: { kind: 'auth', label: 'Login', config: { provider: 'email', mode: 'login' } },
+      },
     ],
     edges: [
-      { id: 'e1', source: 'signup', target: 'register', sourceHandle: 'onClick', targetHandle: 'trigger' },
-      { id: 'e2', source: 'enter', target: 'login', sourceHandle: 'onClick', targetHandle: 'trigger' },
+      {
+        id: 'e1',
+        source: 'signup',
+        target: 'register',
+        sourceHandle: 'onClick',
+        targetHandle: 'trigger',
+      },
+      {
+        id: 'e2',
+        source: 'enter',
+        target: 'login',
+        sourceHandle: 'onClick',
+        targetHandle: 'trigger',
+      },
     ],
   };
   const store = {};
@@ -51,16 +86,58 @@ test('OAuth e recuperação são simulações', () => {
     version: 1,
     name: 'oauth-sim',
     nodes: [
-      { id: 'google', position: { x: 0, y: 0 }, data: { kind: 'button', label: 'Google', config: {} } },
-      { id: 'oauth', position: { x: 0, y: 0 }, data: { kind: 'auth', label: 'OAuth', config: { provider: 'google', mode: 'login' } } },
-      { id: 'nav', position: { x: 0, y: 0 }, data: { kind: 'navigate', label: 'Nav', config: { target: 'home' } } },
-      { id: 'forgot', position: { x: 0, y: 0 }, data: { kind: 'button', label: 'Forgot', config: {} } },
-      { id: 'reset', position: { x: 0, y: 0 }, data: { kind: 'function', label: 'Reset', config: { code: 'return String(read("email")).includes("@");' } } },
+      {
+        id: 'google',
+        position: { x: 0, y: 0 },
+        data: { kind: 'button', label: 'Google', config: {} },
+      },
+      {
+        id: 'oauth',
+        position: { x: 0, y: 0 },
+        data: { kind: 'auth', label: 'OAuth', config: { provider: 'google', mode: 'login' } },
+      },
+      {
+        id: 'nav',
+        position: { x: 0, y: 0 },
+        data: { kind: 'navigate', label: 'Nav', config: { target: 'home' } },
+      },
+      {
+        id: 'forgot',
+        position: { x: 0, y: 0 },
+        data: { kind: 'button', label: 'Forgot', config: {} },
+      },
+      {
+        id: 'reset',
+        position: { x: 0, y: 0 },
+        data: {
+          kind: 'function',
+          label: 'Reset',
+          config: { code: 'return String(read("email")).includes("@");' },
+        },
+      },
     ],
     edges: [
-      { id: 'e1', source: 'google', target: 'oauth', sourceHandle: 'onClick', targetHandle: 'trigger' },
-      { id: 'e2', source: 'oauth', target: 'nav', sourceHandle: 'onSuccess', targetHandle: 'execute' },
-      { id: 'e3', source: 'forgot', target: 'reset', sourceHandle: 'onClick', targetHandle: 'execute' },
+      {
+        id: 'e1',
+        source: 'google',
+        target: 'oauth',
+        sourceHandle: 'onClick',
+        targetHandle: 'trigger',
+      },
+      {
+        id: 'e2',
+        source: 'oauth',
+        target: 'nav',
+        sourceHandle: 'onSuccess',
+        targetHandle: 'execute',
+      },
+      {
+        id: 'e3',
+        source: 'forgot',
+        target: 'reset',
+        sourceHandle: 'onClick',
+        targetHandle: 'execute',
+      },
     ],
   };
   assert.equal(run(g, 'google').screen, 'home');
@@ -125,7 +202,7 @@ test('validação detecta referência a tela excluída e ligação incompatível
 });
 
 test('funções em cadeia: transformação, validação e persistência em memória', () => {
-  const block = (id: string, kind: any, config: Record<string, string>) => ({
+  const block = (id: string, kind: Kind, config: Record<string, string>) => ({
     id,
     position: { x: 0, y: 0 },
     data: { kind, label: id, config },
@@ -337,15 +414,32 @@ test('bloco de tratamento de erro captura falha, expõe msg e emite onDismiss', 
     version: 1,
     name: 'err-test',
     nodes: [
-      { id: 'btn', position: { x: 0, y: 0 }, data: { kind: 'button', label: 'Disparar', config: {} } },
-      { id: 'err', position: { x: 0, y: 0 }, data: { kind: 'error', label: 'Alerta', config: { message: 'Erro crítico detectado', type: 'modal' } } },
+      {
+        id: 'btn',
+        position: { x: 0, y: 0 },
+        data: { kind: 'button', label: 'Disparar', config: {} },
+      },
+      {
+        id: 'err',
+        position: { x: 0, y: 0 },
+        data: {
+          kind: 'error',
+          label: 'Alerta',
+          config: { message: 'Erro crítico detectado', type: 'modal' },
+        },
+      },
     ],
     edges: [
       { id: 'e1', source: 'btn', target: 'err', sourceHandle: 'onClick', targetHandle: 'execute' },
     ],
   };
   const res = run(g, 'btn');
-  const errOutput = res.outputs.err as { error: boolean; msg: string; message: string; type: string };
+  const errOutput = res.outputs.err as {
+    error: boolean;
+    msg: string;
+    message: string;
+    type: string;
+  };
   assert.equal(errOutput.error, true);
   assert.equal(errOutput.msg, 'Erro crítico detectado');
   assert.equal(errOutput.message, 'Erro crítico detectado');
@@ -357,7 +451,7 @@ test('simulação do fluxo real de erro: executa retry para re-testar função e
 
   // Execução com senha errada: auth falha -> show-error trata erro -> retry tenta de novo -> auth falha -> show-error encerra
   const res = run(demo, 'btn-login', { email: 'demo@exemplo.com', password: 'senha-incorreta' });
-  
+
   // Telas não devem navegar pois credenciais falharam
   assert.equal(res.screen, undefined);
 
@@ -368,13 +462,7 @@ test('simulação do fluxo real de erro: executa retry para re-testar função e
 
   // Verifica o trace completo da simulação do ciclo de erro e retry
   const traceLabels = res.trace.map((t) => t.id);
-  assert.deepEqual(traceLabels, [
-    'btn-login',
-    'auth',
-    'show-error',
-    'auth',
-    'show-error',
-  ]);
+  assert.deepEqual(traceLabels, ['btn-login', 'auth', 'show-error', 'auth', 'show-error']);
 
   // Primeiro disparo do erro indica tentativa 1 de re-execução via retry
   assert.ok(res.trace[2].message.includes('Tentativa 1/1 de re-execução via retry'));
@@ -460,15 +548,26 @@ test('ao adicionar bloco em uma aba ativa, o bloco vincula-se automaticamente à
     const hasScreenId = fields.some((f) => f.key === 'screenId');
     assert.equal(hasScreenId, true, `Bloco do tipo ${k} deve ter campo screenId no inspetor`);
   }
-  assert.equal(fieldsFor('screen').some((f) => f.key === 'screenId'), false);
+  assert.equal(
+    fieldsFor('screen').some((f) => f.key === 'screenId'),
+    false,
+  );
 
   // 2. Cria grafo com duas telas: 'login' e 'home'
-  let g: Graph = {
+  const g: Graph = {
     version: 1,
     name: 'multi-tab-test',
     nodes: [
-      { id: 'login', position: { x: 40, y: 40 }, data: { kind: 'screen', label: 'Tela Login', config: {} } },
-      { id: 'home', position: { x: 640, y: 40 }, data: { kind: 'screen', label: 'Tela Home', config: {} } },
+      {
+        id: 'login',
+        position: { x: 40, y: 40 },
+        data: { kind: 'screen', label: 'Tela Login', config: {} },
+      },
+      {
+        id: 'home',
+        position: { x: 640, y: 40 },
+        data: { kind: 'screen', label: 'Tela Home', config: {} },
+      },
     ],
     edges: [],
   };
@@ -485,10 +584,15 @@ test('ao adicionar bloco em uma aba ativa, o bloco vincula-se automaticamente à
 
   // Ao visualizar nós para a aba 'home', o bloco recém-criado deve estar visível
   const homeVisibleNodes = toFlowNodes(g, null, 'home');
-  assert.equal(homeVisibleNodes.some((n) => n.id === newBlock.id), true);
+  assert.equal(
+    homeVisibleNodes.some((n) => n.id === newBlock.id),
+    true,
+  );
 
   // Ao mudar para a aba 'login', o bloco da aba 'home' NÃO deve ser exibido como bloco ativo de login
   const loginVisibleNodes = toFlowNodes(g, null, 'login');
-  assert.equal(loginVisibleNodes.some((n) => n.id === newBlock.id), false);
+  assert.equal(
+    loginVisibleNodes.some((n) => n.id === newBlock.id),
+    false,
+  );
 });
-

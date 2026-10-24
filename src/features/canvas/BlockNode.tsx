@@ -85,7 +85,7 @@ export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
         </span>
       </div>
 
-      {(hasIn || hasOut) ? (
+      {hasIn || hasOut ? (
         <div className="ports">
           <div className="ports-header">
             <span className="port-col in">
@@ -159,5 +159,3 @@ export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
     </div>
   );
 }
-
-export const nodeTypes = { block: BlockNode };

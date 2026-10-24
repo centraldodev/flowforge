@@ -1,5 +1,5 @@
 import { catalog, interfaceKinds } from './catalog';
-import { getBlockPorts, isExecInput, isExecOutput, ports } from './ports';
+import { getBlockPorts, isExecInput, isExecOutput } from './ports';
 import { reachableActions, screenRoutes } from './routes';
 import type { Block, Graph } from './types';
 
