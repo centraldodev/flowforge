@@ -176,20 +176,188 @@
   color: #9399aa;
 }
 
-.canvas-tools .add-screen-button {
-  width: auto;
-  padding: 0 10px;
-  gap: 6px;
-  color: #c8b7eb;
-  border: 1px solid #484052;
-  background: #b9a5f60b;
+/* Faixa de Roadmap das Fases do Fluxo no Topo do Canvas */
+.canvas-flow-phases-bar {
+  position: absolute;
+  top: 50px;
+  left: 0;
+  right: 0;
+  height: 34px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(17, 19, 24, 0.9);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  z-index: 2;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.canvas-flow-phases-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.flow-phases-label {
   font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #64748b;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+
+.flow-phase-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.flow-phase-chip:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.flow-phase-chip .phase-num {
+  font-weight: 800;
+  font-size: 10px;
+  color: var(--phase-color, #818cf8);
+}
+
+.flow-phase-chip .phase-title {
+  color: #cbd5e1;
+}
+
+.flow-phase-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  transition: all 0.12s ease;
+}
+
+.flow-phase-remove:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.flow-phase-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px dashed rgba(129, 140, 248, 0.35);
+  color: #a5b4fc;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.flow-phase-add-btn:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(129, 140, 248, 0.6);
+  color: #ffffff;
+}
+
+.flow-phase-add-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.flow-phase-input {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: rgba(20, 23, 33, 0.95);
+  border: 1px solid rgba(129, 140, 248, 0.4);
+  color: #f1f5f9;
+  font-size: 11px;
+  outline: none;
+  min-width: 140px;
+}
+
+.flow-phase-input:focus {
+  border-color: #818cf8;
+  box-shadow: 0 0 6px rgba(129, 140, 248, 0.3);
+}
+
+.flow-phase-add-confirm {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: #6366f1;
+  border: none;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.flow-phase-add-cancel {
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.flow-phase-organize-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(129, 140, 248, 0.3);
+  color: #a5b4fc;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  transition: all 0.15s ease;
+}
+
+.flow-phase-organize-btn:hover {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: rgba(129, 140, 248, 0.6);
+  color: #ffffff;
+  transform: translateY(-1px);
 }
 
 .canvas-heading {
   position: absolute;
   left: 30px;
-  top: 79px;
+  top: 92px;
   pointer-events: none;
   z-index: 2;
   background: linear-gradient(90deg, #111318d9, transparent);
@@ -258,10 +426,12 @@
 
 .block {
   position: relative;
-  min-width: 230px;
-  width: max-content;
+  min-width: 250px;
+  width: auto;
   max-width: 380px;
+  height: auto;
   min-height: auto;
+  box-sizing: border-box;
   background: var(--bg-card, #141721);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
@@ -289,11 +459,20 @@
 
 .block-heading {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-bottom: 10px;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 8px;
   margin-bottom: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  width: 100%;
+}
+
+.block-heading-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
 .block-icon {
@@ -301,6 +480,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .block-title {
@@ -308,7 +488,30 @@
   font-weight: 600;
   color: #f1f5f9;
   letter-spacing: -0.2px;
+  line-height: 1.35;
+  word-break: break-word;
+  min-width: 0;
+}
+
+.block-heading-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.block-phase-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .block-id-tag {
@@ -322,6 +525,8 @@
   border-radius: 999px;
   margin-left: auto;
   letter-spacing: -0.2px;
+  max-width: 100%;
+  word-break: break-all;
 }
 
 .screen-tab-badge {
@@ -568,13 +773,28 @@
 }
 
 .react-flow__minimap {
-  bottom: 55px !important;
-  border: 1px solid #383c47;
-  border-radius: 8px;
+  bottom: 50px !important;
+  right: 18px !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 10px !important;
   overflow: hidden;
-  background: #181b21 !important;
-  height: 90px !important;
-  width: 135px !important;
+  background: #111319ed !important;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+  width: 220px !important;
+  height: 140px !important;
+}
+
+.react-flow__minimap-mask {
+  fill: rgba(10, 12, 18, 0.68);
+  stroke: #818cf8 !important;
+  stroke-width: 2px !important;
+  stroke-linejoin: round;
+}
+
+.react-flow__minimap-node {
+  rx: 3px;
+  ry: 3px;
 }
 
 /* ==========================================================================
@@ -588,42 +808,90 @@
   right: 0;
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
   height: 38px;
   align-items: center;
   padding: 0 17px;
   background: var(--bg-header, #181b21);
   border-top: 1px solid var(--color-border, #2b2e37);
-  color: #7f8595;
-  font-size: 9px;
+  color: #94a3b8;
+  font-size: 11px;
   z-index: 3;
 }
 
-.canvas-footer > span {
+.footer-stats {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
+}
+
+.footer-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.footer-stat svg {
+  color: #818cf8;
+}
+
+.footer-stat strong {
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.footer-divider {
+  color: #334155;
+  font-size: 10px;
+}
+
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.footer-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #cbd5e1;
+  font-size: 11px;
 }
 
 .canvas-footer i {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   display: inline-block;
 }
 
 .ok {
-  background: #8bc2a0;
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
 }
 
 .warning {
-  background: #e4b76b;
+  background: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
 }
 
 .footer-version {
-  border-left: 1px solid #3c3f49;
+  border-left: 1px solid #334155;
   padding-left: 10px;
-  margin-left: 4px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 /* ==========================================================================
@@ -637,11 +905,8 @@
   .canvas-heading {
     left: 18px;
   }
-  .canvas-footer > span:first-child {
+  .footer-hint {
     display: none;
-  }
-  .canvas-footer {
-    justify-content: flex-end;
   }
 }
 

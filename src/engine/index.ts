@@ -7,3 +7,4 @@ export * from './validate';
 export * from './run';
 export * from './parse';
 export * from './demo';
+export * from './codeGen';

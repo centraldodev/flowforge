@@ -98,34 +98,34 @@ export function Sidebar(p: Props) {
               aria-expanded="true"
               onClick={toggle}
             >
-              <PanelLeftClose size={20} />
+              <PanelLeftClose size={18} />
             </button>
-            <span>Workspace</span>
+            <span>Biblioteca</span>
           </div>
           <nav className="project-menu" aria-label="Projeto">
             <span className="eyebrow">PROJETO</span>
             <button onClick={p.onNew}>
-              <FilePlus2 size={16} />
+              <FilePlus2 size={15} />
               Novo projeto
             </button>
             <button onClick={p.onOpen}>
-              <FolderOpen size={16} />
+              <FolderOpen size={15} />
               Abrir projeto
             </button>
             <button onClick={p.onSave}>
-              <FileJson size={16} />
+              <FileJson size={15} />
               Salvar projeto
             </button>
             <button onClick={p.onExport}>
-              <Code2 size={16} />
+              <Code2 size={15} />
               Exportar projeto
             </button>
             <button onClick={p.onExample}>
-              <BookOpen size={16} />
-              Carregar exemplo de login
+              <BookOpen size={15} />
+              Carregar exemplo
             </button>
             <button onClick={p.onSettings}>
-              <Settings2 size={16} />
+              <Settings2 size={15} />
               Configurações
             </button>
           </nav>
@@ -133,7 +133,6 @@ export function Sidebar(p: Props) {
             <h2>Blocos</h2>
             <span className="block-count">{visibleKinds.length}</span>
           </div>
-          <p>Pequenas peças. Grandes ideias.</p>
           <BlockLibrary onAdd={p.onAdd} />
         </div>
       ) : (
@@ -145,13 +144,13 @@ export function Sidebar(p: Props) {
               aria-expanded="false"
               onClick={toggle}
             >
-              <PanelLeftOpen size={20} />
+              <PanelLeftOpen size={18} />
             </button>
             <button title="Novo projeto" aria-label="Novo projeto" onClick={p.onNew}>
-              <FilePlus2 size={20} />
+              <FilePlus2 size={18} />
             </button>
             <button title="Abrir projeto" aria-label="Abrir projeto" onClick={p.onOpen}>
-              <FolderOpen size={20} />
+              <FolderOpen size={18} />
             </button>
             <div
               className="blocks-trigger"
@@ -180,7 +179,7 @@ export function Sidebar(p: Props) {
                   }
                 }}
               >
-                <Layers size={21} />
+                <Layers size={19} />
               </button>
               {flyout && (
                 <div
@@ -197,10 +196,9 @@ export function Sidebar(p: Props) {
                       Blocos <span className="block-count">{visibleKinds.length}</span>
                     </h2>
                     <button title="Fechar blocos" aria-label="Fechar blocos" onClick={close}>
-                      <X size={16} />
+                      <X size={15} />
                     </button>
                   </div>
-                  <p>Escolha um bloco para adicionar ao fluxo.</p>
                   <BlockLibrary
                     onAdd={(kind) => {
                       p.onAdd(kind);
@@ -211,21 +209,17 @@ export function Sidebar(p: Props) {
               )}
             </div>
             <button title="Salvar projeto" aria-label="Salvar projeto" onClick={p.onSave}>
-              <FileJson size={20} />
+              <FileJson size={18} />
             </button>
             <button title="Exportar projeto" aria-label="Exportar projeto" onClick={p.onExport}>
-              <Code2 size={20} />
+              <Code2 size={18} />
             </button>
-            <button
-              title="Carregar exemplo de login"
-              aria-label="Carregar exemplo de login"
-              onClick={p.onExample}
-            >
-              <BookOpen size={20} />
+            <button title="Carregar exemplo" aria-label="Carregar exemplo" onClick={p.onExample}>
+              <BookOpen size={18} />
             </button>
             <div className="rail-bottom">
               <button title="Configurações" aria-label="Configurações" onClick={p.onSettings}>
-                <Settings2 size={20} />
+                <Settings2 size={18} />
               </button>
             </div>
           </nav>

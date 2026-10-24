@@ -111,6 +111,7 @@ export const DEFAULT_PORT_TYPES: Record<string, string> = {
   response: 'object',
   body: 'object',
   result: 'any',
+  token: 'string',
 };
 
 export function getPortType(portId: string, customType?: string): string {
@@ -133,7 +134,7 @@ const table: Record<Kind, Ports> = {
     outputs: ['true', 'false', 'value'],
   },
   auth: {
-    inputs: ['trigger', 'email', 'password', 'listener', 'listenerClick', 'exec'],
+    inputs: ['trigger', 'email', 'password', 'token', 'listener', 'listenerClick', 'exec'],
     outputs: ['onSuccess', 'onError', 'user', 'then', 'next', 'value'],
   },
   error: {
@@ -146,7 +147,7 @@ const table: Record<Kind, Ports> = {
   },
   // Dados
   database: {
-    inputs: ['execute', 'listener', 'listenerClick', 'exec', 'value'],
+    inputs: ['execute', 'listener', 'listenerClick', 'exec', 'value', 'data', 'user'],
     outputs: ['onSuccess', 'onError', 'data', 'then', 'next', 'value'],
   },
   api: {

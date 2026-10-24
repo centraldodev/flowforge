@@ -122,9 +122,9 @@ export function InspectorShell(p: Props) {
                 setActive(null);
               }}
             >
-              <PanelRightClose size={20} />
+              <PanelRightClose size={18} />
             </button>
-            <span>Inspetor</span>
+            <span>Propriedades</span>
           </div>
           <div className="inspector-body">{p.children}</div>
         </>
@@ -139,7 +139,7 @@ export function InspectorShell(p: Props) {
               setActive(null);
             }}
           >
-            <PanelRightOpen size={20} />
+            <PanelRightOpen size={18} />
           </button>
           {p.chosen ? (
             <>

@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { catalog, ports, getPortType, type BlockData } from '../../engine';
+import { catalog, ports, getPortType, type BlockData, type FlowStage } from '../../engine';
+import { getGraphFlows, resolveBlockFlow } from './constants';
 
 export type FlowNode = Node<BlockData, 'block'>;
 
@@ -10,6 +11,9 @@ export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
     icon: '📦',
     color: '#818cf8',
   };
+
+  const flows = getGraphFlows((data as { flows?: FlowStage[] }).flows);
+  const { index, flow } = resolveBlockFlow(flows, data.kind, id, data.config.flowId);
 
   // Formata o título no padrão visual: "Botão — Entrar", "Autenticação — Login", etc.
   const title = (() => {
@@ -77,12 +81,28 @@ export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
       style={{ '--block-color': def.color } as CSSProperties}
     >
       <div className="block-heading">
-        {data.kind !== 'screen' && <span className="block-icon">{def.icon}</span>}
-        <span className="block-title">{title}</span>
-        {data.kind === 'screen' && <span className="screen-tab-badge">Aba de Tela</span>}
-        <span className="block-id-tag" title={'ID: #' + id}>
-          #{id}
-        </span>
+        <div className="block-heading-main">
+          <span className="block-icon">{def.icon}</span>
+          <span className="block-title" title={title}>
+            {title}
+          </span>
+        </div>
+        <div className="block-heading-meta">
+          <span
+            className="block-phase-badge"
+            title={`Fluxo ${index}: ${flow.name}`}
+            style={{
+              color: flow.color,
+              borderColor: `${flow.color}45`,
+              backgroundColor: `${flow.color}18`,
+            }}
+          >
+            {index} · {flow.name}
+          </span>
+          <span className="block-id-tag" title={'ID: #' + id}>
+            #{id}
+          </span>
+        </div>
       </div>
 
       {hasIn || hasOut ? (

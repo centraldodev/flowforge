@@ -40,11 +40,18 @@ export type Link = {
   targetHandle?: string | null;
 };
 
+export type FlowStage = {
+  id: string;
+  name: string;
+  color?: string;
+};
+
 export type Graph = {
   version: 1;
   name: string;
   nodes: Block[];
   edges: Link[];
+  flows?: FlowStage[];
 };
 
 export type ScreenRoute = {

@@ -55,11 +55,6 @@ export function Connections({
         <span className="badge-count">{ports.length}</span>
       </div>
 
-      <p className="subtle">
-        Conecte o Lado A (Eventos: <code>onClick</code>, <code>then</code>, <code>onSuccess</code>)
-        ao Lado B (Ouvintes: <code>trigger</code>, <code>execute</code>, <code>onEnter</code>).
-      </p>
-
       <PortList block={chosen} ports={ports} edges={blockEdges} onRemovePort={onRemovePort} />
 
       <div className="add-ports-section">

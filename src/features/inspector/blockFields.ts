@@ -1,14 +1,15 @@
 // Campos editáveis de cada tipo de bloco no inspetor.
 import { type Block, type Graph, type Kind } from '../../engine';
 import type { FieldDefinition } from '../../components/PropertyField';
+import { getGraphFlows } from '../canvas/constants';
 
 type Option = { value: string; label: string };
 
 type FieldSpec = {
   key: string;
   label: string;
-  /** Lista fixa de opções, ou 'screens' para as telas do projeto. */
-  options?: Option[] | 'screens';
+  /** Lista fixa de opções, 'screens' para as telas do projeto, ou 'flows' para os fluxos cadastrados. */
+  options?: Option[] | 'screens' | 'flows';
   area?: boolean;
   /** Exibe o campo somente quando a condição for verdadeira. */
   visible?: (config: Record<string, string>) => boolean;
@@ -17,6 +18,7 @@ type FieldSpec = {
 const same = (...values: string[]): Option[] => values.map((v) => ({ value: v, label: v }));
 
 const SCREEN_ID: FieldSpec = { key: 'screenId', label: 'Pertence à tela', options: 'screens' };
+const FLOW_ID: FieldSpec = { key: 'flowId', label: 'Vincular ao Fluxo', options: 'flows' };
 
 const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
   screen: [{ key: 'title', label: 'Título da tela' }],
@@ -26,13 +28,7 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
     { key: 'value', label: 'Valor inicial' },
   ],
   button: [],
-  function: [
-    {
-      key: 'code',
-      label: 'Código JavaScript (value, store, read)',
-      area: true,
-    },
-  ],
+  function: [],
   condition: [
     {
       key: 'operator',
@@ -63,6 +59,22 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
         { value: 'login', label: 'Entrar' },
         { value: 'register', label: 'Criar conta' },
       ],
+      visible: (c) => !c.provider || c.provider === 'email',
+    },
+    {
+      key: 'clientId',
+      label: 'Client ID (Google)',
+      visible: (c) => c.provider === 'google',
+    },
+    {
+      key: 'mockToken',
+      label: 'Token OAuth Fictício',
+      visible: (c) => c.provider === 'google',
+    },
+    {
+      key: 'googleEmail',
+      label: 'E-mail Teste Google',
+      visible: (c) => c.provider === 'google',
     },
   ],
   error: [
@@ -97,9 +109,16 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
   ],
 };
 
+const CODE_FIELD: FieldSpec = {
+  key: 'code',
+  label: 'Código',
+  area: true,
+};
+
 export function fieldsFor(kind: Kind): FieldSpec[] {
   const specific = specificFields[kind] ?? [];
-  return kind !== 'screen' ? [SCREEN_ID, ...specific] : specific;
+  const base = kind !== 'screen' ? [SCREEN_ID, FLOW_ID, ...specific] : [FLOW_ID, ...specific];
+  return [...base.filter((f) => f.key !== 'code'), CODE_FIELD];
 }
 
 export function screenOptions(g: Graph): Option[] {
@@ -108,6 +127,17 @@ export function screenOptions(g: Graph): Option[] {
     ...g.nodes
       .filter((n) => n.data.kind === 'screen')
       .map((n) => ({ value: n.id, label: n.data.label })),
+  ];
+}
+
+export function flowOptions(g: Graph): Option[] {
+  const flows = getGraphFlows(g.flows);
+  return [
+    { value: '', label: 'Automático / Padrão da fase' },
+    ...flows.map((f, idx) => ({
+      value: f.id,
+      label: `Fase ${idx + 1} · ${f.name}`,
+    })),
   ];
 }
 
@@ -124,7 +154,12 @@ export function configFields(
       id: spec.key,
       label: spec.label,
       value: config[spec.key] || '',
-      options: spec.options === 'screens' ? screenOptions(g) : spec.options,
+      options:
+        spec.options === 'screens'
+          ? screenOptions(g)
+          : spec.options === 'flows'
+            ? flowOptions(g)
+            : spec.options,
       area: spec.area,
       onChange: (value: string) => onChange({ [spec.key]: value }),
     }));

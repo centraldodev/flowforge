@@ -53,7 +53,14 @@ export const catalog: Record<Kind, BlockDefinition> = {
     description: 'Entrar ou criar uma conta simulada',
     icon: '⌘',
     color: AUTH,
-    defaults: { provider: 'email', mode: 'login' },
+    defaults: {
+      provider: 'email',
+      mode: 'login',
+      clientId: 'google-oauth-flowforge.apps.googleusercontent.com',
+      mockToken: 'ya29.a0AfH6SMC_MOCK_TOKEN_GOOGLE_FLOWFORGE_SECURE',
+      googleEmail: 'google.teste@gmail.com',
+      googleName: 'Google Teste',
+    },
   },
   error: {
     name: 'Tratamento de Erro',
@@ -77,7 +84,30 @@ export const catalog: Record<Kind, BlockDefinition> = {
     description: 'Consultar ou inserir registros em memória',
     icon: '▤',
     color: DATA,
-    defaults: { operation: 'query', table: 'users', mock: '[{"email":"demo@exemplo.com"}]' },
+    defaults: {
+      operation: 'query',
+      table: 'usuarios',
+      mock: JSON.stringify(
+        [
+          {
+            id: 1,
+            nome: 'Usuário Teste',
+            email: 'demo@exemplo.com',
+            senha: '123456',
+            provider: 'email',
+          },
+          {
+            id: 2,
+            nome: 'Google Teste',
+            email: 'google.teste@gmail.com',
+            senha: 'google_oauth_pass',
+            provider: 'google',
+          },
+        ],
+        null,
+        2,
+      ),
+    },
   },
   api: {
     name: 'Requisição API',

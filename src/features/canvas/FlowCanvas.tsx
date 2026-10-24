@@ -1,7 +1,6 @@
-import { useRef, useState, type RefObject } from 'react';
+import { useRef, useState, type CSSProperties, type RefObject } from 'react';
 import {
   ReactFlow,
-  Background,
   Controls,
   MiniMap,
   applyEdgeChanges,
@@ -11,11 +10,33 @@ import {
   type EdgeChange,
   type NodeChange,
 } from '@xyflow/react';
-import { MousePointer2, Plus, RotateCcw, Workflow } from 'lucide-react';
-import { catalog, type Block, type BlockData, type Graph, type Trace } from '../../engine';
-import { pruneEdges } from '../../state/graphOps';
+import {
+  Boxes,
+  Cable,
+  LayoutGrid,
+  MousePointer2,
+  Plus,
+  RotateCcw,
+  Workflow,
+  X,
+} from 'lucide-react';
+import {
+  catalog,
+  syncGraphCode,
+  type Block,
+  type BlockData,
+  type Graph,
+  type Trace,
+} from '../../engine';
+import {
+  addFlowToGraph,
+  organizeGraphByFlow,
+  preventBlockCollision,
+  pruneEdges,
+  removeFlowFromGraph,
+} from '../../state/graphOps';
 import { BlockNode, type FlowNode } from './BlockNode';
-import { DEFAULT_VIEWPORT } from './constants';
+import { DEFAULT_VIEWPORT, GRID_SNAP_SIZE, getGraphFlows } from './constants';
 import { toFlowEdges, toFlowNodes } from './toFlow';
 
 const nodeTypes = { block: BlockNode };
@@ -59,6 +80,9 @@ export function FlowCanvas(p: Props) {
   // Rastreia o início do arrasto de conexão para permitir soltar na aba da tela
   const connectingRef = useRef<{ nodeId: string | null; handleId: string | null } | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isAddingFlow, setIsAddingFlow] = useState(false);
+  const [newFlowName, setNewFlowName] = useState('');
+  const flows = getGraphFlows(p.graph.flows);
 
   function handleConnectToScreen(targetScreenId: string) {
     if (!connectingRef.current?.nodeId || !connectingRef.current?.handleId) return;
@@ -93,7 +117,11 @@ export function FlowCanvas(p: Props) {
 
   const handleEdgesChange = (changes: EdgeChange[]) =>
     p.onGraphChange(
-      (g) => ({ ...g, edges: applyEdgeChanges(changes, g.edges as Edge[]) }),
+      (g) => {
+        const nextEdges = applyEdgeChanges(changes, g.edges as Edge[]);
+        const nextGraph = { ...g, edges: nextEdges };
+        return changes.some((c) => c.type === 'remove') ? syncGraphCode(nextGraph) : nextGraph;
+      },
       changes.some((c) => c.type === 'remove'),
     );
 
@@ -101,8 +129,7 @@ export function FlowCanvas(p: Props) {
     <main className="canvas-area" ref={p.containerRef}>
       <div className="canvas-bar">
         <div className="canvas-bar-left">
-          <span className="canvas-dot" /> Editor de fluxo <span className="divider">/</span>
-          <span className="muted">{p.graph.nodes.length} blocos</span>
+          <span className="canvas-dot" /> Telas
           {screens.length > 0 && (
             <>
               <span className="divider">/</span>
@@ -159,16 +186,92 @@ export function FlowCanvas(p: Props) {
           <button title="Refazer" onClick={p.onRedo} disabled={!p.canRedo}>
             ↪
           </button>
-          <button
-            className="add-screen-button"
-            title="Adicionar tela"
-            aria-label="Adicionar tela"
-            onClick={p.onAddScreen}
-          >
-            <Plus size={16} />
-            Adicionar tela
-          </button>
         </div>
+      </div>
+
+      <div className="canvas-flow-phases-bar" aria-label="Fluxos do projeto">
+        <span className="flow-phases-label">Fluxos:</span>
+        {flows.map((flow, idx) => (
+          <div
+            key={flow.id}
+            className="flow-phase-chip"
+            style={{ '--phase-color': flow.color } as CSSProperties}
+            title={`Fluxo ${idx + 1}: ${flow.name}`}
+          >
+            <span className="phase-num">{idx + 1}</span>
+            <span className="phase-title">{flow.name}</span>
+            {flows.length > 1 && (
+              <button
+                type="button"
+                className="flow-phase-remove"
+                title={`Remover fluxo "${flow.name}"`}
+                aria-label={`Remover fluxo "${flow.name}"`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  p.onGraphChange((g) => removeFlowFromGraph(g, flow.id), true);
+                }}
+              >
+                <X size={10} />
+              </button>
+            )}
+          </div>
+        ))}
+
+        {isAddingFlow ? (
+          <form
+            className="flow-phase-add-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (newFlowName.trim()) {
+                p.onGraphChange((g) => addFlowToGraph(g, newFlowName.trim()), true);
+                setNewFlowName('');
+                setIsAddingFlow(false);
+              }
+            }}
+          >
+            <input
+              type="text"
+              className="flow-phase-input"
+              placeholder="Nome do novo fluxo..."
+              value={newFlowName}
+              onChange={(e) => setNewFlowName(e.target.value)}
+              autoFocus
+            />
+            <button type="submit" className="flow-phase-add-confirm">
+              Adicionar
+            </button>
+            <button
+              type="button"
+              className="flow-phase-add-cancel"
+              onClick={() => {
+                setNewFlowName('');
+                setIsAddingFlow(false);
+              }}
+            >
+              Cancelar
+            </button>
+          </form>
+        ) : (
+          <button
+            type="button"
+            className="flow-phase-add-btn"
+            onClick={() => setIsAddingFlow(true)}
+            title="Adicionar novo fluxo ao projeto"
+          >
+            <Plus size={11} />
+            <span>Novo Fluxo</span>
+          </button>
+        )}
+
+        <button
+          type="button"
+          className="flow-phase-organize-btn"
+          title="Organizar fluxo automaticamente em colunas por fases"
+          aria-label="Organizar fluxo"
+          onClick={() => p.onGraphChange((g) => organizeGraphByFlow(g, activeScreenId), true)}
+        >
+          <LayoutGrid size={13} />
+        </button>
       </div>
 
       {flowNodes.length === 0 && (
@@ -208,30 +311,72 @@ export function FlowCanvas(p: Props) {
         onNodeClick={(_, n) => p.onSelect(n.id)}
         onPaneClick={() => p.onSelect(null)}
         onNodeDragStart={p.onDragStart}
-        onNodeDragStop={p.onDragStop}
+        onNodeDragStop={(_, node) => {
+          p.onGraphChange(
+            (g) => ({
+              ...g,
+              nodes: preventBlockCollision(g.nodes, node.id),
+            }),
+            false,
+          );
+          p.onDragStop();
+        }}
+        snapToGrid={true}
+        snapGrid={[GRID_SNAP_SIZE, GRID_SNAP_SIZE]}
         defaultViewport={DEFAULT_VIEWPORT}
         minZoom={0.2}
         maxZoom={1.5}
         defaultEdgeOptions={{ type: 'smoothstep' }}
         deleteKeyCode={['Backspace', 'Delete']}
       >
-        <Background color="#343740" gap={24} size={1} />
         <Controls showInteractive={false} />
         <MiniMap
-          nodeColor={(n) => catalog[(n.data as BlockData).kind].color}
-          maskColor="#111318c9"
+          style={{ width: 220, height: 140 }}
+          nodeColor={(n) => catalog[(n.data as BlockData).kind]?.color || '#818cf8'}
+          nodeStrokeColor="rgba(255, 255, 255, 0.2)"
+          nodeStrokeWidth={1}
+          nodeBorderRadius={4}
+          maskColor="rgba(10, 12, 18, 0.68)"
+          maskStrokeColor="#818cf8"
+          maskStrokeWidth={2}
+          position="bottom-right"
+          pannable
+          zoomable
+          offsetScale={8}
         />
       </ReactFlow>
 
       <div className="canvas-footer">
-        <span>
-          <MousePointer2 size={13} /> Arraste para mover · Conecte pelas portas
-        </span>
-        <span>
-          <i className={p.errorCount ? 'warning' : 'ok'} />
-          {p.errorCount ? `${p.errorCount} ajuste(s) pendente(s)` : 'Fluxo válido'}
+        <div className="footer-stats">
+          <span className="footer-stat" title="Total de blocos no projeto">
+            <Boxes size={12} />
+            <strong>{p.graph.nodes.length}</strong>
+            <span>{p.graph.nodes.length === 1 ? 'bloco' : 'blocos'}</span>
+          </span>
+          <span className="footer-divider">/</span>
+          <span className="footer-stat" title="Total de fluxos cadastrados">
+            <Workflow size={12} />
+            <strong>{flows.length}</strong>
+            <span>{flows.length === 1 ? 'fluxo' : 'fluxos'}</span>
+          </span>
+          <span className="footer-divider">/</span>
+          <span className="footer-stat" title="Total de conexões entre blocos">
+            <Cable size={12} />
+            <strong>{p.graph.edges.length}</strong>
+            <span>{p.graph.edges.length === 1 ? 'conexão' : 'conexões'}</span>
+          </span>
+        </div>
+
+        <div className="footer-right">
+          <span className="footer-hint">
+            <MousePointer2 size={12} /> Arraste para mover · Conecte pelas portas
+          </span>
+          <span className="footer-status">
+            <i className={p.errorCount ? 'warning' : 'ok'} />
+            {p.errorCount ? `${p.errorCount} ajuste(s) pendente(s)` : 'Fluxo válido'}
+          </span>
           <span className="footer-version">IR v1</span>
-        </span>
+        </div>
       </div>
     </main>
   );

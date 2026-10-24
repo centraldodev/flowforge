@@ -45,7 +45,13 @@ export function PropertyField(p: FieldDefinition) {
       <label className="field">
         {p.label}
         {p.area ? (
-          <textarea rows={4} value={p.value} onChange={(e) => p.onChange(e.target.value)} />
+          <textarea
+            rows={p.id === 'code' ? 8 : 4}
+            className={p.id === 'code' ? 'field-code' : undefined}
+            spellCheck={p.id !== 'code'}
+            value={p.value}
+            onChange={(e) => p.onChange(e.target.value)}
+          />
         ) : (
           <input value={p.value} onChange={(e) => p.onChange(e.target.value)} />
         )}

@@ -207,6 +207,11 @@ export function useEditorActions({ graph, commit, notify, resetSimulation, canva
       chosen && commit((g) => removePortFromBlock(g, chosen.id, portId)),
   };
 
+  function updateChosenConfig(cfg: Record<string, string>) {
+    if (!chosen) return;
+    commit((g) => updateConfig(g, chosen.id, cfg));
+  }
+
   return {
     selected,
     setSelected,
@@ -224,6 +229,7 @@ export function useEditorActions({ graph, commit, notify, resetSimulation, canva
       duplicateChosen,
       deleteChosen,
       renameChosenId,
+      updateChosenConfig,
       preparePreview,
       loadExample,
       createProject,

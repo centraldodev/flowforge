@@ -36,18 +36,20 @@ export function BlockLibrary({ onAdd }: { onAdd: (kind: Kind) => void }) {
               <span>{items.length}</span>
             </h3>
             {items.map(([kind, v]) => (
-              <button className="library-block" key={kind} onClick={() => onAdd(kind)}>
+              <button
+                className="library-block"
+                key={kind}
+                title={v.description}
+                onClick={() => onAdd(kind)}
+              >
                 <span
                   className="library-icon"
                   style={{ '--icon-color': v.color } as React.CSSProperties}
                 >
                   {v.icon}
                 </span>
-                <span>
-                  <strong>{v.name}</strong>
-                  <small>{v.description}</small>
-                </span>
-                <Plus size={14} />
+                <span className="library-block-name">{v.name}</span>
+                <Plus size={14} className="library-block-plus" />
               </button>
             ))}
           </section>

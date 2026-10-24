@@ -104,6 +104,7 @@ export function App() {
             nameField={editor.nameField}
             configFields={editor.fields}
             connections={connections}
+            onChangeConfig={actions.updateChosenConfig}
             onRenameId={actions.renameChosenId}
             onDuplicate={actions.duplicateChosen}
             onDelete={actions.deleteChosen}

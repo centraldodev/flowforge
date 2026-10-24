@@ -92,7 +92,10 @@ export function run(
         const retriesKey = `__retries_${n.id}`;
         const retryCount = Number(store[retriesKey]?.[0] || 0);
         const maxRetries = Number(c.maxRetries || 1);
-        const hasRetryEdge = g.edges.some((e) => e.source === n.id && e.sourceHandle === 'retry');
+        const retryEdge = g.edges.find((e) => e.source === n.id && e.sourceHandle === 'retry');
+        const hasRetryEdge = Boolean(
+          retryEdge && (!retryEdge.target || result.trace.some((t) => t.id === retryEdge.target)),
+        );
 
         if (hasRetryEdge && retryCount < maxRetries) {
           store[retriesKey] = [retryCount + 1];
@@ -119,7 +122,13 @@ export function run(
         const inputVal = read(n.id, 'value', '');
         const code = c.code || 'return value;';
         try {
-          const fn = new Function('value', 'store', 'read', code);
+          let executableCode = code;
+          const fnMatch = code.match(/(?:async\s+)?function\s+([a-zA-Z0-9_$]+)\s*\(/);
+          if (fnMatch) {
+            const declaredFnName = fnMatch[1];
+            executableCode = `${code}\nreturn ${declaredFnName}(value, store, read);`;
+          }
+          const fn = new Function('value', 'store', 'read', executableCode);
           out = fn(inputVal, store, (port: string, fallback?: unknown) =>
             read(n.id, port, fallback),
           );
@@ -130,34 +139,148 @@ export function run(
         break;
       }
       case 'auth': {
-        const email = String(read(n.id, 'email'));
-        const password = String(read(n.id, 'password'));
+        let email = String(read(n.id, 'email'));
+        let password = String(read(n.id, 'password'));
+        if (!email || !password) {
+          const screenInputs = g.nodes.filter(
+            (nodeItem) =>
+              nodeItem.data.kind === 'input' &&
+              nodeItem.data.config.screenId === n.data.config.screenId,
+          );
+          for (const inp of screenInputs) {
+            if (!email && (inp.id.includes('email') || inp.data.config.field === 'email')) {
+              email = String(inputValue(inp, values));
+            }
+            if (
+              !password &&
+              (inp.id.includes('senha') ||
+                inp.id.includes('password') ||
+                inp.data.config.field === 'password')
+            ) {
+              password = String(inputValue(inp, values));
+            }
+          }
+        }
+        if (c.provider === 'google') {
+          const googleEmail = c.googleEmail || 'google.teste@gmail.com';
+          const mockToken = c.mockToken || 'ya29.a0AfH6SMC_MOCK_TOKEN_GOOGLE_FLOWFORGE_SECURE';
+          const googleUser = {
+            id: 2,
+            nome: c.googleName || 'Google Teste',
+            email: googleEmail,
+            provider: 'google',
+            token: mockToken,
+          };
+          // Persiste e sincroniza com o banco de dados simulado
+          const dbBlock = g.nodes.find((item) => item.data.kind === 'database');
+          const dbTable = dbBlock?.data.config.table || 'usuarios';
+          const dbRows = (store[dbTable] ??= JSON.parse(
+            dbBlock?.data.config.mock || '[]',
+          )) as Array<Record<string, unknown>>;
+          const existing = Array.isArray(dbRows)
+            ? dbRows.find((u) => u.email === googleEmail)
+            : null;
+          if (existing) {
+            existing.token = mockToken;
+            existing.provider = 'google';
+            existing.nome ||= c.googleName || 'Google Teste';
+          } else if (Array.isArray(dbRows)) {
+            dbRows.push(googleUser);
+          }
+          store.__session = [googleUser];
+          out = true;
+          path = 'onSuccess';
+          message = `Google OAuth: autenticado com token fictício e salvo no banco`;
+          break;
+        }
+
         if (c.provider !== 'email') {
           out = true;
           message = `${c.provider}: autenticação simulada`;
-        } else {
-          const users = (store.__users ??= [{ ...DEMO_USER }]) as User[];
-          if (c.mode === 'register') {
-            out =
-              email.includes('@') && password.length >= 6 && !users.some((u) => u.email === email);
-            if (out) users.push({ email, password });
-            message = out ? 'Conta simulada criada' : 'Use e-mail novo e senha com 6 caracteres';
-          } else {
-            out = users.some((u) => u.email === email && u.password === password);
-            message = out ? 'Acesso simulado autorizado' : 'E-mail ou senha inválidos';
-          }
-        }
-        if (out) {
-          store.__session = [{ provider: c.provider, email: read(n.id, 'email') }];
+          store.__session = [{ provider: c.provider, email }];
           path = 'onSuccess';
+          break;
+        }
+
+        // Provedor e-mail e senha: busca no banco de dados e na lista de demonstração
+        const dbBlock = g.nodes.find((item) => item.data.kind === 'database');
+        const dbTable = dbBlock?.data.config.table || 'usuarios';
+        const dbRows = (store[dbTable] ??= JSON.parse(dbBlock?.data.config.mock || '[]')) as Array<
+          Record<string, unknown>
+        >;
+
+        if (c.mode === 'register') {
+          const exists = Array.isArray(dbRows) && dbRows.some((u) => u.email === email);
+          if (!exists && email.includes('@') && password.length >= 6) {
+            const newUser = {
+              id: Array.isArray(dbRows) ? dbRows.length + 1 : 1,
+              nome: email.split('@')[0],
+              email,
+              senha: password,
+              provider: 'email',
+            };
+            if (Array.isArray(dbRows)) dbRows.push(newUser);
+            store.__session = [newUser];
+            out = true;
+            path = 'onSuccess';
+            message = `Conta criada e cadastrada no banco (${email})`;
+          } else {
+            delete store.__session;
+            out = false;
+            path = 'onError';
+            message = exists
+              ? 'E-mail já cadastrado no banco de dados'
+              : 'Use e-mail válido e senha com 6 caracteres';
+          }
         } else {
-          delete store.__session;
-          path = 'onError';
+          // Modo login: procura no banco de dados
+          const userInDb = Array.isArray(dbRows)
+            ? dbRows.find(
+                (u) => u.email === email && (u.senha === password || u.password === password),
+              )
+            : null;
+
+          if (userInDb) {
+            store.__session = [userInDb];
+            out = true;
+            path = 'onSuccess';
+            message = `Acesso autorizado pelo banco: ${userInDb.nome || email}`;
+          } else {
+            const users = (store.__users ??= [{ ...DEMO_USER }]) as User[];
+            const isDemoMatch = users.some((u) => u.email === email && u.password === password);
+            if (isDemoMatch) {
+              store.__session = [{ provider: 'email', email }];
+              out = true;
+              path = 'onSuccess';
+              message = 'Acesso autorizado';
+            } else {
+              delete store.__session;
+              out = false;
+              path = 'onError';
+              message = 'E-mail ou senha incorretos';
+            }
+          }
         }
         break;
       }
       case 'condition': {
-        const value = read(n.id, 'value');
+        let value = read(n.id, 'value');
+        if (value === undefined || value === '') {
+          const inEdge = g.edges.find((e) => e.target === n.id && Object.hasOwn(outputs, e.source));
+          if (inEdge && outputs[inEdge.source] !== undefined) {
+            value = outputs[inEdge.source];
+          }
+        }
+        if (value === undefined || value === '') {
+          const screenInputs = g.nodes.filter(
+            (nodeItem) =>
+              nodeItem.data.kind === 'input' &&
+              nodeItem.data.config.screenId === n.data.config.screenId,
+          );
+          if (screenInputs.length > 0) {
+            value = screenInputs.every((inp) => Boolean(inputValue(inp, values)));
+          }
+        }
         out =
           c.operator === 'equals'
             ? String(value) === c.compare
@@ -175,8 +298,14 @@ export function run(
       case 'database': {
         const rows = (store[c.table] ??= JSON.parse(c.mock || '[]'));
         if (!Array.isArray(rows)) throw Error('Banco: use um array JSON');
-        if (c.operation === 'insert') rows.push(read(n.id, 'value', {}));
+        if (c.operation === 'insert') {
+          const payload = read(n.id, 'user') || read(n.id, 'data') || read(n.id, 'value', {});
+          if (payload && typeof payload === 'object') {
+            rows.push(payload);
+          }
+        }
         out = [...rows];
+        path = 'onSuccess';
         message = `${c.table}: ${rows.length} registro(s) em memória`;
         break;
       }
@@ -213,8 +342,7 @@ export function run(
     // Uma transição de tela atendida tem prioridade sobre o próximo fio e encerra a execução.
     const route = routes.find(
       (r) =>
-        r.trigger === n.id &&
-        (r.when === 'always' || (r.when === 'true' ? out === true : out === false)),
+        r.trigger === n.id && (r.when === 'always' || (r.when === 'true' ? Boolean(out) : !out)),
     );
     if (route) {
       const target = node(route.target);

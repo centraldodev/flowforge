@@ -62,14 +62,8 @@ export function BlockIdEditor({ chosen, graph, onRename }: Props) {
       <div className="block-id-editor-header">
         <label htmlFor="block-id-input" className="block-id-label">
           <Tag size={12} />
-          <span>ID DO BLOCO (IDENTIFICADOR)</span>
+          <span>Identificador (ID)</span>
         </label>
-        <span
-          className="block-id-tag-help"
-          title="Identificador único utilizado nas conexões e no código exportado"
-        >
-          Único & Exportável
-        </span>
       </div>
 
       <div className={`block-id-input-box ${error ? 'has-error' : isValid ? 'is-valid' : ''}`}>
@@ -98,21 +92,11 @@ export function BlockIdEditor({ chosen, graph, onRename }: Props) {
         )}
       </div>
 
-      {error ? (
+      {error && (
         <div className="block-id-message error" role="alert">
           <AlertCircle size={13} />
           <span>{error}</span>
         </div>
-      ) : isValid ? (
-        <div className="block-id-message success">
-          <Check size={13} />
-          <span>ID disponível! Pressione Enter ou clique em Salvar.</span>
-        </div>
-      ) : (
-        <p className="block-id-hint">
-          Identificador exclusivo deste bloco nas conexões e nome de função/variável ao exportar
-          código.
-        </p>
       )}
     </div>
   );

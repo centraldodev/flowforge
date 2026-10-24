@@ -6,6 +6,8 @@ import {
   validate,
   parseGraph,
   getBlockPorts,
+  generateBlockCode,
+  syncGraphCode,
   type Graph,
   type Kind,
 } from '../src/engine';
@@ -19,16 +21,29 @@ import {
   connect,
   connectionError,
   findFreePosition,
+  MIN_BLOCK_DISTANCE_X,
+  MIN_BLOCK_DISTANCE_Y,
+  preventBlockCollision,
+  organizeGraphByFlow,
+  addFlowToGraph,
+  removeFlowFromGraph,
+  snapCoord,
 } from '../src/state/graphOps';
-import { fieldsFor } from '../src/features/inspector/blockFields';
+import { fieldsFor, flowOptions } from '../src/features/inspector/blockFields';
+import { getGraphFlows, resolveBlockFlow, GRID_SNAP_SIZE } from '../src/features/canvas/constants';
 import { toFlowNodes } from '../src/features/canvas/toFlow';
 test('login válido navega para início; senha inválida segue ramo falso', () => {
   assert.equal(validate(demo).length, 0);
-  const r = run(demo, 'btn-login', { email: 'demo@exemplo.com', password: '123456' });
+  const r = run(demo, 'btn_entrar', {
+    email: 'demo@exemplo.com',
+    senha: '123456',
+    password: '123456',
+  });
   assert.equal(r.screen, 'home');
-  assert.equal(r.outputs.auth, true);
+  assert.equal(r.outputs.auth_login, true);
   assert.equal(
-    run(demo, 'btn-login', { email: 'demo@exemplo.com', password: 'errada' }).screen,
+    run(demo, 'btn_entrar', { email: 'demo@exemplo.com', senha: 'errada', password: 'errada' })
+      .screen,
     undefined,
   );
 });
@@ -149,12 +164,12 @@ test('ciclos não travam interpretador', () => {
   g.edges.push({
     id: 'cycle',
     source: 'home',
-    target: 'btn-login',
+    target: 'btn_entrar',
     sourceHandle: 'then',
     targetHandle: 'onClick',
   });
   assert.throws(
-    () => run(g, 'btn-login', { email: 'demo@exemplo.com', password: '123456' }),
+    () => run(g, 'btn_entrar', { email: 'demo@exemplo.com', senha: '123456', password: '123456' }),
     /100 passos/,
   );
 });
@@ -194,7 +209,7 @@ test('validação detecta referência a tela excluída e ligação incompatível
   g.edges.push({
     id: 'bad',
     source: 'email',
-    target: 'auth',
+    target: 'auth_login',
     sourceHandle: 'value',
     targetHandle: 'exec',
   });
@@ -278,13 +293,13 @@ test('condição avalia valores e função limpa sessão', () => {
 test('transições de tela: rotas configuradas na tela realizam transição de tela', () => {
   const g = structuredClone(demo);
   g.nodes.find((n) => n.id === 'login')!.data.config.routes = JSON.stringify([
-    { id: 'r1', trigger: 'auth', when: 'true', target: 'home' },
+    { id: 'r1', trigger: 'auth_login', when: 'true', target: 'home' },
   ]);
   const store: Record<string, unknown[]> = {};
   const success = run(
     g,
-    'btn-login',
-    { email: 'demo@exemplo.com', password: '123456' },
+    'btn_entrar',
+    { email: 'demo@exemplo.com', senha: '123456', password: '123456' },
     store,
     'login',
   );
@@ -292,17 +307,26 @@ test('transições de tela: rotas configuradas na tela realizam transição de t
   assert.ok(store.__session);
   assert.ok(success.trace.at(-1)?.message.startsWith('Transição'));
   assert.equal(
-    run(g, 'btn-login', { email: 'demo@exemplo.com', password: 'erro' }, store, 'login').screen,
+    run(
+      g,
+      'btn_entrar',
+      { email: 'demo@exemplo.com', senha: 'erro', password: 'erro' },
+      store,
+      'login',
+    ).screen,
     undefined,
   );
 });
 test('transição false e limite de tela de origem', () => {
   const g = structuredClone(demo);
   g.nodes.find((n) => n.id === 'login')!.data.config.routes = JSON.stringify([
-    { id: 'failed', trigger: 'auth', when: 'false', target: 'home' },
+    { id: 'failed', trigger: 'auth_login', when: 'false', target: 'home' },
   ]);
-  assert.equal(run(g, 'btn-login', { email: 'x', password: 'x' }, {}).screen, 'home');
-  assert.equal(run(g, 'btn-login', { email: 'x', password: 'x' }, {}, 'home').screen, undefined);
+  assert.equal(run(g, 'btn_entrar', { email: 'x', senha: 'x', password: 'x' }, {}).screen, 'home');
+  assert.equal(
+    run(g, 'btn_entrar', { email: 'x', senha: 'x', password: 'x' }, {}, 'home').screen,
+    undefined,
+  );
 });
 test('validação detecta destino inexistente, evento de outra tela e condições sobrepostas', () => {
   const g = structuredClone(demo);
@@ -359,40 +383,40 @@ test('novos blocos iniciam sem portas e suportam adição/remoção dinâmica de
 test('validação de ID do bloco: impede duplicados, vazios e formatos inválidos', () => {
   const g = structuredClone(demo);
   // Rejeita vazio
-  assert.equal(validateBlockId(g, 'auth', '').valid, false);
-  assert.equal(validateBlockId(g, 'auth', '   ').valid, false);
+  assert.equal(validateBlockId(g, 'auth_login', '').valid, false);
+  assert.equal(validateBlockId(g, 'auth_login', '   ').valid, false);
 
   // Rejeita espaços
-  assert.equal(validateBlockId(g, 'auth', 'meu bloco').valid, false);
+  assert.equal(validateBlockId(g, 'auth_login', 'meu bloco').valid, false);
 
   // Rejeita início com número ou caracteres inválidos
-  assert.equal(validateBlockId(g, 'auth', '123auth').valid, false);
-  assert.equal(validateBlockId(g, 'auth', 'auth@user').valid, false);
+  assert.equal(validateBlockId(g, 'auth_login', '123auth').valid, false);
+  assert.equal(validateBlockId(g, 'auth_login', 'auth@user').valid, false);
 
   // Rejeita IDs duplicados existentes no projeto (case-insensitive)
-  assert.equal(validateBlockId(g, 'auth', 'home').valid, false);
-  assert.equal(validateBlockId(g, 'auth', 'HOME').valid, false);
-  assert.ok(validateBlockId(g, 'auth', 'home').error?.includes('já está em uso'));
+  assert.equal(validateBlockId(g, 'auth_login', 'home').valid, false);
+  assert.equal(validateBlockId(g, 'auth_login', 'HOME').valid, false);
+  assert.ok(validateBlockId(g, 'auth_login', 'home').error?.includes('já está em uso'));
 
   // Aceita o mesmo ID (sem alterações)
-  assert.equal(validateBlockId(g, 'auth', 'auth').valid, true);
+  assert.equal(validateBlockId(g, 'auth_login', 'auth_login').valid, true);
 
   // Aceita novo ID único e válido
-  assert.equal(validateBlockId(g, 'auth', 'auth_usuario_v2').valid, true);
-  assert.equal(validateBlockId(g, 'auth', 'login-auth').valid, true);
+  assert.equal(validateBlockId(g, 'auth_login', 'auth_usuario_v2').valid, true);
+  assert.equal(validateBlockId(g, 'auth_login', 'login-auth').valid, true);
 });
 
 test('renomeação atômica de ID propaga para conexões, rotas e telas dependentes', () => {
   let g = structuredClone(demo);
 
-  // Renomear o botão 'btn-login' para 'btn_entrar'
-  g = renameBlockId(g, 'btn-login', 'btn_entrar');
-  assert.ok(g.nodes.some((n) => n.id === 'btn_entrar'));
-  assert.ok(!g.nodes.some((n) => n.id === 'btn-login'));
+  // Renomear o botão 'btn_entrar' para 'btn_submit'
+  g = renameBlockId(g, 'btn_entrar', 'btn_submit');
+  assert.ok(g.nodes.some((n) => n.id === 'btn_submit'));
+  assert.ok(!g.nodes.some((n) => n.id === 'btn_entrar'));
 
-  // Todas as conexões que partiam de 'btn-login' agora devem partir de 'btn_entrar'
-  assert.ok(g.edges.some((e) => e.source === 'btn_entrar' && e.target === 'auth'));
-  assert.ok(!g.edges.some((e) => e.source === 'btn-login'));
+  // Todas as conexões que partiam de 'btn_entrar' agora devem partir de 'btn_submit'
+  assert.ok(g.edges.some((e) => e.source === 'btn_submit' && e.target === 'validar_login'));
+  assert.ok(!g.edges.some((e) => e.source === 'btn_entrar'));
 
   // Renomear a tela 'home' para 'tela_principal'
   g = renameBlockId(g, 'home', 'tela_principal');
@@ -405,7 +429,7 @@ test('renomeação atômica de ID propaga para conexões, rotas e telas dependen
 
   // Não deve permitir renomear se o destino já existir
   const beforeAttempt = g;
-  const afterAttempt = renameBlockId(g, 'auth', 'tela_principal');
+  const afterAttempt = renameBlockId(g, 'auth_login', 'tela_principal');
   assert.equal(afterAttempt, beforeAttempt);
 });
 
@@ -449,25 +473,39 @@ test('bloco de tratamento de erro captura falha, expõe msg e emite onDismiss', 
 test('simulação do fluxo real de erro: executa retry para re-testar função e detecta persistência da falha', () => {
   assert.equal(validate(demo).length, 0);
 
-  // Execução com senha errada: auth falha -> show-error trata erro -> retry tenta de novo -> auth falha -> show-error encerra
-  const res = run(demo, 'btn-login', { email: 'demo@exemplo.com', password: 'senha-incorreta' });
+  // Execução com senha errada: auth falha -> show_error trata erro -> retry tenta de novo -> auth falha -> show_error encerra
+  const res = run(demo, 'btn_entrar', {
+    email: 'demo@exemplo.com',
+    senha: '123456',
+    password: 'senha-incorreta',
+  });
 
   // Telas não devem navegar pois credenciais falharam
   assert.equal(res.screen, undefined);
 
   // Saída do bloco de erro deve conter o objeto e mensagem tratados
-  const errOut = res.outputs['show-error'] as { error: boolean; msg: string };
+  const errOut = res.outputs['show_error'] as { error: boolean; msg: string };
   assert.equal(errOut.error, true);
   assert.equal(errOut.msg, 'E-mail ou senha incorretos. Verifique suas credenciais.');
 
-  // Verifica o trace completo da simulação do ciclo de erro e retry
+  // Verifica o trace completo da simulação do ciclo de validação, condição, autenticação, erro e retry
   const traceLabels = res.trace.map((t) => t.id);
-  assert.deepEqual(traceLabels, ['btn-login', 'auth', 'show-error', 'auth', 'show-error']);
+  assert.deepEqual(traceLabels, [
+    'btn_entrar',
+    'validar_login',
+    'checar_dados',
+    'auth_login',
+    'show_error',
+    'validar_login',
+    'checar_dados',
+    'auth_login',
+    'show_error',
+  ]);
 
   // Primeiro disparo do erro indica tentativa 1 de re-execução via retry
-  assert.ok(res.trace[2].message.includes('Tentativa 1/1 de re-execução via retry'));
+  assert.ok(res.trace[4].message.includes('Tentativa 1/1 de re-execução via retry'));
   // Segundo disparo após a re-execução indica que o erro persistiu e encerra com segurança
-  assert.ok(res.trace[4].message.includes('Erro persistiu após re-execução'));
+  assert.ok(res.trace[8].message.includes('Erro persistiu após re-execução'));
 });
 
 test('geração de IDs únicos e legíveis para novos blocos e duplicações', () => {
@@ -595,4 +633,454 @@ test('ao adicionar bloco em uma aba ativa, o bloco vincula-se automaticamente à
     loginVisibleNodes.some((n) => n.id === newBlock.id),
     false,
   );
+});
+
+test('generateBlockCode gera funções JavaScript prontas com nomes derivados do ID e campos visíveis', () => {
+  const kinds: Kind[] = [
+    'screen',
+    'input',
+    'button',
+    'function',
+    'condition',
+    'auth',
+    'error',
+    'api',
+    'database',
+    'navigate',
+  ];
+
+  for (const k of kinds) {
+    const fields = fieldsFor(k);
+    const codeField = fields.find((f) => f.key === 'code');
+    assert.ok(codeField, `Bloco ${k} deve possuir o campo 'code'`);
+    assert.equal(codeField?.label, 'Código');
+    assert.equal(codeField?.area, true);
+
+    const b = createBlock(k, { x: 0, y: 0 }, 'screen_1');
+    const directGenerated = generateBlockCode(demo, b);
+    assert.ok(directGenerated.length > 0);
+    assert.ok(
+      b.data.config.code.includes(`function ${b.id}`) ||
+        b.data.config.code.includes(`async function ${b.id}`),
+      `Bloco ${k} deve gerar código de função nomeada com seu ID`,
+    );
+  }
+});
+
+test('conexões dinâmicas: conectar e desconectar blocos atualiza chamadas de função e parâmetros no código', () => {
+  const btn = createBlock('button', { x: 0, y: 0 }, 'login');
+  const fn = createBlock('function', { x: 200, y: 0 }, 'login');
+  const cond = createBlock('condition', { x: 400, y: 0 }, 'login');
+  const auth = createBlock('auth', { x: 600, y: 0 }, 'login');
+
+  let g: Graph = {
+    version: 1,
+    name: 'dynamic-code-test',
+    nodes: [btn, fn, cond, auth],
+    edges: [],
+  };
+
+  // 1. Conecta o botão à função
+  g = connect(g, {
+    source: btn.id,
+    target: fn.id,
+    sourceHandle: 'onClick',
+    targetHandle: 'listenerClick',
+  });
+
+  const updatedBtn = g.nodes.find((n) => n.id === btn.id)!;
+  assert.ok(
+    updatedBtn.data.config.code.includes(`return ${fn.id}();`),
+    'Código do botão deve chamar a função conectada',
+  );
+
+  // 2. Conecta a função à condição
+  g = connect(g, {
+    source: fn.id,
+    target: cond.id,
+    sourceHandle: 'then',
+    targetHandle: 'listener',
+  });
+
+  const updatedFn = g.nodes.find((n) => n.id === fn.id)!;
+  assert.ok(
+    updatedFn.data.config.code.includes(`return ${cond.id}(`),
+    'Código da função deve chamar a condição conectada',
+  );
+
+  // 3. Conecta a condição (ramo true) à autenticação
+  g = connect(g, {
+    source: cond.id,
+    target: auth.id,
+    sourceHandle: 'true',
+    targetHandle: 'trigger',
+  });
+
+  const updatedCond = g.nodes.find((n) => n.id === cond.id)!;
+  assert.ok(
+    updatedCond.data.config.code.includes(`return ${auth.id}(`),
+    'Ramo true da condição deve chamar o bloco de autenticação',
+  );
+});
+
+test('renomeação de ID atualiza a declaração e as chamadas dinâmicas em outros blocos', () => {
+  const btn = createBlock('button', { x: 0, y: 0 }, 'login');
+  const fn = createBlock('function', { x: 200, y: 0 }, 'login');
+
+  let g: Graph = {
+    version: 1,
+    name: 'rename-code-test',
+    nodes: [btn, fn],
+    edges: [],
+  };
+
+  g = connect(g, {
+    source: btn.id,
+    target: fn.id,
+    sourceHandle: 'onClick',
+    targetHandle: 'listenerClick',
+  });
+
+  assert.ok(g.nodes.find((n) => n.id === btn.id)!.data.config.code.includes(`return ${fn.id}();`));
+
+  // Renomeia a função
+  const newFnId = 'validar_dados_usuario';
+  g = renameBlockId(g, fn.id, newFnId);
+
+  const renamedFn = g.nodes.find((n) => n.id === newFnId)!;
+  assert.ok(
+    renamedFn.data.config.code.includes(`function ${newFnId}`),
+    'A declaração da função renomeada deve ter o novo nome',
+  );
+
+  const callerBtn = g.nodes.find((n) => n.id === btn.id)!;
+  assert.ok(
+    callerBtn.data.config.code.includes(`return ${newFnId}();`),
+    'O chamador deve ter seu código atualizado para o novo nome da função',
+  );
+});
+
+test('demo possui código JavaScript válido e sincronizado em todos os blocos do fluxo solicitado', () => {
+  const synced = syncGraphCode(demo);
+  assert.equal(synced.nodes.length, demo.nodes.length);
+
+  for (const node of demo.nodes) {
+    const code = node.data.config.code;
+    assert.ok(code, `Bloco ${node.id} deve possuir código`);
+    assert.ok(
+      code.includes(`function ${node.id}`) || code.includes(`async function ${node.id}`),
+      `Código do bloco ${node.id} deve declarar função com o seu ID`,
+    );
+  }
+
+  // Valida conexões do exemplo do usuário
+  const btnEntrar = demo.nodes.find((n) => n.id === 'btn_entrar')!;
+  assert.ok(btnEntrar.data.config.code.includes('validar_login'));
+
+  const validarLogin = demo.nodes.find((n) => n.id === 'validar_login')!;
+  assert.ok(validarLogin.data.config.code.includes('checar_dados'));
+
+  const checarDados = demo.nodes.find((n) => n.id === 'checar_dados')!;
+  assert.ok(checarDados.data.config.code.includes('auth_login'));
+  assert.ok(checarDados.data.config.code.includes('show_error'));
+
+  const authLogin = demo.nodes.find((n) => n.id === 'auth_login')!;
+  assert.ok(authLogin.data.config.code.includes('home'));
+  assert.ok(authLogin.data.config.code.includes('show_error'));
+});
+
+test('demo: login com google oauth autentica com token fictício e salva no banco de dados', () => {
+  const store: Record<string, unknown[]> = {};
+  const res = run(demo, 'btn_google', {}, store);
+
+  assert.equal(res.screen, 'home');
+  assert.equal(res.outputs.auth_google, true);
+
+  // Verifica persistência automática no banco de dados (tabela usuarios)
+  const usuarios = store.usuarios as Array<Record<string, unknown>>;
+  assert.ok(Array.isArray(usuarios));
+  const googleUser = usuarios.find((u) => u.email === 'google.teste@gmail.com');
+  assert.ok(googleUser);
+  assert.equal(googleUser?.provider, 'google');
+  assert.equal(googleUser?.token, 'ya29.a0AfH6SMC_MOCK_TOKEN_GOOGLE_FLOWFORGE_SECURE');
+
+  // Sessão ativa deve conter o usuário do Google
+  assert.ok(store.__session);
+  assert.equal(
+    (store.__session as Array<Record<string, unknown>>)[0].email,
+    'google.teste@gmail.com',
+  );
+});
+
+test('demo: verificação de email existente no banco de dados bloqueia email inexistente e aceita credenciais válidas', () => {
+  // 1. E-mail cadastrado no banco com senha correta -> Sucesso (vai para home)
+  const validRes = run(demo, 'btn_entrar', {
+    email: 'demo@exemplo.com',
+    senha: '123456',
+    password: '123456',
+  });
+  assert.equal(validRes.screen, 'home');
+  assert.equal(validRes.outputs.auth_login, true);
+
+  // 2. E-mail que NÃO existe no banco de dados -> Falha (capturado por show_error)
+  const notFoundRes = run(demo, 'btn_entrar', {
+    email: 'inexistente@empresa.com',
+    senha: '123456',
+    password: '123456',
+  });
+  assert.equal(notFoundRes.screen, undefined);
+  assert.equal((notFoundRes.outputs.show_error as { error: boolean }).error, true);
+
+  // 3. E-mail do Google existente no banco com a senha correspondente -> Sucesso
+  const googleDbRes = run(demo, 'btn_entrar', {
+    email: 'google.teste@gmail.com',
+    senha: 'google_oauth_pass',
+    password: 'google_oauth_pass',
+  });
+  assert.equal(googleDbRes.screen, 'home');
+});
+
+test('demo: cadastro de nova conta grava no banco de dados e permite login subsequente', () => {
+  const store: Record<string, unknown[]> = {};
+
+  // 1. Cadastra nova conta com e-mail e senha
+  const regRes = run(
+    demo,
+    'btn_cadastrar',
+    { email: 'maria.dev@empresa.com', senha: 'senhaForte123', password: 'senhaForte123' },
+    store,
+  );
+  assert.equal(regRes.screen, 'home');
+  assert.equal(regRes.outputs.cadastrar_usuario, true);
+
+  // 2. Verifica se a conta foi gravada na tabela 'usuarios' do banco
+  const usuarios = store.usuarios as Array<Record<string, unknown>>;
+  assert.ok(Array.isArray(usuarios));
+  const newAccount = usuarios.find((u) => u.email === 'maria.dev@empresa.com');
+  assert.ok(newAccount);
+  assert.equal(newAccount?.senha, 'senhaForte123');
+
+  // 3. Tenta fazer login com a conta recém-cadastrada -> Deve permitir login
+  const loginRes = run(
+    demo,
+    'btn_entrar',
+    { email: 'maria.dev@empresa.com', senha: 'senhaForte123', password: 'senhaForte123' },
+    store,
+  );
+  assert.equal(loginRes.screen, 'home');
+  assert.equal(loginRes.outputs.auth_login, true);
+
+  // 4. Tentativa de cadastrar o mesmo e-mail novamente -> Rejeita duplicata
+  const dupRes = run(
+    demo,
+    'btn_cadastrar',
+    { email: 'maria.dev@empresa.com', senha: 'senhaForte123', password: 'senhaForte123' },
+    store,
+  );
+  assert.equal(dupRes.screen, undefined);
+  assert.equal((dupRes.outputs.show_error as { error: boolean }).error, true);
+});
+
+test('distâncias mínimas entre blocos: demo não possui blocos sobrepostos e respeita espaçamento seguro', () => {
+  // Verifica pares de blocos pertencentes à mesma tela no demo
+  const loginNodes = demo.nodes.filter(
+    (n) => n.id === 'login' || n.data.config.screenId === 'login' || n.id === 'home',
+  );
+
+  for (let i = 0; i < loginNodes.length; i++) {
+    for (let j = i + 1; j < loginNodes.length; j++) {
+      const a = loginNodes[i];
+      const b = loginNodes[j];
+      const diffX = Math.abs(a.position.x - b.position.x);
+      const diffY = Math.abs(a.position.y - b.position.y);
+
+      // Blocos na mesma coluna (diffX < 200) devem respeitar a distância vertical mínima
+      if (diffX < 200) {
+        assert.ok(
+          diffY >= 140,
+          `Blocos na mesma coluna ${a.id} e ${b.id} devem ter distância vertical segura (atual: ${diffY}px)`,
+        );
+      } else {
+        // Blocos em colunas adjacentes devem respeitar a distância horizontal mínima
+        assert.ok(
+          diffX >= MIN_BLOCK_DISTANCE_X || diffY >= 120,
+          `Blocos ${a.id} e ${b.id} não podem colidir em X e Y (diffX: ${diffX}px, diffY: ${diffY}px)`,
+        );
+      }
+    }
+  }
+});
+
+test('prevenção de colisão: afasta blocos automaticamente quando soltos um em cima do outro', () => {
+  const b1 = createBlock('input', { x: 400, y: 100 }, 'login');
+  const b2 = createBlock('button', { x: 400, y: 120 }, 'login'); // Tentativa de sobrepor em Y (+20px)
+
+  const nodes = [b1, b2];
+  const adjusted = preventBlockCollision(nodes, b2.id);
+  const adjustedB2 = adjusted.find((n) => n.id === b2.id)!;
+
+  const diffY = Math.abs(adjustedB2.position.y - b1.position.y);
+  assert.ok(
+    diffY >= MIN_BLOCK_DISTANCE_Y,
+    `Bloco sobreposto deve ser empurrado para além de MIN_BLOCK_DISTANCE_Y (atual: ${diffY}px)`,
+  );
+});
+
+test('organizeGraphByFlow organiza qualquer grafo nas colunas de fases com espaçamento ordenado', () => {
+  const disorganizedGraph: Graph = {
+    version: 1,
+    name: 'Disorganized',
+    nodes: [
+      {
+        id: 'login',
+        type: 'block',
+        position: { x: 0, y: 0 },
+        data: { kind: 'screen', label: 'Login', config: {} },
+      },
+      createBlock('auth', { x: 0, y: 0 }, 'login'),
+      createBlock('input', { x: 0, y: 0 }, 'login'),
+      createBlock('database', { x: 0, y: 0 }, 'login'),
+      createBlock('function', { x: 0, y: 0 }, 'login'),
+    ],
+    edges: [],
+  };
+
+  const organized = organizeGraphByFlow(disorganizedGraph, 'login');
+  const screenNode = organized.nodes.find((n) => n.data.kind === 'screen')!;
+  const inputNode = organized.nodes.find((n) => n.data.kind === 'input')!;
+  const fnNode = organized.nodes.find((n) => n.data.kind === 'function')!;
+  const dbNode = organized.nodes.find((n) => n.data.kind === 'database')!;
+  const authNode = organized.nodes.find((n) => n.data.kind === 'auth')!;
+
+  // A sequência no eixo X deve seguir rigorosamente o fluxo: Tela < Inputs < Validação < Banco < Auth
+  assert.ok(screenNode.position.x < inputNode.position.x);
+  assert.ok(inputNode.position.x < fnNode.position.x);
+  assert.ok(fnNode.position.x < dbNode.position.x);
+  assert.ok(dbNode.position.x < authNode.position.x);
+
+  // Espaçamento entre fases sucessivas deve ser no mínimo 380px
+  assert.ok(inputNode.position.x - screenNode.position.x >= 380);
+  assert.ok(fnNode.position.x - inputNode.position.x >= 380);
+  assert.ok(dbNode.position.x - fnNode.position.x >= 380);
+  assert.ok(authNode.position.x - dbNode.position.x >= 380);
+});
+
+test('fluxos dinâmicos: adicionar fluxo, vincular blocos nas propriedades, remover fluxo e resolver fases sem emojis', () => {
+  let g: Graph = {
+    version: 1,
+    name: 'Test Flows',
+    nodes: [],
+    edges: [],
+  };
+
+  // 1. Sem emojis nos fluxos padrão
+  const defaultFlows = getGraphFlows(g.flows);
+  assert.ok(defaultFlows.length >= 6);
+  const emojis = ['📱', '📝', '⚡', '🗄️', '🔐', '🎯', '📦'];
+  for (const f of defaultFlows) {
+    // Não deve conter emojis nos nomes dos fluxos
+    assert.ok(
+      !emojis.some((emoji) => f.name.includes(emoji)),
+      `Fluxo ${f.name} não deve ter emoji`,
+    );
+  }
+
+  // 2. Adicionar fluxo dinâmico
+  g = addFlowToGraph(g, 'Processamento Assíncrono', '#ec4899');
+  const customFlow = g.flows?.find((f) => f.name === 'Processamento Assíncrono');
+  assert.ok(customFlow, 'Novo fluxo deve ser adicionado ao grafo');
+  assert.equal(customFlow?.color, '#ec4899');
+
+  // 3. flowOptions expõe os fluxos do projeto para o dropdown do inspetor
+  const options = flowOptions(g);
+  assert.ok(options.some((opt) => opt.value === customFlow?.id));
+
+  // 4. Todas as tipologias de blocos suportam vínculo ao fluxo (flowId nas propriedades)
+  const kinds: Kind[] = [
+    'screen',
+    'input',
+    'button',
+    'function',
+    'condition',
+    'auth',
+    'database',
+    'error',
+    'navigate',
+    'api',
+  ];
+  for (const k of kinds) {
+    const fields = fieldsFor(k);
+    assert.ok(
+      fields.some((f) => f.key === 'flowId' && f.options === 'flows'),
+      `Bloco ${k} deve ter o campo flowId com opções de fluxos nas propriedades`,
+    );
+  }
+
+  // 5. Vincular bloco a um fluxo explicitamente (alterável depois)
+  const block = createBlock('function', { x: 100, y: 100 }, 'login', g);
+  block.data.config.flowId = customFlow.id;
+  g.nodes.push(block);
+
+  const resolved = resolveBlockFlow(g.flows!, block.data.kind, block.id, block.data.config.flowId);
+  assert.equal(resolved.flow.id, customFlow.id);
+  assert.equal(resolved.flow.name, 'Processamento Assíncrono');
+
+  // 6. Alterar o vínculo do bloco para outro fluxo
+  block.data.config.flowId = defaultFlows[0].id;
+  const resolvedChanged = resolveBlockFlow(
+    g.flows!,
+    block.data.kind,
+    block.id,
+    block.data.config.flowId,
+  );
+  assert.equal(resolvedChanged.flow.id, defaultFlows[0].id);
+
+  // 7. Remover fluxo desvincula os blocos que estavam associados a ele
+  block.data.config.flowId = customFlow.id;
+  g = removeFlowFromGraph(g, customFlow.id);
+  assert.ok(
+    !g.flows?.some((f) => f.id === customFlow.id),
+    'Fluxo removido não deve constar em g.flows',
+  );
+  const blockAfterRemove = g.nodes.find((n) => n.id === block.id)!;
+  assert.equal(
+    blockAfterRemove.data.config.flowId,
+    undefined,
+    'Bloco deve ter flowId desvinculado ao remover o fluxo',
+  );
+});
+
+test('alinhamento à grade invisível: blocos novos, duplicados e ajustados alinham-se rigorosamente a GRID_SNAP_SIZE', () => {
+  assert.equal(GRID_SNAP_SIZE, 20);
+
+  // 1. snapCoord arredonda para o múltiplo mais próximo de 20
+  assert.equal(snapCoord(17), 20);
+  assert.equal(snapCoord(23), 20);
+  assert.equal(snapCoord(31), 40);
+  assert.equal(snapCoord(0), 0);
+
+  // 2. createBlock cria o bloco cravado na grade
+  const block = createBlock('button', { x: 103, y: 198 }, 'login');
+  assert.equal(block.position.x % GRID_SNAP_SIZE, 0, 'Posição X deve ser múltiplo de 20');
+  assert.equal(block.position.y % GRID_SNAP_SIZE, 0, 'Posição Y deve ser múltiplo de 20');
+  assert.equal(block.position.x, 100);
+  assert.equal(block.position.y, 200);
+
+  // 3. duplicateBlock mantém as coordenadas na grade
+  const copy = duplicateBlock(block);
+  assert.equal(copy.position.x % GRID_SNAP_SIZE, 0);
+  assert.equal(copy.position.y % GRID_SNAP_SIZE, 0);
+
+  // 4. findFreePosition retorna coordenadas na grade
+  const g: Graph = { version: 1, name: 'GridTest', nodes: [block], edges: [] };
+  const freePos = findFreePosition(g, { x: 101, y: 204 }, 'login');
+  assert.equal(freePos.x % GRID_SNAP_SIZE, 0);
+  assert.equal(freePos.y % GRID_SNAP_SIZE, 0);
+
+  // 5. preventBlockCollision reposiciona mantendo alinhamento na grade
+  const overlappingBlock = createBlock('input', { x: 100, y: 220 }, 'login');
+  const adjusted = preventBlockCollision([block, overlappingBlock], overlappingBlock.id);
+  const adjustedBlock = adjusted.find((n) => n.id === overlappingBlock.id)!;
+  assert.equal(adjustedBlock.position.x % GRID_SNAP_SIZE, 0);
+  assert.equal(adjustedBlock.position.y % GRID_SNAP_SIZE, 0);
 });

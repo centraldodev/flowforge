@@ -1,0 +1,42 @@
+{
+  "screen": {
+    "description": "Ciclo de vida e montagem da tela",
+    "template": "function {{id}}() {\n  // Monta a tela {{label}}\n  console.log('Tela {{id}} ativa');\n  {{nextCall}}\n}"
+  },
+  "input": {
+    "description": "Função de leitura e obtenção do valor do campo",
+    "template": "function {{id}}() {\n  // Retorna o valor atual do campo {{label}}\n  return read('{{id}}', 'value');\n}"
+  },
+  "button": {
+    "description": "Manipulador de evento de clique do botão",
+    "template": "function {{id}}() {\n  // Disparado ao clicar no botão {{label}}\n  {{targetCall}}\n}"
+  },
+  "function": {
+    "description": "Função de lógica, validação ou transformação",
+    "template": "function {{id}}({{params}}) {\n  {{inputReads}}\n  {{body}}\n  {{returnCall}}\n}"
+  },
+  "condition": {
+    "description": "Função de decisão condicional (true / false)",
+    "template": "function {{id}}({{params}}) {\n  const isValid = {{condition}};\n  if (isValid) {\n    {{trueBranch}}\n  } else {\n    {{falseBranch}}\n  }\n}"
+  },
+  "auth": {
+    "description": "Função de autenticação e sessão",
+    "template": "function {{id}}({{params}}) {\n  {{authBody}}\n  if (user) {\n    {{successBranch}}\n  } else {\n    {{errorBranch}}\n  }\n}"
+  },
+  "error": {
+    "description": "Função de captura e alerta de exceções",
+    "template": "function {{id}}(error) {\n  const message = '{{message}}';\n  console.error(message, error);\n  {{retryBranch}}\n}"
+  },
+  "api": {
+    "description": "Função de chamada de serviço HTTP",
+    "template": "async function {{id}}(body) {\n  const response = await fetch('{{url}}', {\n    method: '{{method}}',\n    headers: { 'Content-Type': 'application/json' },\n    body: body ? JSON.stringify(body) : undefined\n  });\n  const data = await response.json();\n  {{successBranch}}\n}"
+  },
+  "database": {
+    "description": "Função de persistência no banco de dados",
+    "template": "async function {{id}}(payload) {\n  {{dbBody}}\n  {{successBranch}}\n}"
+  },
+  "navigate": {
+    "description": "Função de transição para outra rota de tela",
+    "template": "function {{id}}() {\n  // Navega para a tela de destino\n  navigateTo('{{target}}');\n}"
+  }
+}

@@ -25,12 +25,24 @@ export function toFlowNodes(
       : allScreens[0]?.id;
 
   if (!currentScreenId) {
-    return g.nodes.map((n) => ({ ...n, type: 'block' as const, selected: n.id === selected }));
+    return g.nodes.map((n) => ({
+      ...n,
+      data: {
+        ...n.data,
+        flows: g.flows,
+      },
+      type: 'block' as const,
+      selected: n.id === selected,
+    }));
   }
 
-  // 1. Identifica blocos que pertencem a esta aba/tela
+  // 1. Identifica blocos que pertencem a esta aba/tela (inclui a tela de origem como início do fluxo)
   const activeBlockIds = new Set<string>();
   for (const n of g.nodes) {
+    if (n.id === currentScreenId) {
+      activeBlockIds.add(n.id);
+      continue;
+    }
     if (n.data.kind === 'screen') continue;
     if (n.data.config.screenId === currentScreenId) {
       activeBlockIds.add(n.id);
@@ -82,6 +94,10 @@ export function toFlowNodes(
 
   return visibleNodes.map((n) => ({
     ...n,
+    data: {
+      ...n.data,
+      flows: g.flows,
+    },
     type: 'block' as const,
     selected: n.id === selected,
   }));
