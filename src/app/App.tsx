@@ -29,6 +29,7 @@ export function App() {
   const [modal, setModal] = useState<ModalType>(null);
   const [sidebar, setSidebar] = useState(false);
   const [isTimeTravelOpen, setIsTimeTravelOpen] = useState(false);
+  const [activeFlowFilter, setActiveFlowFilter] = useState<string | null>(null);
   const [notice, setNotice] = useNotice();
   const fileInput = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLElement>(null);
@@ -42,6 +43,7 @@ export function App() {
     notify: setNotice,
     resetSimulation: simulation.reset,
     canvasRef,
+    activeFlowFilter,
   });
   const { chosen, errors, actions } = editor;
   const closeModal = () => setModal(null);
@@ -105,7 +107,12 @@ export function App() {
           graph={graph}
           selected={editor.selected}
           activeScreenId={editor.currentScreenId}
-          onSelectScreen={editor.setActiveScreenId}
+          onSelectScreen={(screenId) => {
+            setActiveFlowFilter(null);
+            editor.setActiveScreenId(screenId);
+          }}
+          activeFlowFilter={activeFlowFilter}
+          onSelectFlowFilter={setActiveFlowFilter}
           trace={simulation.trace}
           errorCount={errors.length}
           canUndo={canUndo}

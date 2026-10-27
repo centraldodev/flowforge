@@ -25,6 +25,7 @@ import {
   findFreePosition,
   MIN_BLOCK_DISTANCE_X,
   MIN_BLOCK_DISTANCE_Y,
+  MIN_BLOCK_GAP,
   preventBlockCollision,
   organizeGraphByFlow,
   addFlowToGraph,
@@ -33,7 +34,7 @@ import {
 } from '../src/state/graphOps';
 import { fieldsFor, flowOptions } from '../src/features/inspector/blockFields';
 import { getGraphFlows, resolveBlockFlow, GRID_SNAP_SIZE } from '../src/features/canvas/constants';
-import { toFlowNodes } from '../src/features/canvas/toFlow';
+import { filterFlowElements, toFlowEdges, toFlowNodes } from '../src/features/canvas/toFlow';
 test('login válido navega para início; senha inválida segue ramo falso', () => {
   assert.equal(validate(demo).length, 0);
   const r = run(demo, 'btn_entrar', {
@@ -1055,19 +1056,19 @@ test('fluxos dinâmicos: adicionar fluxo, vincular blocos nas propriedades, remo
   );
 });
 
-test('alinhamento à grade invisível: blocos novos, duplicados e ajustados alinham-se rigorosamente a GRID_SNAP_SIZE', () => {
-  assert.equal(GRID_SNAP_SIZE, 20);
+test('alinhamento à grade magnética de alta precisão: blocos novos, duplicados e ajustados alinham-se rigorosamente a GRID_SNAP_SIZE (10px)', () => {
+  assert.equal(GRID_SNAP_SIZE, 10);
 
-  // 1. snapCoord arredonda para o múltiplo mais próximo de 20
+  // 1. snapCoord arredonda para o múltiplo mais próximo de 10
   assert.equal(snapCoord(17), 20);
   assert.equal(snapCoord(23), 20);
-  assert.equal(snapCoord(31), 40);
+  assert.equal(snapCoord(31), 30);
   assert.equal(snapCoord(0), 0);
 
   // 2. createBlock cria o bloco cravado na grade
   const block = createBlock('button', { x: 103, y: 198 }, 'login');
-  assert.equal(block.position.x % GRID_SNAP_SIZE, 0, 'Posição X deve ser múltiplo de 20');
-  assert.equal(block.position.y % GRID_SNAP_SIZE, 0, 'Posição Y deve ser múltiplo de 20');
+  assert.equal(block.position.x % GRID_SNAP_SIZE, 0, 'Posição X deve ser múltiplo de 10');
+  assert.equal(block.position.y % GRID_SNAP_SIZE, 0, 'Posição Y deve ser múltiplo de 10');
   assert.equal(block.position.x, 100);
   assert.equal(block.position.y, 200);
 
@@ -1088,6 +1089,85 @@ test('alinhamento à grade invisível: blocos novos, duplicados e ajustados alin
   const adjustedBlock = adjusted.find((n) => n.id === overlappingBlock.id)!;
   assert.equal(adjustedBlock.position.x % GRID_SNAP_SIZE, 0);
   assert.equal(adjustedBlock.position.y % GRID_SNAP_SIZE, 0);
+});
+
+test('prevenção de colisão em cascata: quando múltiplos blocos estão empilhados, encontra a próxima posição totalmente livre', () => {
+  const b1 = createBlock('input', { x: 400, y: 100 }, 'login');
+  const b2 = createBlock('button', { x: 400, y: 280 }, 'login');
+  const b3 = createBlock('function', { x: 400, y: 460 }, 'login');
+
+  // Tenta soltar um novo bloco exatamente onde b1 está
+  const b4 = createBlock('state', { x: 400, y: 105 }, 'login');
+
+  const nodes = [b1, b2, b3, b4];
+  const adjusted = preventBlockCollision(nodes, b4.id);
+  const adjustedB4 = adjusted.find((n) => n.id === b4.id)!;
+
+  // Garante que não sobrepõe NENHUM dos 3 blocos existentes
+  assert.ok(Math.abs(adjustedB4.position.y - b1.position.y) >= MIN_BLOCK_DISTANCE_Y);
+  assert.ok(Math.abs(adjustedB4.position.y - b2.position.y) >= MIN_BLOCK_DISTANCE_Y);
+  assert.ok(Math.abs(adjustedB4.position.y - b3.position.y) >= MIN_BLOCK_DISTANCE_Y);
+
+  // Garante alinhamento rigoroso à grade magnética de 10px
+  assert.equal(adjustedB4.position.x % GRID_SNAP_SIZE, 0);
+  assert.equal(adjustedB4.position.y % GRID_SNAP_SIZE, 0);
+});
+
+test('aproximação de blocos: permite distância de 20px ou um quadrado maior (50px) em todas as direções (cima, baixo, esquerda, direita)', () => {
+  assert.equal(MIN_BLOCK_GAP, 20);
+  const b1 = createBlock('input', { x: 100, y: 100 }, 'login');
+
+  // 1. Lado direito com gap de 20px (x = 100 + 260 + 20 = 380)
+  const bRight20 = createBlock('button', { x: 380, y: 100 }, 'login');
+  const nodesRight = [b1, bRight20];
+  const adjustedRight = preventBlockCollision(nodesRight, bRight20.id);
+  assert.equal(
+    adjustedRight.find((n) => n.id === bRight20.id)!.position.x,
+    380,
+    'Deve permitir 20px à direita',
+  );
+
+  // 2. Lado direito com um quadrado maior de 50px (x = 100 + 260 + 50 = 410)
+  const bRight50 = createBlock('button', { x: 410, y: 100 }, 'login');
+  const nodesRight50 = [b1, bRight50];
+  const adjustedRight50 = preventBlockCollision(nodesRight50, bRight50.id);
+  assert.equal(
+    adjustedRight50.find((n) => n.id === bRight50.id)!.position.x,
+    410,
+    'Deve permitir 50px à direita',
+  );
+
+  // 3. Parte de baixo com gap de 20px (y = 100 + 138 + 20 = 258 -> snap 260)
+  const bBottom20 = createBlock('button', { x: 100, y: 260 }, 'login');
+  const nodesBottom = [b1, bBottom20];
+  const adjustedBottom = preventBlockCollision(nodesBottom, bBottom20.id);
+  assert.equal(
+    adjustedBottom.find((n) => n.id === bBottom20.id)!.position.y,
+    260,
+    'Deve permitir 20px abaixo',
+  );
+
+  // 4. Parte de cima com gap de 20px (300 - 140 - 20 = 140):
+  const bBase = createBlock('input', { x: 100, y: 300 }, 'login');
+  const bTop20 = createBlock('button', { x: 100, y: 140 }, 'login');
+  const nodesTop = [bBase, bTop20];
+  const adjustedTop = preventBlockCollision(nodesTop, bTop20.id);
+  assert.equal(
+    adjustedTop.find((n) => n.id === bTop20.id)!.position.y,
+    140,
+    'Deve permitir 20px acima',
+  );
+
+  // 5. Lado esquerdo com gap de 20px:
+  const bBaseRight = createBlock('input', { x: 400, y: 100 }, 'login');
+  const bLeft20 = createBlock('button', { x: 120, y: 100 }, 'login');
+  const nodesLeft = [bBaseRight, bLeft20];
+  const adjustedLeft = preventBlockCollision(nodesLeft, bLeft20.id);
+  assert.equal(
+    adjustedLeft.find((n) => n.id === bLeft20.id)!.position.x,
+    120,
+    'Deve permitir 20px à esquerda',
+  );
 });
 
 test('validação de código real executável: projeto demo executa JavaScript nativo via executeProjectCode com sucesso e captura erros', async () => {
@@ -1446,4 +1526,37 @@ test('validação sintática: todos os tipos de blocos do catálogo compilam par
       new Function(`${executableScript}; return createFlowRunner;`);
     }, `O projeto contendo o bloco "${kind}" deve compilar para JavaScript executável.`);
   }
+});
+
+test('filtro de fluxos isola blocos e conexões do fluxo selecionado e oculta os demais', () => {
+  const flows = getGraphFlows(demo.flows);
+  const allNodes = toFlowNodes(demo, null, 'login');
+  assert.ok(allNodes.length > 3, 'Deve haver blocos na tela de login');
+
+  // Sem filtro ativo: todos os nós e conexões da tela permanecem visíveis
+  const unfiltered = filterFlowElements(allNodes, demo, flows, null);
+  assert.equal(unfiltered.nodes.length, allNodes.length);
+  const unfilteredEdges = toFlowEdges(demo, [], unfiltered.visibleNodeIds);
+  assert.ok(unfilteredEdges.length > 0);
+
+  // Filtro ativo: apenas blocos de 'inputs'
+  const inputsFiltered = filterFlowElements(allNodes, demo, flows, 'inputs');
+  assert.ok(inputsFiltered.nodes.length > 0);
+  assert.ok(inputsFiltered.nodes.length < allNodes.length);
+  for (const n of inputsFiltered.nodes) {
+    const block = demo.nodes.find((bn) => bn.id === n.id);
+    assert.ok(block);
+    const { flow } = resolveBlockFlow(flows, block.data.kind, block.id, block.data.config?.flowId);
+    assert.equal(flow.id, 'inputs');
+  }
+
+  // As arestas visíveis devem conter apenas conexões onde ambos os blocos pertencem ao fluxo filtrado
+  const filteredEdges = toFlowEdges(demo, [], inputsFiltered.visibleNodeIds);
+  for (const edge of filteredEdges) {
+    assert.ok(inputsFiltered.visibleNodeIds.has(edge.source));
+    assert.ok(inputsFiltered.visibleNodeIds.has(edge.target));
+  }
+
+  // Conexões com blocos de outros fluxos (ex: inputs -> validation) são ocultadas
+  assert.ok(filteredEdges.length <= unfilteredEdges.length);
 });

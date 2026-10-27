@@ -359,8 +359,12 @@ export function findFreePosition(g: Graph, base: Position, screenId?: string): P
     y: snapCoord(base.y),
   };
   const targetNodes = screenId
-    ? g.nodes.filter((n) => n.data.kind !== 'screen' && n.data.config.screenId === screenId)
-    : g.nodes;
+    ? g.nodes.filter(
+        (n) =>
+          n.data.kind !== 'screen' &&
+          (!n.data.config.screenId || n.data.config.screenId === screenId),
+      )
+    : g.nodes.filter((n) => n.data.kind !== 'screen');
   const overlaps = (p: Position) =>
     targetNodes.some(
       (n) =>
@@ -376,33 +380,150 @@ export function findFreePosition(g: Graph, base: Position, screenId?: string): P
   return position;
 }
 
-/** Previne que um bloco movido fique em cima de outro, mantendo a distância mínima obrigatória e alinhando à grade. */
+/** Distância mínima segura permitida entre as bordas de blocos adjacentes (em pixels).
+ *  Permite aproximação de até 20px (ou um quadrado maior da régua) em qualquer direção (cima, baixo, esquerda, direita). */
+export const MIN_BLOCK_GAP = 20;
+
+/** Calcula a caixa delimitadora estimada de um bloco para colisão precisa baseada em bordas reais. */
+export function getBlockRect(block: Block): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  const rawPorts =
+    block.data.ports && block.data.ports.length > 0 ? block.data.ports : ensureBlockPorts(block);
+  const inCount = rawPorts.filter((p) => p.direction === 'input').length;
+  const outCount = rawPorts.filter((p) => p.direction === 'output').length;
+  const maxPorts = Math.max(inCount, outCount);
+
+  // Altura base real do bloco no canvas: cabeçalho (~65px) + portas (~26px cada linha) + padding (~24px)
+  // Blocos possuem altura mínima real de 140px no canvas
+  const height = Math.max(140, 65 + 24 + maxPorts * 26);
+  // Largura típica dos blocos no canvas
+  const width = 260;
+
+  return {
+    x: block.position.x,
+    y: block.position.y,
+    width,
+    height,
+  };
+}
+
+/** Verifica se dois blocos colidem ou estão a menos de `gap` pixels em ambos os eixos X e Y. */
+export function areBlocksColliding(
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number },
+  gap = MIN_BLOCK_GAP,
+): boolean {
+  const horizontalOverlap = a.x + a.width + gap > b.x && b.x + b.width + gap > a.x;
+  const verticalOverlap = a.y + a.height + gap > b.y && b.y + b.height + gap > a.y;
+  return horizontalOverlap && verticalOverlap;
+}
+
+/** Previne que um bloco movido fique em cima de outro ou a menos de 20px de distância de qualquer borda (cima, baixo, esquerda, direita).
+ *  Permite aproximação de até 20px (ou um quadrado maior da régua) mantendo alinhamento de alta precisão à grade magnética.
+ *  Verifica iterativamente contra todos os blocos para garantir zero sobreposição. */
 export function preventBlockCollision(
   nodes: Block[],
   activeId: string,
-  minX = MIN_BLOCK_DISTANCE_X,
-  minY = MIN_BLOCK_DISTANCE_Y,
+  _minX = MIN_BLOCK_DISTANCE_X,
+  _minY = MIN_BLOCK_DISTANCE_Y,
+  gap = MIN_BLOCK_GAP,
 ): Block[] {
   const current = nodes.find((n) => n.id === activeId);
   if (!current) return nodes;
 
-  const others = nodes.filter((n) => n.id !== activeId);
-  const collidesWith = others.find(
-    (n) =>
-      Math.abs(n.position.x - current.position.x) < minX &&
-      Math.abs(n.position.y - current.position.y) < minY,
-  );
+  const others = nodes.filter((n) => n.id !== activeId && n.data.kind !== 'screen');
+  if (others.length === 0) return nodes;
 
-  if (!collidesWith) return nodes;
+  const currentRect = getBlockRect(current);
 
-  // Afasta verticalmente para uma posição segura sem sobreposição
-  const shiftY = current.position.y >= collidesWith.position.y ? minY + 40 : -(minY + 40);
-  const safePos = {
-    x: snapCoord(current.position.x),
-    y: snapCoord(Math.max(40, collidesWith.position.y + shiftY)),
+  const findCollision = (candidatePos: Position): Block | undefined => {
+    const candidateRect = {
+      x: candidatePos.x,
+      y: candidatePos.y,
+      width: currentRect.width,
+      height: currentRect.height,
+    };
+    return others.find((other) => areBlocksColliding(candidateRect, getBlockRect(other), gap));
   };
 
-  return nodes.map((n) => (n.id === activeId ? { ...n, position: safePos } : n));
+  const initialCollision = findCollision(current.position);
+
+  if (!initialCollision) {
+    // Sem colisão: alinha à grade magnética mantendo a proximidade escolhida pelo usuário
+    const snappedPos = {
+      x: snapCoord(current.position.x),
+      y: snapCoord(current.position.y),
+    };
+    if (!findCollision(snappedPos)) {
+      return nodes.map((n) => (n.id === activeId ? { ...n, position: snappedPos } : n));
+    }
+    return nodes;
+  }
+
+  // Há colisão detectada: encontra a posição livre mais próxima com o gap de 20px
+  const candidate = {
+    x: snapCoord(current.position.x),
+    y: snapCoord(current.position.y),
+  };
+
+  const otherRect = getBlockRect(initialCollision);
+  const centerDx = current.position.x + currentRect.width / 2 - (otherRect.x + otherRect.width / 2);
+  const centerDy =
+    current.position.y + currentRect.height / 2 - (otherRect.y + otherRect.height / 2);
+
+  // Direção de escape preferencial
+  const isVerticalMove = Math.abs(centerDy) >= Math.abs(centerDx);
+
+  let attempts = 0;
+  let collidingBlock = findCollision(candidate);
+
+  while (collidingBlock && attempts < 80) {
+    attempts++;
+    const colRect = getBlockRect(collidingBlock);
+
+    if (isVerticalMove) {
+      if (centerDy >= 0) {
+        candidate.y = snapCoord(colRect.y + colRect.height + gap);
+      } else {
+        const nextY = snapCoord(colRect.y - currentRect.height - gap);
+        if (nextY >= 60) {
+          candidate.y = nextY;
+        } else {
+          candidate.y = snapCoord(colRect.y + colRect.height + gap);
+        }
+      }
+    } else {
+      if (centerDx >= 0) {
+        candidate.x = snapCoord(colRect.x + colRect.width + gap);
+      } else {
+        const nextX = snapCoord(colRect.x - currentRect.width - gap);
+        if (nextX >= 40) {
+          candidate.x = nextX;
+        } else {
+          candidate.x = snapCoord(colRect.x + colRect.width + gap);
+        }
+      }
+    }
+
+    collidingBlock = findCollision(candidate);
+
+    if (collidingBlock && attempts % 10 === 0) {
+      if (isVerticalMove) {
+        candidate.x = snapCoord(candidate.x + currentRect.width + gap);
+        candidate.y = 80;
+      } else {
+        candidate.y = snapCoord(candidate.y + currentRect.height + gap);
+        candidate.x = 80;
+      }
+      collidingBlock = findCollision(candidate);
+    }
+  }
+
+  return nodes.map((n) => (n.id === activeId ? { ...n, position: candidate } : n));
 }
 
 /** Organiza automaticamente os blocos em colunas espaçadas por fases do fluxo com distâncias mínimas garantidas. */

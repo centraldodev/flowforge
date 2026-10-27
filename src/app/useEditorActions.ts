@@ -44,6 +44,7 @@ type Options = {
   notify: (message: string) => void;
   resetSimulation: (screenId?: string) => void;
   canvasRef: RefObject<HTMLElement | null>;
+  activeFlowFilter?: string | null;
 };
 
 /** Seleção inicial: foco do exemplo quando presente, senão a primeira tela. */
@@ -55,7 +56,14 @@ function initialFocus(graph: Graph) {
   };
 }
 
-export function useEditorActions({ graph, commit, notify, resetSimulation, canvasRef }: Options) {
+export function useEditorActions({
+  graph,
+  commit,
+  notify,
+  resetSimulation,
+  canvasRef,
+  activeFlowFilter,
+}: Options) {
   const flow = useReactFlow();
   const [focus] = useState(() => initialFocus(graph));
   const [selected, setSelected] = useState<string | null>(focus.blockId);
@@ -93,6 +101,9 @@ export function useEditorActions({ graph, commit, notify, resetSimulation, canva
     const newBlock = createBlock(kind, position, currentScreenId, graph);
     if (kind !== 'screen' && currentScreenId) {
       newBlock.data.config.screenId = currentScreenId;
+    }
+    if (kind !== 'screen' && activeFlowFilter) {
+      newBlock.data.config.flowId = activeFlowFilter;
     }
     commit((g) => addBlock(g, newBlock));
     setSelected(newBlock.id);

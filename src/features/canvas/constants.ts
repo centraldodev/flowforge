@@ -1,14 +1,15 @@
 import type { FlowStage } from '../../engine';
+export type { FlowStage };
 
 /** Viewport inicial do canvas e ao resetar/abrir projetos. */
 export const DEFAULT_VIEWPORT = { x: 30, y: 70, zoom: 0.72 };
 
 /** Distâncias mínimas obrigatórias para evitar sobreposição entre blocos. */
-export const MIN_BLOCK_DISTANCE_X = 400;
+export const MIN_BLOCK_DISTANCE_X = 380;
 export const MIN_BLOCK_DISTANCE_Y = 160;
 
-/** Tamanho do passo da grade invisível para alinhamento magnético dos blocos. */
-export const GRID_SNAP_SIZE = 20;
+/** Tamanho do passo da grade magnética para alinhamento de alta precisão dos blocos (10px). */
+export const GRID_SNAP_SIZE = 10;
 
 /** Fluxos padrão do projeto (sem emojis). */
 export const DEFAULT_FLOWS: FlowStage[] = [

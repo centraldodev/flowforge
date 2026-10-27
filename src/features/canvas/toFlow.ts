@@ -2,6 +2,7 @@ import type { Edge } from '@xyflow/react';
 import { isExecOutput, screenRoutes, type Block, type Graph, type Trace } from '../../engine';
 import type { FlowNode } from './BlockNode';
 import type { DebugFrame } from '../../compiler';
+import { resolveBlockFlow, type FlowStage } from './constants';
 
 const EXEC_COLOR = '#818cf8';
 const DATA_COLOR = '#38bdf8';
@@ -146,6 +147,36 @@ export function toFlowNodes(
     type: 'block' as const,
     selected: n.id === selected,
   }));
+}
+
+/**
+ * Filtra nós visíveis e gera o conjunto de IDs de nós para exibição de um fluxo específico.
+ * Se activeFlowId for nulo, todos os nós recebidos permanecem visíveis.
+ */
+export function filterFlowElements(
+  nodes: FlowNode[],
+  graph: Graph,
+  flows: FlowStage[],
+  activeFlowId: string | null,
+): { nodes: FlowNode[]; visibleNodeIds: Set<string> } {
+  if (!activeFlowId) {
+    return {
+      nodes,
+      visibleNodeIds: new Set(nodes.map((n) => n.id)),
+    };
+  }
+
+  const filteredNodes = nodes.filter((n) => {
+    const block = graph.nodes.find((bn) => bn.id === n.id);
+    if (!block) return false;
+    const { flow } = resolveBlockFlow(flows, block.data.kind, block.id, block.data.config?.flowId);
+    return flow.id === activeFlowId;
+  });
+
+  return {
+    nodes: filteredNodes,
+    visibleNodeIds: new Set(filteredNodes.map((n) => n.id)),
+  };
 }
 
 /** Conexões do grafo com identificação visual de eventos (onClick, onSuccess, onError, true, false, dados). */

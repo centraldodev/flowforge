@@ -176,6 +176,21 @@
   color: #9399aa;
 }
 
+.canvas-grid-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-right: 4px;
+}
+
 /* Faixa de Roadmap das Fases do Fluxo no Topo do Canvas */
 .canvas-flow-phases-bar {
   position: absolute;
@@ -199,13 +214,23 @@
   display: none;
 }
 
+.flow-phases-label-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 4px;
+}
+
+.flow-filter-icon {
+  color: #818cf8;
+}
+
 .flow-phases-label {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: #64748b;
-  margin-right: 4px;
   white-space: nowrap;
 }
 
@@ -223,12 +248,38 @@
   font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
+  cursor: pointer;
+  font-family: inherit;
+  outline: none;
+  user-select: none;
   transition: all 0.15s ease;
 }
 
 .flow-phase-chip:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #e2e8f0;
+}
+
+.flow-phase-chip.flow-phase-all {
+  padding-left: 10px;
+}
+
+.flow-phase-chip.active-filter {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: var(--phase-color, #818cf8);
+  color: #ffffff;
+  box-shadow:
+    0 0 10px rgba(129, 140, 248, 0.3),
+    inset 0 0 6px rgba(129, 140, 248, 0.12);
+}
+
+.flow-phase-chip.flow-phase-all.active-filter {
+  --phase-color: #38bdf8;
+  border-color: #38bdf8;
+  box-shadow:
+    0 0 10px rgba(56, 189, 248, 0.3),
+    inset 0 0 6px rgba(56, 189, 248, 0.12);
 }
 
 .flow-phase-chip .phase-num {
@@ -239,6 +290,118 @@
 
 .flow-phase-chip .phase-title {
   color: #cbd5e1;
+}
+
+.flow-phase-chip.active-filter .phase-title {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.flow-phase-chip .phase-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+  transition: all 0.15s ease;
+}
+
+.flow-phase-chip:hover .phase-count {
+  background: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+}
+
+.flow-phase-chip.active-filter .phase-count {
+  background: var(--phase-color, #818cf8);
+  color: #0b0f19;
+  font-weight: 800;
+}
+
+.canvas-active-filter-badge {
+  position: absolute;
+  top: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--phase-color, #818cf8);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.45),
+    0 0 12px rgba(129, 140, 248, 0.25);
+  z-index: 5;
+  font-size: 11px;
+  color: #e2e8f0;
+  pointer-events: auto;
+  animation: fadeInDown 0.18s ease-out;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.canvas-active-filter-badge .filter-icon {
+  font-size: 15px;
+  color: var(--phase-color, #818cf8);
+}
+
+.canvas-active-filter-badge .filter-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.canvas-active-filter-badge .filter-clear-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+.canvas-active-filter-badge-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  background: #6366f1;
+  border: none;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.canvas-active-filter-badge-btn:hover {
+  background: #4f46e5;
 }
 
 .flow-phase-remove {
