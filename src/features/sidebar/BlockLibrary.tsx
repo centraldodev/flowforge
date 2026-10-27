@@ -46,7 +46,7 @@ export function BlockLibrary({ onAdd }: { onAdd: (kind: Kind) => void }) {
                   className="library-icon"
                   style={{ '--icon-color': v.color } as React.CSSProperties}
                 >
-                  {v.icon}
+                  <span className="material-symbols-outlined">{v.icon}</span>
                 </span>
                 <span className="library-block-name">{v.name}</span>
                 <Plus size={14} className="library-block-plus" />

@@ -7,6 +7,11 @@ export type Kind =
   | 'auth'
   | 'database'
   | 'api'
+  | 'httpConnection'
+  | 'postgresConnection'
+  | 'entity'
+  | 'identityProvider'
+  | 'policy'
   | 'error'
   | 'navigate'
   | 'notify'
@@ -20,9 +25,16 @@ export type Kind =
   | 'compare'
   | 'boolean'
   | 'object'
-  | 'array';
+  | 'array'
+  | 'subflow'
+  | 'storage'
+  | 'email'
+  | 'webhook'
+  | 'task'
+  | 'payment'
+  | 'realtime';
 
-export type PortMode = 'control' | 'data' | 'error';
+export type PortMode = 'control' | 'data' | 'error' | 'resource';
 export type PortCardinality = 'one' | 'many';
 
 export type ValueType =
@@ -59,6 +71,8 @@ export type CustomPort = {
 };
 
 export type BlockData = {
+  /** Ausente em projetos legados equivale à versão 1. */
+  contractVersion?: number;
   kind: Kind;
   label: string;
   config: Record<string, string>;
@@ -87,11 +101,16 @@ export type FlowStage = {
 };
 
 export type Graph = {
+  httpEnvironment?: 'development' | 'production';
   version: 1;
   name: string;
   nodes: Block[];
   edges: Link[];
   flows?: FlowStage[];
+  tests?: import('./testScenarios').TestScenario[];
+  entities?: import('./database').EntityDefinition[];
+  auth?: import('./auth').IdentityProviderConfig;
+  databasePolicy?: { multitenancy?: unknown };
 };
 
 export type ScreenRoute = {

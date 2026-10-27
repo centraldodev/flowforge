@@ -160,45 +160,27 @@ test('Fase 5: código gerado a partir da ProgramIR executa e coincide com o inte
 // 4. TESTE END-TO-END DO PACOTE EXPORTADO (ZIP TYPESCRIPT / REACT)
 // ============================================================================
 
-test('Fase 5: addTypeScriptProject gera projeto React usando program.ts a partir da IR sem código morto', async () => {
+test('Exportação React: workspaces, páginas e fluxos substituem o programa monolítico', async () => {
   const zip = new JSZip();
   addTypeScriptProject(zip, demo);
-
-  // 1. Arquivos essenciais do projeto exportado
-  assert.ok(zip.file('package.json'), 'package.json deve existir');
-  assert.ok(zip.file('tsconfig.json'), 'tsconfig.json deve existir');
-  assert.ok(zip.file('src/main.tsx'), 'src/main.tsx deve existir');
-  assert.ok(zip.file('src/program.ts'), 'src/program.ts deve existir');
-  assert.ok(zip.file('src/ScreenFields.tsx'), 'src/ScreenFields.tsx deve existir');
-  assert.ok(zip.file('src/graph.json'), 'src/graph.json deve existir como metadado');
-
-  // 2. Remoção de arquivos mortos
-  assert.equal(
-    zip.file('src/workflow.js'),
-    null,
-    'src/workflow.js redundante deve ter sido removido',
-  );
-  const screensInZip = zip.file(/^src\/screens\//);
-  assert.equal(screensInZip.length, 0, 'src/screens/*.js redundantes devem ter sido removidos');
-
-  // 3. Verificação de conteúdo de main.tsx
-  const mainTsxContent = await zip.file('src/main.tsx')!.async('text');
-  assert.ok(
-    mainTsxContent.includes("from './program'"),
-    'main.tsx exportado deve importar e usar createProgram de ./program',
-  );
-  assert.ok(
-    !mainTsxContent.includes('run(g,'),
-    'main.tsx exportado não pode mais importar o interpretador legado run(g)',
-  );
-
-  // 4. Validação sintática do program.ts gerado no ZIP
-  const programTsContent = await zip.file('src/program.ts')!.async('text');
-  assert.ok(programTsContent.includes('export class FlowForgeProgram'));
-  assert.ok(programTsContent.includes('export function createProgram'));
-  assert.doesNotThrow(() => {
-    new Function(
-      programTsContent.replace(/export class/g, 'class').replace(/export function/g, 'function'),
-    );
-  }, 'src/program.ts gerado deve ser sintaticamente válido');
+  for (const path of [
+    'package.json',
+    'tsconfig.base.json',
+    'apps/web/src/main.tsx',
+    'apps/web/src/runtime/program.ts',
+    'apps/web/src/app/routes.tsx',
+    'packages/contracts/src/runtime.ts',
+    'flowforge/project.flow.json',
+    'flowforge/export-manifest.json',
+    'flowforge/source-map.json',
+  ])
+    assert.ok(zip.file(path), path);
+  assert.equal(zip.file('src/program.ts'), null);
+  assert.equal(zip.file('src/ScreenFields.tsx'), null);
+  const main = await zip.file('apps/web/src/main.tsx')!.async('text');
+  assert.ok(main.includes("from './app/App'"));
+  const program = await zip.file('apps/web/src/runtime/program.ts')!.async('text');
+  assert.ok(program.includes('export class FlowForgeProgram'));
+  assert.ok(!program.includes('@ts-nocheck'));
+  assert.ok(zip.file(/^apps\/web\/src\/pages\/.+\/Page\.tsx$/).length >= 2);
 });

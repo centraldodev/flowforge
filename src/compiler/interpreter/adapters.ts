@@ -1,5 +1,4 @@
 import type {
-  ApiAdapter,
   AuthAdapter,
   DatabaseAdapter,
   DelayAdapter,
@@ -7,6 +6,17 @@ import type {
   ExecutionContext,
   LegacyFunctionAdapter,
 } from './types';
+import { GatewayApiAdapter } from './httpAdapter';
+import { GatewayDatabaseAdapter } from './databaseAdapter';
+import { GatewayAuthAdapter } from './authAdapter';
+import { ModularSubflowAdapter } from './subflowAdapter';
+import {
+  GatewayStorageAdapter,
+  GatewayEmailAdapter,
+  GatewayWebhookAdapter,
+  GatewayTaskAdapter,
+} from './integrationsAdapter';
+import { GatewayPaymentAdapter, GatewayRealtimeAdapter } from './paymentsRealtimeAdapter';
 
 const DEMO_USER = { email: 'demo@exemplo.com', password: '123456', nome: 'Usuário Demo' };
 
@@ -329,23 +339,7 @@ export class MockDatabaseAdapter implements DatabaseAdapter {
   }
 }
 
-/** Adaptador mock de API determinístico (sem requisições de rede) */
-export class MockApiAdapter implements ApiAdapter {
-  async execute(
-    _action: string,
-    payload: Record<string, unknown>,
-    _context: ExecutionContext,
-  ): Promise<unknown> {
-    if (payload.mock && typeof payload.mock === 'string') {
-      try {
-        return JSON.parse(payload.mock);
-      } catch {
-        // Fallback
-      }
-    }
-    return { ok: true, status: 200, data: payload.body ?? null };
-  }
-}
+export { MockApiAdapter } from './mockApiAdapter';
 
 /** Adaptador de Delay injetável com suporte a cancelamento imediato e modo rápido */
 export class MockDelayAdapter implements DelayAdapter {
@@ -394,11 +388,18 @@ export class SafeLegacyFunctionAdapter implements LegacyFunctionAdapter {
 
 export function createDefaultAdapters(options?: { fastDelay?: boolean }): ExecutionAdapters {
   return {
-    auth: new MockAuthAdapter(),
-    api: new MockApiAdapter(),
-    database: new MockDatabaseAdapter(),
+    auth: new GatewayAuthAdapter(),
+    api: new GatewayApiAdapter(),
+    database: new GatewayDatabaseAdapter(),
     delay: new MockDelayAdapter(options?.fastDelay ?? true),
     legacyFunction: new SafeLegacyFunctionAdapter(),
+    subflow: new ModularSubflowAdapter(),
+    storage: new GatewayStorageAdapter(),
+    email: new GatewayEmailAdapter(),
+    webhook: new GatewayWebhookAdapter(),
+    task: new GatewayTaskAdapter(),
+    payment: new GatewayPaymentAdapter(),
+    realtime: new GatewayRealtimeAdapter(),
   };
 }
 
@@ -416,5 +417,6 @@ export function createExecutionContext(init?: Partial<ExecutionContext>): Execut
     maxSteps: init?.maxSteps ?? 100,
     signal: init?.signal,
     adapters: init?.adapters ?? createDefaultAdapters(),
+    debugger: init?.debugger,
   };
 }

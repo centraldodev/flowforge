@@ -10,6 +10,8 @@ import { NewProjectModal } from '../features/project/NewProjectModal';
 import { SettingsModal } from '../features/project/SettingsModal';
 import { PreviewModal } from '../features/preview/PreviewModal';
 import { CodeViewerModal } from '../features/preview/CodeViewerModal';
+import { TestRunnerModal } from '../features/project/TestRunnerModal';
+import { ProductionReadinessModal } from '../features/project/ProductionReadinessModal';
 import { Sidebar } from '../features/sidebar/Sidebar';
 import { loadSavedGraph, usePersistence } from '../state/persistence';
 import { useGraphHistory } from '../state/useGraphHistory';
@@ -18,7 +20,7 @@ import { useSimulation } from '../state/useSimulation';
 import { Header } from './Header';
 import { useEditorActions } from './useEditorActions';
 
-type ModalType = 'preview' | 'export' | 'new' | 'settings' | 'code' | null;
+type ModalType = 'preview' | 'export' | 'new' | 'settings' | 'code' | 'tests' | 'readiness' | null;
 
 export function App() {
   const { graph, setGraph, commit, remember, undo, redo, canUndo, canRedo, beginDrag, endDrag } =
@@ -26,6 +28,7 @@ export function App() {
 
   const [modal, setModal] = useState<ModalType>(null);
   const [sidebar, setSidebar] = useState(false);
+  const [isTimeTravelOpen, setIsTimeTravelOpen] = useState(false);
   const [notice, setNotice] = useNotice();
   const fileInput = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLElement>(null);
@@ -43,6 +46,22 @@ export function App() {
   const { chosen, errors, actions } = editor;
   const closeModal = () => setModal(null);
 
+  // Encontra pontos de entrada para depuração na tela atual
+  const activeScreenId = editor.currentScreenId;
+  const entryButtons = graph.nodes.filter(
+    (n) =>
+      n.data.kind === 'button' &&
+      (!n.data.config.screenId || n.data.config.screenId === activeScreenId),
+  );
+
+  const handleStartDebug = () => {
+    if (entryButtons.length > 0) {
+      simulation.debugStart(entryButtons[0].id, true);
+    } else if (graph.nodes.length > 0) {
+      simulation.debugStart(graph.nodes[0].id, true);
+    }
+  };
+
   const connections = <Connections graph={graph} chosen={chosen} {...editor.connectionHandlers} />;
 
   return (
@@ -52,6 +71,20 @@ export function App() {
         onRenameProject={(name) => setGraph((g) => ({ ...g, name }))}
         onViewCode={() => setModal('code')}
         onSimulate={() => actions.preparePreview() && setModal('preview')}
+        onOpenTests={() => setModal('tests')}
+        testCount={graph.tests?.length}
+        onOpenReadiness={() => setModal('readiness')}
+        debuggerStatus={simulation.debuggerState.status}
+        debuggerCurrentBlockId={simulation.debuggerState.currentBlockId}
+        debuggerFrameCount={simulation.debuggerState.frames.length}
+        isTimeTravelOpen={isTimeTravelOpen}
+        onStartDebug={handleStartDebug}
+        onContinueDebug={simulation.debugContinue}
+        onPauseDebug={simulation.debugPause}
+        onStepDebug={simulation.debugStep}
+        onStopDebug={simulation.debugStop}
+        onResetDebug={() => simulation.reset()}
+        onToggleTimeTravel={() => setIsTimeTravelOpen((prev) => !prev)}
       />
 
       <div className="workspace">
@@ -88,6 +121,9 @@ export function App() {
           onConnect={actions.connectBlocks}
           onDragStart={beginDrag}
           onDragStop={endDrag}
+          simulation={simulation}
+          isTimeTravelOpen={isTimeTravelOpen}
+          onCloseTimeTravel={() => setIsTimeTravelOpen(false)}
         />
 
         <InspectorShell
@@ -99,6 +135,7 @@ export function App() {
           connections={connections}
           onDuplicate={actions.duplicateChosen}
           onDelete={actions.deleteChosen}
+          onChangeConfig={actions.updateChosenConfig}
         >
           <InspectorPanel
             chosen={chosen}
@@ -143,7 +180,12 @@ export function App() {
         onNotify={setNotice}
       />
 
-      <SettingsModal isOpen={modal === 'settings'} onClose={closeModal} />
+      <SettingsModal
+        isOpen={modal === 'settings'}
+        onClose={closeModal}
+        graph={graph}
+        onEnvironmentChange={(httpEnvironment) => commit((g) => ({ ...g, httpEnvironment }))}
+      />
 
       <PreviewModal
         isOpen={modal === 'preview'}
@@ -158,6 +200,21 @@ export function App() {
         graph={graph}
         initialScreenId={editor.currentScreenId}
         onNotify={setNotice}
+      />
+
+      <TestRunnerModal
+        isOpen={modal === 'tests'}
+        onClose={closeModal}
+        graph={graph}
+        onUpdateGraph={commit}
+      />
+
+      <ProductionReadinessModal
+        isOpen={modal === 'readiness'}
+        onClose={closeModal}
+        graph={graph}
+        onOpenTests={() => setModal('tests')}
+        onOpenExport={() => setModal('export')}
       />
     </div>
   );

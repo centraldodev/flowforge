@@ -125,15 +125,21 @@
 }
 
 .selected-kind > span {
-  height: 32px;
-  width: 32px;
-  display: grid;
-  place-items: center;
-  border: 1px solid #3f3b4e;
-  background: #b9a5f60e;
-  border-radius: 6px;
-  font-size: 17px;
+  height: 36px;
+  width: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--kind-color, #a78bfa) 35%, #2b2e37);
+  background: color-mix(in srgb, var(--kind-color, #a78bfa) 12%, transparent);
+  border-radius: 8px;
   color: var(--kind-color, inherit);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--kind-color, #a78bfa) 18%, transparent);
+  flex-shrink: 0;
+}
+
+.selected-kind > span .material-symbols-outlined {
+  font-size: 21px;
 }
 
 .selected-kind small {
@@ -1240,4 +1246,30 @@
   font-weight: 600;
   padding: 3px 6px;
   border-radius: 4px;
+}
+
+.http-pairs {
+  min-width: 0;
+  border: 1px solid var(--border, #334155);
+  border-radius: 8px;
+  padding: 10px;
+  margin: 10px 0;
+}
+.http-pairs legend {
+  font-size: 12px;
+}
+.http-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 28px;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.http-pair input {
+  min-width: 0;
+  width: 100%;
+  padding: 7px;
+  border-radius: 5px;
+  border: 1px solid var(--border, #334155);
+  background: var(--bg, #101827);
+  color: inherit;
 }

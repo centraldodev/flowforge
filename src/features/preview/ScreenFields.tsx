@@ -507,6 +507,170 @@ function renderComponent(
       );
     }
 
+    case 'table': {
+      const rawItems = evaluateBinding({ kind: 'path', path: comp.itemsPath }, scope);
+      const items = Array.isArray(rawItems) ? (rawItems as Array<Record<string, unknown>>) : [];
+
+      if (items.length === 0) {
+        if (comp.emptyState) {
+          return (
+            <div key={comp.id} id={comp.id} className="table-empty-container">
+              {renderComponent(comp.emptyState, scope, values, onChange, onAction)}
+            </div>
+          );
+        }
+        return (
+          <div
+            key={comp.id}
+            id={comp.id}
+            className="table-empty-default"
+            style={{
+              padding: '16px',
+              textAlign: 'center',
+              color: '#94a3b8',
+              fontSize: '13px',
+              border: '1px dashed #cbd5e1',
+              borderRadius: '6px',
+            }}
+          >
+            Nenhum registro encontrado.
+          </div>
+        );
+      }
+
+      const pageSize = comp.pageSize || 10;
+      const displayedItems = items.slice(0, pageSize);
+
+      return (
+        <div
+          key={comp.id}
+          id={comp.id}
+          className="ui-table-wrapper"
+          style={{ width: '100%', overflowX: 'auto', margin: '8px 0' }}
+          {...a11yProps}
+        >
+          <table
+            className="ui-data-table"
+            style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              fontSize: '13px',
+              textAlign: 'left',
+            }}
+          >
+            <thead>
+              <tr style={{ borderBottom: '2px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+                {comp.columns.map((col) => (
+                  <th
+                    key={col.key}
+                    style={{
+                      padding: '8px 12px',
+                      fontWeight: 600,
+                      color: '#475569',
+                      width: col.width,
+                    }}
+                  >
+                    {col.label}
+                  </th>
+                ))}
+                {comp.actions && comp.actions.length > 0 && (
+                  <th
+                    style={{
+                      padding: '8px 12px',
+                      textAlign: 'right',
+                      fontWeight: 600,
+                      color: '#475569',
+                    }}
+                  >
+                    Ações
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {displayedItems.map((item, idx) => (
+                <tr
+                  key={`${comp.id}_row_${idx}`}
+                  style={{
+                    borderBottom: '1px solid #f1f5f9',
+                    transition: 'background-color 0.15s ease',
+                  }}
+                  className="ui-table-row"
+                >
+                  {comp.columns.map((col) => (
+                    <td key={col.key} style={{ padding: '8px 12px', color: '#1e293b' }}>
+                      {String(item[col.key] ?? '')}
+                    </td>
+                  ))}
+                  {comp.actions && comp.actions.length > 0 && (
+                    <td style={{ padding: '8px 12px', textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
+                        {comp.actions.map((act) => (
+                          <button
+                            key={act.actionEvent}
+                            type="button"
+                            className={act.variant ? `${act.variant} small` : 'secondary small'}
+                            style={{ padding: '3px 8px', fontSize: '11px', borderRadius: '4px' }}
+                            onClick={() => {
+                              onChange('__selectedRow', JSON.stringify(item));
+                              if (item.id !== undefined) onChange('__selectedId', String(item.id));
+                              onAction(act.actionEvent);
+                            }}
+                          >
+                            {act.label}
+                          </button>
+                        ))}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {items.length > pageSize && (
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '8px 12px',
+                fontSize: '11px',
+                color: '#64748b',
+                borderTop: '1px solid #e2e8f0',
+              }}
+            >
+              <span>
+                Mostrando {displayedItems.length} de {items.length} registros
+              </span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    case 'form': {
+      return (
+        <form
+          key={comp.id}
+          id={comp.id}
+          className="ui-form-container"
+          style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (comp.submitEvent) onAction(comp.submitEvent);
+          }}
+          {...a11yProps}
+        >
+          {comp.children.map((child) => renderComponent(child, scope, values, onChange, onAction))}
+          {comp.submitLabel && (
+            <button type="submit" className="primary wide" style={{ marginTop: 4 }}>
+              {comp.submitLabel}
+            </button>
+          )}
+        </form>
+      );
+    }
+
     default:
       return null;
   }

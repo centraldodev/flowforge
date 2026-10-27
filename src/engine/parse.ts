@@ -25,6 +25,8 @@ export function parseGraph(text: string): Graph {
       n.data &&
       catalog[n.data.kind as Kind] &&
       typeof n.data.label === 'string' &&
+      (n.data.contractVersion === undefined ||
+        (Number.isInteger(n.data.contractVersion) && n.data.contractVersion > 0)) &&
       n.data.config &&
       typeof n.data.config === 'object' &&
       Object.values(n.data.config).every((v) => typeof v === 'string') &&

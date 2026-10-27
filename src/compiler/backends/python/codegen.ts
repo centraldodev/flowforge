@@ -134,6 +134,11 @@ function lowerInstruction(inst: InstructionIR, symbols: PythonSymbolTable): PySt
   };
 
   switch (inst.kind) {
+    case 'invoke':
+      return [
+        checkStep,
+        { type: 'raw', code: `await context.invoke(${safePythonLiteral(inst.blockId)})` },
+      ];
     case 'assign_state': {
       const val = lowerExpr(inst.value);
       const keyLit = safePythonLiteral(inst.key);
@@ -318,6 +323,25 @@ function lowerInstruction(inst: InstructionIR, symbols: PythonSymbolTable): PySt
         {
           type: 'raw',
           code: `_p = ${payloadCode}\n_r = await getattr(context.adapters, ${adapterLit}).execute(${actionLit}, _p, context)\ncontext.variables[${targetLit}] = _r\ncontext.outputs[${targetLit}] = _r\ncontext.variables["value"] = _r\ncontext.outputs["value"] = _r\ncontext.trace.append({"id": ${adapterLit}, "label": ${adapterLit}, "message": f"{${adapterLit}} ({${actionLit}}): sucesso"})`,
+        },
+      ];
+    }
+
+    case 'call_subflow': {
+      const inputProps: string[] = [];
+      for (const [k, v] of Object.entries(inst.inputs)) {
+        inputProps.push(`${safePythonLiteral(k)}: ${emitExpr(lowerExpr(v))}`);
+      }
+      const inputsCode = `{ ${inputProps.join(', ')} }`;
+      const targetVar = inst.targetVar || inst.subflowId;
+      const targetLit = safePythonLiteral(targetVar);
+      const subflowLit = safePythonLiteral(inst.subflowId);
+
+      return [
+        checkStep,
+        {
+          type: 'raw',
+          code: `_in = ${inputsCode}\n_r = await context.adapters.subflow.execute(${subflowLit}, _in, context) if hasattr(context.adapters, "subflow") and context.adapters.subflow else _in\ncontext.variables[${targetLit}] = _r\ncontext.outputs[${targetLit}] = _r\ncontext.variables["value"] = _r\ncontext.outputs["value"] = _r\ncontext.trace.append({"id": ${subflowLit}, "label": "Subfluxo", "message": f"Subfluxo [{${subflowLit}}] executado"})`,
         },
       ];
     }

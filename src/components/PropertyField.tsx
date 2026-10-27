@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, X } from 'lucide-react';
+import { KeyValueField } from './KeyValueField';
 export type FieldDefinition = {
   id: string;
   label: string;
   value: string;
   options?: { value: string; label: string }[];
   area?: boolean;
+  entries?: boolean;
   onChange: (value: string) => void;
 };
 export function PropertyField(p: FieldDefinition) {
@@ -40,6 +42,7 @@ export function PropertyField(p: FieldDefinition) {
       document.removeEventListener('pointerdown', outside);
     };
   }, [open]);
+  if (p.entries) return <KeyValueField label={p.label} value={p.value} onChange={p.onChange} />;
   if (!p.options)
     return (
       <label className="field">

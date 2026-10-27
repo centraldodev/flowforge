@@ -1,4 +1,8 @@
 import { catalog, interfaceKinds } from '../engine/catalog';
+import { validateBlockContract } from '../engine/blockRegistry';
+import { httpConfigurationIssues } from '../engine/http';
+import { databaseConfigurationIssues } from '../engine/database';
+import { authConfigurationIssues } from '../engine/auth';
 import {
   formatValueType,
   getBlockPortDefinitions,
@@ -21,6 +25,23 @@ function isJson(text: string): boolean {
 /** Realiza análise semântica estrita de nós, configurações, rotas, tipos, conexões e cardinalidade */
 export function analyze(graph: Graph): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
+  diagnostics.push(
+    ...httpConfigurationIssues(graph).map((issue) => ({
+      ...issue,
+      code: 'INVALID_HTTP_CONFIGURATION',
+      severity: 'error' as const,
+    })),
+    ...databaseConfigurationIssues(graph).map((issue) => ({
+      ...issue,
+      code: 'INVALID_DATABASE_CONFIGURATION',
+      severity: 'error' as const,
+    })),
+    ...authConfigurationIssues(graph).map((issue) => ({
+      ...issue,
+      code: 'INVALID_AUTH_CONFIGURATION',
+      severity: 'error' as const,
+    })),
+  );
 
   // 1. Verificação de IDs únicos
   const seenIds = new Set<string>();
@@ -51,6 +72,14 @@ export function analyze(graph: Graph): Diagnostic[] {
         nodeId: node.id,
       });
       continue;
+    }
+
+    for (const issue of validateBlockContract(node)) {
+      diagnostics.push({
+        ...issue,
+        severity: issue.code === 'UNSUPPORTED_BLOCK_PROPERTY' ? 'warning' : 'error',
+        nodeId: node.id,
+      });
     }
 
     if (interfaceKinds.includes(kind) && !isScreen(config.screenId)) {

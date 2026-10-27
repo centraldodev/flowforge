@@ -9,10 +9,10 @@ import {
   Code2,
   BookOpen,
   Layers,
-  X,
 } from 'lucide-react';
 import { visibleKinds, type Kind } from '../../engine';
 import { BlockLibrary } from './BlockLibrary';
+import { BlocksModal } from './BlocksModal';
 
 type Props = {
   expanded: boolean;
@@ -27,63 +27,37 @@ type Props = {
 };
 
 export function Sidebar(p: Props) {
-  const [flyout, setFlyout] = useState(false);
+  const [blocksModalOpen, setBlocksModalOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const popup = useRef<HTMLDivElement>(null);
+
   function cancelClose() {
     if (timer.current) {
       clearTimeout(timer.current);
       timer.current = null;
     }
   }
+
   function open() {
     cancelClose();
-    setFlyout(true);
+    setBlocksModalOpen(true);
   }
+
   function closeSoon() {
     cancelClose();
-    timer.current = setTimeout(() => setFlyout(false), 160);
+    timer.current = setTimeout(() => setBlocksModalOpen(false), 240);
   }
+
   function close() {
     cancelClose();
-    setFlyout(false);
+    setBlocksModalOpen(false);
   }
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
+
   useEffect(() => {
-    if (p.expanded) setFlyout(false);
+    if (p.expanded) close();
   }, [p.expanded]);
-  useEffect(() => {
-    if (!flyout) return;
-    const escape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setFlyout(false);
-        trigger.current?.focus();
-      }
-    };
-    const outside = (e: PointerEvent) => {
-      if (
-        !popup.current?.contains(e.target as Node) &&
-        !trigger.current?.contains(e.target as Node)
-      )
-        setFlyout(false);
-    };
-    document.addEventListener('keydown', escape);
-    document.addEventListener('pointerdown', outside);
-    return () => {
-      document.removeEventListener('keydown', escape);
-      document.removeEventListener('pointerdown', outside);
-    };
-  }, [flyout]);
-  const toggle = () => {
-    close();
-    p.onToggle();
-  };
+
+  useEffect(() => () => cancelClose(), []);
+
   return (
     <aside
       className={'unified-sidebar ' + (p.expanded ? 'is-expanded' : 'is-collapsed')}
@@ -96,7 +70,7 @@ export function Sidebar(p: Props) {
               title="Recolher menu"
               aria-label="Recolher menu"
               aria-expanded="true"
-              onClick={toggle}
+              onClick={p.onToggle}
             >
               <PanelLeftClose size={18} />
             </button>
@@ -142,7 +116,7 @@ export function Sidebar(p: Props) {
               title="Expandir menu"
               aria-label="Expandir menu"
               aria-expanded="false"
-              onClick={toggle}
+              onClick={p.onToggle}
             >
               <PanelLeftOpen size={18} />
             </button>
@@ -161,51 +135,26 @@ export function Sidebar(p: Props) {
               }}
             >
               <button
-                ref={trigger}
-                className={flyout ? 'active' : ''}
-                title="Blocos"
-                aria-label="Blocos"
-                aria-expanded={flyout}
-                aria-controls="blocks-flyout"
+                className={blocksModalOpen ? 'active' : ''}
+                title="Biblioteca de Blocos"
+                aria-label="Biblioteca de Blocos"
                 aria-haspopup="dialog"
-                onClick={open}
-                onKeyDown={(e) => {
-                  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    open();
-                    requestAnimationFrame(() =>
-                      popup.current?.querySelector<HTMLInputElement>('input')?.focus(),
-                    );
-                  }
-                }}
+                aria-expanded={blocksModalOpen}
+                onClick={() => setBlocksModalOpen((prev) => !prev)}
               >
                 <Layers size={19} />
               </button>
-              {flyout && (
-                <div
-                  ref={popup}
-                  id="blocks-flyout"
-                  className="blocks-flyout library"
-                  role="dialog"
-                  aria-label="Biblioteca de blocos"
+
+              {blocksModalOpen && (
+                <BlocksModal
+                  onClose={close}
+                  onAdd={(kind) => {
+                    p.onAdd(kind);
+                    close();
+                  }}
                   onMouseEnter={cancelClose}
                   onMouseLeave={closeSoon}
-                >
-                  <div className="section-title">
-                    <h2>
-                      Blocos <span className="block-count">{visibleKinds.length}</span>
-                    </h2>
-                    <button title="Fechar blocos" aria-label="Fechar blocos" onClick={close}>
-                      <X size={15} />
-                    </button>
-                  </div>
-                  <BlockLibrary
-                    onAdd={(kind) => {
-                      p.onAdd(kind);
-                      close();
-                    }}
-                  />
-                </div>
+                />
               )}
             </div>
             <button title="Salvar projeto" aria-label="Salvar projeto" onClick={p.onSave}>

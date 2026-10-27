@@ -28,6 +28,7 @@ export type ExprIR =
     };
 
 export type InstructionIR =
+  | { kind: 'invoke'; blockId: string }
   | { kind: 'assign_state'; key: string; value: ExprIR }
   | { kind: 'assign_var'; name: string; value: ExprIR }
   | {
@@ -66,9 +67,25 @@ export type InstructionIR =
     }
   | {
       kind: 'adapter_call';
-      adapter: 'auth' | 'api' | 'database';
+      adapter:
+        | 'auth'
+        | 'api'
+        | 'database'
+        | 'storage'
+        | 'email'
+        | 'webhook'
+        | 'task'
+        | 'payment'
+        | 'realtime';
       action: string;
       payload: Record<string, ExprIR>;
+      targetVar?: string;
+    }
+  | {
+      kind: 'call_subflow';
+      subflowId: string;
+      subflowDefinition?: import('../engine/composition').SubflowDefinition;
+      inputs: Record<string, ExprIR>;
       targetVar?: string;
     };
 

@@ -128,13 +128,18 @@ function lowerExpr(expr: ExprIR): JSExpr {
 }
 
 /** Converte uma instrução da IR em statements JS seguros com controle de passos e cancelamento */
-function lowerInstruction(inst: InstructionIR, symbols: SymbolTable): JSStmt[] {
+export function lowerInstruction(inst: InstructionIR, symbols: SymbolTable): JSStmt[] {
   const checkStep: JSStmt = {
     type: 'raw' as const,
     code: `if (context.signal?.aborted) throw new Error("Execução cancelada pelo usuário."); if (++context.stepCount > context.maxSteps) throw new Error("Limite de " + context.maxSteps + " passos excedido (possível ciclo infinito).");`,
   };
 
   switch (inst.kind) {
+    case 'invoke':
+      return [
+        checkStep,
+        { type: 'raw', code: `await context.invoke(${safeLiteral(inst.blockId)});` },
+      ];
     case 'assign_state': {
       const val = lowerExpr(inst.value);
       return [
@@ -348,6 +353,42 @@ function lowerInstruction(inst: InstructionIR, symbols: SymbolTable): JSStmt[] {
         },
       ];
     }
+
+    case 'call_subflow': {
+      const inputProps: string[] = [];
+      for (const [k, v] of Object.entries(inst.inputs)) {
+        inputProps.push(`${safeLiteral(k)}: ${emitExpr(lowerExpr(v))}`);
+      }
+      const inputsCode = `{ ${inputProps.join(', ')} }`;
+      const targetVar = inst.targetVar || inst.subflowId;
+      const defJson = inst.subflowDefinition
+        ? safeLiteral(JSON.stringify(inst.subflowDefinition))
+        : 'undefined';
+
+      return [
+        checkStep,
+        {
+          type: 'expression_stmt',
+          expr: {
+            type: 'raw',
+            code: `(() => {
+  const _in = ${inputsCode};
+  const _def = ${defJson} ? JSON.parse(${defJson}) : undefined;
+  return (context.adapters.subflow ? context.adapters.subflow.execute(${safeLiteral(inst.subflowId)}, _in, context, _def) : Promise.resolve(_in))
+    .then((_r) => {
+      context.variables[${safeLiteral(targetVar)}] = _r;
+      context.outputs[${safeLiteral(targetVar)}] = _r;
+      context.variables["value"] = _r;
+      context.outputs["value"] = _r;
+      context.trace.push({ id: ${safeLiteral(inst.subflowId)}, label: "Subfluxo", message: "Subfluxo [" + ${safeLiteral(inst.subflowId)} + "] executado" });
+      return _r;
+    });
+})()`,
+            isAwait: true,
+          },
+        },
+      ];
+    }
   }
 }
 
@@ -432,7 +473,7 @@ export class FlowForgeProgram {
     }
   }
 
-  getState(key) {
+  getState(key = undefined) {
     if (key !== undefined) return this.context.store[key];
     return this.context.store;
   }
@@ -466,12 +507,12 @@ export class FlowForgeProgram {
   }
 }
 
-export function createProgram(options) {
+export function createProgram(options = {}) {
   return new FlowForgeProgram(options);
 }
 `,
   });
 
   const generatedProgramBody = emitProgram(stmts);
-  return `${EMBEDDED_RUNTIME}\n\n${generatedProgramBody}\n`;
+  return `// @ts-nocheck — runtime JavaScript gerado automaticamente\n${EMBEDDED_RUNTIME}\n\n${generatedProgramBody}\n`;
 }

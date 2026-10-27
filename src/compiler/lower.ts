@@ -47,12 +47,16 @@ export function lowerBlock(
   block: Block,
   graph: Graph,
   visited: Set<string> = new Set<string>(),
+  references = false,
 ): InstructionIR[] {
   if (visited.has(block.id)) {
     return [{ kind: 'call_operation', operation: block.id, args: [] }];
   }
   const nextVisited = new Set(visited);
   nextVisited.add(block.id);
+
+  const descend = (target: Block): InstructionIR[] =>
+    references ? [{ kind: 'invoke', blockId: target.id }] : lowerBlock(target, graph, nextVisited);
 
   const { kind, config } = block.data;
   const instructions: InstructionIR[] = [];
@@ -66,7 +70,7 @@ export function lowerBlock(
     case 'button': {
       const targets = findTargetBlocks(graph, block.id, 'onClick');
       for (const t of targets) {
-        instructions.push(...lowerBlock(t, graph, nextVisited));
+        instructions.push(...descend(t));
       }
       break;
     }
@@ -103,13 +107,13 @@ export function lowerBlock(
 
       const downstream: InstructionIR[] = [callInst];
       for (const t of thenTargets) {
-        downstream.push(...lowerBlock(t, graph, nextVisited));
+        downstream.push(...descend(t));
       }
 
       if (errorTargets.length > 0) {
         const errorDownstream: InstructionIR[] = [];
         for (const t of errorTargets) {
-          errorDownstream.push(...lowerBlock(t, graph, nextVisited));
+          errorDownstream.push(...descend(t));
         }
         instructions.push({
           kind: 'try_catch',
@@ -157,12 +161,12 @@ export function lowerBlock(
 
       const trueBranch: InstructionIR[] = [];
       for (const t of trueTargets) {
-        trueBranch.push(...lowerBlock(t, graph, nextVisited));
+        trueBranch.push(...descend(t));
       }
 
       const falseBranch: InstructionIR[] = [];
       for (const t of falseTargets) {
-        falseBranch.push(...lowerBlock(t, graph, nextVisited));
+        falseBranch.push(...descend(t));
       }
 
       instructions.push({
@@ -180,12 +184,12 @@ export function lowerBlock(
 
       const validBranch: InstructionIR[] = [];
       for (const t of validTargets) {
-        validBranch.push(...lowerBlock(t, graph, nextVisited));
+        validBranch.push(...descend(t));
       }
 
       const invalidBranch: InstructionIR[] = [];
       for (const t of invalidTargets) {
-        invalidBranch.push(...lowerBlock(t, graph, nextVisited));
+        invalidBranch.push(...descend(t));
       }
 
       instructions.push({
@@ -215,19 +219,19 @@ export function lowerBlock(
       if (case1Targets.length > 0 && config.case1) {
         cases.push({
           value: config.case1,
-          branch: case1Targets.flatMap((t) => lowerBlock(t, graph, nextVisited)),
+          branch: case1Targets.flatMap((t) => descend(t)),
         });
       }
       if (case2Targets.length > 0 && config.case2) {
         cases.push({
           value: config.case2,
-          branch: case2Targets.flatMap((t) => lowerBlock(t, graph, nextVisited)),
+          branch: case2Targets.flatMap((t) => descend(t)),
         });
       }
       if (case3Targets.length > 0 && config.case3) {
         cases.push({
           value: config.case3,
-          branch: case3Targets.flatMap((t) => lowerBlock(t, graph, nextVisited)),
+          branch: case3Targets.flatMap((t) => descend(t)),
         });
       }
 
@@ -235,10 +239,7 @@ export function lowerBlock(
         kind: 'switch',
         expr: { kind: 'read_var', name: 'value', valueType: { kind: 'any' } },
         cases,
-        defaultBranch:
-          defTargets.length > 0
-            ? defTargets.flatMap((t) => lowerBlock(t, graph, nextVisited))
-            : undefined,
+        defaultBranch: defTargets.length > 0 ? defTargets.flatMap((t) => descend(t)) : undefined,
       });
       break;
     }
@@ -248,13 +249,15 @@ export function lowerBlock(
       const durationMs = parseInt(config.duration || '1000', 10);
       instructions.push({ kind: 'delay', durationMs });
       for (const t of nextTargets) {
-        instructions.push(...lowerBlock(t, graph, nextVisited));
+        instructions.push(...descend(t));
       }
       break;
     }
 
     case 'auth': {
-      const successTargets = findTargetBlocks(graph, block.id, 'onSuccess');
+      const successTargets = ['onSuccess', 'then', 'next']
+        .flatMap((port) => findTargetBlocks(graph, block.id, port))
+        .filter((node, i, all) => all.findIndex((other) => other.id === node.id) === i);
       const errorTargets = findTargetBlocks(graph, block.id, 'onError');
 
       const callInst: InstructionIR = {
@@ -262,22 +265,30 @@ export function lowerBlock(
         adapter: 'auth',
         action: config.mode || 'login',
         payload: {
-          email: toLiteralExpr(config.email || ''),
-          password: toLiteralExpr(config.password || ''),
-          token: toLiteralExpr(config.token || ''),
+          blockId: toLiteralExpr(block.id),
+          provider: toLiteralExpr(config.provider || 'email'),
+          mode: toLiteralExpr(config.mode || 'login'),
+          email: resolveInputExpr(graph, block.id, 'email', toLiteralExpr(config.email || '')),
+          password: resolveInputExpr(
+            graph,
+            block.id,
+            'password',
+            toLiteralExpr(config.password || ''),
+          ),
+          token: resolveInputExpr(graph, block.id, 'token', toLiteralExpr(config.token || '')),
         },
         targetVar: 'user',
       };
 
       const successFlow: InstructionIR[] = [callInst];
       for (const t of successTargets) {
-        successFlow.push(...lowerBlock(t, graph, nextVisited));
+        successFlow.push(...descend(t));
       }
 
       if (errorTargets.length > 0) {
         const errorFlow: InstructionIR[] = [];
         for (const t of errorTargets) {
-          errorFlow.push(...lowerBlock(t, graph, nextVisited));
+          errorFlow.push(...descend(t));
         }
         instructions.push({
           kind: 'try_catch',
@@ -302,6 +313,8 @@ export function lowerBlock(
       const table = config.table || 'itens';
 
       const payload: Record<string, ExprIR> = {
+        mode: toLiteralExpr(config.mode || 'mock'),
+        blockId: toLiteralExpr(block.id),
         table: toLiteralExpr(table),
         operation: toLiteralExpr(operation),
       };
@@ -372,13 +385,13 @@ export function lowerBlock(
 
       const successFlow: InstructionIR[] = [callInst, assignResult, assignValue];
       for (const t of allSuccessTargets) {
-        successFlow.push(...lowerBlock(t, graph, nextVisited));
+        successFlow.push(...descend(t));
       }
 
       if (errorTargets.length > 0) {
         const errorFlow: InstructionIR[] = [];
         for (const t of errorTargets) {
-          errorFlow.push(...lowerBlock(t, graph, nextVisited));
+          errorFlow.push(...descend(t));
         }
         instructions.push({
           kind: 'try_catch',
@@ -393,7 +406,9 @@ export function lowerBlock(
     }
 
     case 'api': {
-      const successTargets = findTargetBlocks(graph, block.id, 'onSuccess');
+      const successTargets = ['onSuccess', 'then', 'next']
+        .flatMap((port) => findTargetBlocks(graph, block.id, port))
+        .filter((node, i, all) => all.findIndex((other) => other.id === node.id) === i);
       const errorTargets = findTargetBlocks(graph, block.id, 'onError');
 
       const callInst: InstructionIR = {
@@ -401,21 +416,482 @@ export function lowerBlock(
         adapter: 'api',
         action: config.method || 'GET',
         payload: {
+          mode: toLiteralExpr(config.mode || 'demo'),
+          blockId: toLiteralExpr(block.id),
           url: toLiteralExpr(config.url || ''),
-          body: { kind: 'read_var', name: 'value', valueType: { kind: 'any' } },
+          mock: toLiteralExpr(config.mock || ''),
+          query: resolveInputExpr(graph, block.id, 'query', toLiteralExpr('')),
+          body: resolveInputExpr(
+            graph,
+            block.id,
+            'body',
+            config.mode === 'real'
+              ? toLiteralExpr('')
+              : { kind: 'read_var', name: 'value', valueType: { kind: 'any' } },
+          ),
         },
         targetVar: 'apiResponse',
       };
 
-      const successFlow: InstructionIR[] = [callInst];
+      const successFlow: InstructionIR[] = [
+        callInst,
+        {
+          kind: 'assign_var',
+          name: block.id,
+          value: { kind: 'read_var', name: 'apiResponse', valueType: { kind: 'any' } },
+        },
+      ];
       for (const t of successTargets) {
-        successFlow.push(...lowerBlock(t, graph, nextVisited));
+        successFlow.push(...descend(t));
       }
 
       if (errorTargets.length > 0) {
         const errorFlow: InstructionIR[] = [];
         for (const t of errorTargets) {
-          errorFlow.push(...lowerBlock(t, graph, nextVisited));
+          errorFlow.push(...descend(t));
+        }
+        instructions.push({
+          kind: 'try_catch',
+          body: successFlow,
+          catchVar: 'error',
+          catchBranch: errorFlow,
+        });
+      } else {
+        instructions.push(...successFlow);
+      }
+      break;
+    }
+
+    case 'subflow': {
+      const allSuccessTargets = ['onSuccess', 'then', 'output', 'result']
+        .flatMap((port) => findTargetBlocks(graph, block.id, port))
+        .filter((node, i, all) => all.findIndex((other) => other.id === node.id) === i);
+      const errorTargets = findTargetBlocks(graph, block.id, 'onError');
+
+      let def: import('../engine/composition').SubflowDefinition | undefined;
+      if (config.subflowDefinition) {
+        try {
+          def = JSON.parse(config.subflowDefinition);
+        } catch {
+          // ignora JSON inválido
+        }
+      }
+
+      const inputs: Record<string, ExprIR> = {
+        input: resolveInputExpr(graph, block.id, 'input', {
+          kind: 'read_var',
+          name: 'value',
+          valueType: { kind: 'any' },
+        }),
+      };
+
+      if (block.data.ports) {
+        for (const p of block.data.ports) {
+          if (p.mode === 'data' && p.direction === 'input') {
+            inputs[p.id] = resolveInputExpr(graph, block.id, p.id, toLiteralExpr(''));
+          }
+        }
+      }
+
+      const callInst: InstructionIR = {
+        kind: 'call_subflow',
+        subflowId: config.subflowId || block.id,
+        subflowDefinition: def,
+        inputs,
+        targetVar: block.id,
+      };
+
+      const assignResult: InstructionIR = {
+        kind: 'assign_var',
+        name: 'result',
+        value: { kind: 'read_var', name: block.id, valueType: { kind: 'any' } },
+      };
+      const assignValue: InstructionIR = {
+        kind: 'assign_var',
+        name: 'value',
+        value: { kind: 'read_var', name: block.id, valueType: { kind: 'any' } },
+      };
+
+      const successFlow: InstructionIR[] = [callInst, assignResult, assignValue];
+      for (const t of allSuccessTargets) {
+        successFlow.push(...descend(t));
+      }
+
+      if (errorTargets.length > 0) {
+        const errorFlow: InstructionIR[] = [];
+        for (const t of errorTargets) {
+          errorFlow.push(...descend(t));
+        }
+        instructions.push({
+          kind: 'try_catch',
+          body: successFlow,
+          catchVar: 'error',
+          catchBranch: errorFlow,
+        });
+      } else {
+        instructions.push(...successFlow);
+      }
+      break;
+    }
+
+    case 'storage': {
+      const allSuccessTargets = ['onSuccess', 'then', 'fileUrl', 'result']
+        .flatMap((port) => findTargetBlocks(graph, block.id, port))
+        .filter((node, i, all) => all.findIndex((other) => other.id === node.id) === i);
+      const errorTargets = findTargetBlocks(graph, block.id, 'onError');
+
+      const callInst: InstructionIR = {
+        kind: 'adapter_call',
+        adapter: 'storage',
+        action: config.action || 'upload',
+        payload: {
+          blockId: toLiteralExpr(block.id),
+          provider: toLiteralExpr(config.provider || 'local'),
+          bucket: toLiteralExpr(config.bucket || 'uploads'),
+          maxSizeBytes: toLiteralExpr(config.maxSizeBytes || '5242880'),
+          allowedTypes: toLiteralExpr(config.allowedTypes || 'image/*,application/pdf'),
+          secretEnv: toLiteralExpr(config.secretEnv || 'FLOWFORGE_SECRET_STORAGE_KEY'),
+          file: resolveInputExpr(graph, block.id, 'file', {
+            kind: 'read_var',
+            name: 'value',
+            valueType: { kind: 'any' },
+          }),
+          path: resolveInputExpr(graph, block.id, 'path', toLiteralExpr(config.path || '')),
+        },
+        targetVar: block.id,
+      };
+
+      const assignResult: InstructionIR = {
+        kind: 'assign_var',
+        name: 'result',
+        value: { kind: 'read_var', name: block.id, valueType: { kind: 'any' } },
+      };
+      const assignValue: InstructionIR = {
+        kind: 'assign_var',
+        name: 'value',
+        value: { kind: 'read_var', name: block.id, valueType: { kind: 'any' } },
+      };
+
+      const successFlow: InstructionIR[] = [callInst, assignResult, assignValue];
+      for (const t of allSuccessTargets) {
+        successFlow.push(...descend(t));
+      }
+
+      if (errorTargets.length > 0) {
+        const errorFlow: InstructionIR[] = [];
+        for (const t of errorTargets) {
+          errorFlow.push(...descend(t));
+        }
+        instructions.push({
+          kind: 'try_catch',
+          body: successFlow,
+          catchVar: 'error',
+          catchBranch: errorFlow,
+        });
+      } else {
+        instructions.push(...successFlow);
+      }
+      break;
+    }
+
+    case 'email': {
+      const allSuccessTargets = ['onSuccess', 'then', 'messageId', 'result']
+        .flatMap((port) => findTargetBlocks(graph, block.id, port))
+        .filter((node, i, all) => all.findIndex((other) => other.id === node.id) === i);
+      const errorTargets = findTargetBlocks(graph, block.id, 'onError');
+
+      const callInst: InstructionIR = {
+        kind: 'adapter_call',
+        adapter: 'email',
+        action: 'send',
+        payload: {
+          blockId: toLiteralExpr(block.id),
+          provider: toLiteralExpr(config.provider || 'smtp'),
+          from: toLiteralExpr(config.from || 'contato@exemplo.com'),
+          to: resolveInputExpr(graph, block.id, 'to', toLiteralExpr(config.to || '')),
+          subject: resolveInputExpr(
+            graph,
+            block.id,
+            'subject',
+            toLiteralExpr(config.subject || ''),
+          ),
+          body: resolveInputExpr(graph, block.id, 'body', toLiteralExpr(config.body || '')),
+          secretEnv: toLiteralExpr(config.secretEnv || 'FLOWFORGE_SECRET_EMAIL_API_KEY'),
+        },
+        targetVar: block.id,
+      };
+
+      const assignResult: InstructionIR = {
+        kind: 'assign_var',
+        name: 'result',
+        value: { kind: 'read_var', name: block.id, valueType: { kind: 'any' } },
+      };
+      const assignValue: InstructionIR = {
+        kind: 'assign_var',
+        name: 'value',
+        value: { kind: 'read_var', name: block.id, valueType: { kind: 'any' } },
+      };
+
+      const successFlow: InstructionIR[] = [callInst, assignResult, assignValue];
+      for (const t of allSuccessTargets) {
+        successFlow.push(...descend(t));
+      }
+
+      if (errorTargets.length > 0) {
+        const errorFlow: InstructionIR[] = [];
+        for (const t of errorTargets) {
+          errorFlow.push(...descend(t));
+        }
+        instructions.push({
+          kind: 'try_catch',
+          body: successFlow,
+          catchVar: 'error',
+          catchBranch: errorFlow,
+        });
+      } else {
+        instructions.push(...successFlow);
+      }
+      break;
+    }
+
+    case 'webhook': {
+      const allSuccessTargets = ['onEvent', 'then', 'payload', 'result']
+        .flatMap((port) => findTargetBlocks(graph, block.id, port))
+        .filter((node, i, all) => all.findIndex((other) => other.id === node.id) === i);
+      const errorTargets = findTargetBlocks(graph, block.id, 'onError');
+
+      const callInst: InstructionIR = {
+        kind: 'adapter_call',
+        adapter: 'webhook',
+        action: 'receive',
+        payload: {
+          blockId: toLiteralExpr(block.id),
+          path: toLiteralExpr(config.path || `/api/webhooks/${block.id}`),
+          secretEnv: toLiteralExpr(config.secretEnv || 'FLOWFORGE_SECRET_WEBHOOK_SECRET'),
+          eventType: toLiteralExpr(config.eventType || '*'),
+        },
+        targetVar: block.id,
+      };
+
+      const assignResult: InstructionIR = {
+        kind: 'assign_var',
+        name: 'result',
+        value: { kind: 'read_var', name: block.id, valueType: { kind: 'any' } },
+      };
+      const assignValue: InstructionIR = {
+        kind: 'assign_var',
+        name: 'value',
+        value: { kind: 'read_var', name: block.id, valueType: { kind: 'any' } },
+      };
+
+      const successFlow: InstructionIR[] = [callInst, assignResult, assignValue];
+      for (const t of allSuccessTargets) {
+        successFlow.push(...descend(t));
+      }
+
+      if (errorTargets.length > 0) {
+        const errorFlow: InstructionIR[] = [];
+        for (const t of errorTargets) {
+          errorFlow.push(...descend(t));
+        }
+        instructions.push({
+          kind: 'try_catch',
+          body: successFlow,
+          catchVar: 'error',
+          catchBranch: errorFlow,
+        });
+      } else {
+        instructions.push(...successFlow);
+      }
+      break;
+    }
+
+    case 'task': {
+      const allSuccessTargets = ['onTick', 'then', 'payload', 'result']
+        .flatMap((port) => findTargetBlocks(graph, block.id, port))
+        .filter((node, i, all) => all.findIndex((other) => other.id === node.id) === i);
+      const errorTargets = findTargetBlocks(graph, block.id, 'onError');
+
+      const callInst: InstructionIR = {
+        kind: 'adapter_call',
+        adapter: 'task',
+        action: 'schedule',
+        payload: {
+          blockId: toLiteralExpr(block.id),
+          taskName: toLiteralExpr(config.taskName || 'Tarefa'),
+          schedule: toLiteralExpr(config.schedule || '0 * * * *'),
+        },
+        targetVar: block.id,
+      };
+
+      const assignResult: InstructionIR = {
+        kind: 'assign_var',
+        name: 'result',
+        value: { kind: 'read_var', name: block.id, valueType: { kind: 'any' } },
+      };
+      const assignValue: InstructionIR = {
+        kind: 'assign_var',
+        name: 'value',
+        value: { kind: 'read_var', name: block.id, valueType: { kind: 'any' } },
+      };
+
+      const successFlow: InstructionIR[] = [callInst, assignResult, assignValue];
+      for (const t of allSuccessTargets) {
+        successFlow.push(...descend(t));
+      }
+
+      if (errorTargets.length > 0) {
+        const errorFlow: InstructionIR[] = [];
+        for (const t of errorTargets) {
+          errorFlow.push(...descend(t));
+        }
+        instructions.push({
+          kind: 'try_catch',
+          body: successFlow,
+          catchVar: 'error',
+          catchBranch: errorFlow,
+        });
+      } else {
+        instructions.push(...successFlow);
+      }
+      break;
+    }
+
+    case 'payment': {
+      const allSuccessTargets = [
+        'onSuccess',
+        'then',
+        'checkoutUrl',
+        'sessionId',
+        'paymentId',
+        'status',
+        'qrCode',
+        'result',
+      ]
+        .flatMap((port) => findTargetBlocks(graph, block.id, port))
+        .filter((node, i, all) => all.findIndex((other) => other.id === node.id) === i);
+      const errorTargets = findTargetBlocks(graph, block.id, 'onError');
+
+      const callInst: InstructionIR = {
+        kind: 'adapter_call',
+        adapter: 'payment',
+        action: config.operation || 'createCheckout',
+        payload: {
+          blockId: toLiteralExpr(block.id),
+          provider: toLiteralExpr(config.provider || 'stripe'),
+          currency: toLiteralExpr(config.currency || 'BRL'),
+          amount: resolveInputExpr(
+            graph,
+            block.id,
+            'amount',
+            toLiteralExpr(config.amount ? Number(config.amount) : 0),
+          ),
+          description: resolveInputExpr(
+            graph,
+            block.id,
+            'description',
+            toLiteralExpr(config.description || ''),
+          ),
+          customer: resolveInputExpr(graph, block.id, 'customer', toLiteralExpr('')),
+          successUrl: toLiteralExpr(config.successUrl || ''),
+          cancelUrl: toLiteralExpr(config.cancelUrl || ''),
+          secretEnv: toLiteralExpr(
+            config.secretEnv ||
+              (config.provider === 'pix'
+                ? 'FLOWFORGE_SECRET_PIX_KEY'
+                : 'FLOWFORGE_SECRET_STRIPE_KEY'),
+          ),
+        },
+        targetVar: block.id,
+      };
+
+      const assignResult: InstructionIR = {
+        kind: 'assign_var',
+        name: 'result',
+        value: { kind: 'read_var', name: block.id, valueType: { kind: 'any' } },
+      };
+      const assignValue: InstructionIR = {
+        kind: 'assign_var',
+        name: 'value',
+        value: { kind: 'read_var', name: block.id, valueType: { kind: 'any' } },
+      };
+
+      const successFlow: InstructionIR[] = [callInst, assignResult, assignValue];
+      for (const t of allSuccessTargets) {
+        successFlow.push(...descend(t));
+      }
+
+      if (errorTargets.length > 0) {
+        const errorFlow: InstructionIR[] = [];
+        for (const t of errorTargets) {
+          errorFlow.push(...descend(t));
+        }
+        instructions.push({
+          kind: 'try_catch',
+          body: successFlow,
+          catchVar: 'error',
+          catchBranch: errorFlow,
+        });
+      } else {
+        instructions.push(...successFlow);
+      }
+      break;
+    }
+
+    case 'realtime': {
+      const allSuccessTargets = ['onEvent', 'onMessage', 'then', 'payload', 'result']
+        .flatMap((port) => findTargetBlocks(graph, block.id, port))
+        .filter((node, i, all) => all.findIndex((other) => other.id === node.id) === i);
+      const errorTargets = findTargetBlocks(graph, block.id, 'onError');
+
+      const callInst: InstructionIR = {
+        kind: 'adapter_call',
+        adapter: 'realtime',
+        action: config.action || 'publish',
+        payload: {
+          blockId: toLiteralExpr(block.id),
+          protocol: toLiteralExpr(config.protocol || 'sse'),
+          channel: resolveInputExpr(
+            graph,
+            block.id,
+            'channel',
+            toLiteralExpr(config.channel || 'general'),
+          ),
+          event: resolveInputExpr(
+            graph,
+            block.id,
+            'event',
+            toLiteralExpr(config.event || 'message'),
+          ),
+          data: resolveInputExpr(graph, block.id, 'data', {
+            kind: 'read_var',
+            name: 'value',
+            valueType: { kind: 'any' },
+          }),
+        },
+        targetVar: block.id,
+      };
+
+      const assignResult: InstructionIR = {
+        kind: 'assign_var',
+        name: 'result',
+        value: { kind: 'read_var', name: block.id, valueType: { kind: 'any' } },
+      };
+      const assignValue: InstructionIR = {
+        kind: 'assign_var',
+        name: 'value',
+        value: { kind: 'read_var', name: block.id, valueType: { kind: 'any' } },
+      };
+
+      const successFlow: InstructionIR[] = [callInst, assignResult, assignValue];
+      for (const t of allSuccessTargets) {
+        successFlow.push(...descend(t));
+      }
+
+      if (errorTargets.length > 0) {
+        const errorFlow: InstructionIR[] = [];
+        for (const t of errorTargets) {
+          errorFlow.push(...descend(t));
         }
         instructions.push({
           kind: 'try_catch',
@@ -437,7 +913,7 @@ export function lowerBlock(
         notifyType: 'error',
       });
       for (const t of retryTargets) {
-        instructions.push(...lowerBlock(t, graph, nextVisited));
+        instructions.push(...descend(t));
       }
       break;
     }
@@ -455,7 +931,7 @@ export function lowerBlock(
         duration: parseInt(config.duration || '3000', 10),
       });
       for (const t of nextTargets) {
-        instructions.push(...lowerBlock(t, graph, nextVisited));
+        instructions.push(...descend(t));
       }
       break;
     }
@@ -480,7 +956,7 @@ export function lowerBlock(
         },
       });
       for (const t of nextTargets) {
-        instructions.push(...lowerBlock(t, graph, nextVisited));
+        instructions.push(...descend(t));
       }
       break;
     }
@@ -505,7 +981,7 @@ export function lowerBlock(
         value: lit,
       });
       for (const t of targets) {
-        instructions.push(...lowerBlock(t, graph, nextVisited));
+        instructions.push(...descend(t));
       }
       break;
     }
@@ -515,7 +991,11 @@ export function lowerBlock(
         ...findTargetBlocks(graph, block.id, 'then'),
         ...findTargetBlocks(graph, block.id, 'next'),
       ];
-      const aExpr = resolveInputExpr(graph, block.id, 'a', toLiteralExpr(Number(config.a ?? 0)));
+      const aFallback: ExprIR =
+        config.a !== undefined && config.a !== ''
+          ? toLiteralExpr(Number(config.a))
+          : { kind: 'read_var', name: 'value', valueType: { kind: 'number' } };
+      const aExpr = resolveInputExpr(graph, block.id, 'a', aFallback);
       const bExpr = resolveInputExpr(graph, block.id, 'b', toLiteralExpr(Number(config.b ?? 0)));
       const op = config.operation || 'add';
       instructions.push({
@@ -525,7 +1005,7 @@ export function lowerBlock(
         targetVar: 'result',
       });
       for (const t of targets) {
-        instructions.push(...lowerBlock(t, graph, nextVisited));
+        instructions.push(...descend(t));
       }
       break;
     }
@@ -535,7 +1015,11 @@ export function lowerBlock(
         ...findTargetBlocks(graph, block.id, 'then'),
         ...findTargetBlocks(graph, block.id, 'next'),
       ];
-      const valExpr = resolveInputExpr(graph, block.id, 'value', toLiteralExpr(config.value ?? ''));
+      const valFallback: ExprIR =
+        config.value !== undefined && config.value !== ''
+          ? toLiteralExpr(config.value)
+          : { kind: 'read_var', name: 'value', valueType: { kind: 'string' } };
+      const valExpr = resolveInputExpr(graph, block.id, 'value', valFallback);
       const argExpr = resolveInputExpr(graph, block.id, 'arg', toLiteralExpr(config.arg ?? ''));
       const op = config.operation || 'concat';
       instructions.push({
@@ -545,7 +1029,7 @@ export function lowerBlock(
         targetVar: 'result',
       });
       for (const t of targets) {
-        instructions.push(...lowerBlock(t, graph, nextVisited));
+        instructions.push(...descend(t));
       }
       break;
     }
@@ -568,11 +1052,11 @@ export function lowerBlock(
 
       const trueBranch: InstructionIR[] = [];
       for (const t of trueTargets) {
-        trueBranch.push(...lowerBlock(t, graph, nextVisited));
+        trueBranch.push(...descend(t));
       }
       const falseBranch: InstructionIR[] = [];
       for (const t of falseTargets) {
-        falseBranch.push(...lowerBlock(t, graph, nextVisited));
+        falseBranch.push(...descend(t));
       }
 
       instructions.push({
@@ -625,7 +1109,7 @@ export function lowerBlock(
       }
 
       for (const t of targets) {
-        instructions.push(...lowerBlock(t, graph, nextVisited));
+        instructions.push(...descend(t));
       }
       break;
     }
@@ -647,8 +1131,13 @@ export function lowerBlock(
         args: [dataExpr],
         targetVar: 'object',
       });
+      instructions.push({
+        kind: 'assign_var',
+        name: block.id,
+        value: { kind: 'read_var', name: 'object', valueType: { kind: 'object' } },
+      });
       for (const t of targets) {
-        instructions.push(...lowerBlock(t, graph, nextVisited));
+        instructions.push(...descend(t));
       }
       break;
     }
@@ -666,7 +1155,7 @@ export function lowerBlock(
         targetVar: 'array',
       });
       for (const t of targets) {
-        instructions.push(...lowerBlock(t, graph, nextVisited));
+        instructions.push(...descend(t));
       }
       break;
     }
@@ -676,7 +1165,7 @@ export function lowerBlock(
 }
 
 /** Realiza lowering completo de um grafo normalizado e verificado para ProgramIR */
-export function lower(graph: Graph): ProgramIR {
+export function lower(graph: Graph, references = false): ProgramIR {
   const screens: ScreenIR[] = [];
   const screenNodes = graph.nodes.filter((n) => n.data.kind === 'screen');
 
@@ -689,7 +1178,9 @@ export function lower(graph: Graph): ProgramIR {
     );
 
     for (const btn of screenButtons) {
-      handlers[btn.id] = lowerBlock(btn, graph);
+      handlers[btn.id] = references
+        ? [{ kind: 'invoke', blockId: btn.id }]
+        : lowerBlock(btn, graph);
     }
 
     screens.push({
@@ -704,7 +1195,7 @@ export function lower(graph: Graph): ProgramIR {
     blockId: node.id,
     kind: node.data.kind,
     label: node.data.label,
-    instructions: lowerBlock(node, graph),
+    instructions: lowerBlock(node, graph, new Set(), references),
   }));
 
   const entryScreenId = screenNodes[0]?.id;

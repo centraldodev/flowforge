@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { compile } from '../compiler';
 import type { Graph } from '../engine';
 import { download } from './download';
 import { addPythonProject } from './python';
@@ -11,7 +12,7 @@ export type ExportLanguage = 'typescript' | 'python';
 export const exportLanguages: Record<ExportLanguage, { title: string; description: string }> = {
   typescript: {
     title: 'TypeScript + React',
-    description: 'Aplicativo web com Vite, interpretador do fluxo e modelos de classes.',
+    description: 'Aplicativo React com backend Node.js para integrações HTTP reais.',
   },
   python: {
     title: 'Python + Tkinter',
@@ -19,29 +20,28 @@ export const exportLanguages: Record<ExportLanguage, { title: string; descriptio
   },
 };
 
-function readme(g: Graph, language: ExportLanguage) {
-  const run =
-    language === 'typescript'
-      ? 'Execute npm install e npm run dev.'
-      : 'Execute python3 app.py. Requer Python com Tkinter.';
-  return `# ${g.name}
-
-Gerado pelo Flowforge.
-
-${run}
-
-Autenticação, OAuth, recuperação, APIs e banco são SIMULAÇÕES LOCAIS. Nenhuma credencial deve ser usada em produção. A conta demo é demo@exemplo.com / 123456. Cadastros e dados duram apenas durante a execução. Substitua esses adaptadores por serviços reais antes de publicar.
-
-As conexões definem os caminhos. Cada saída de execução aceita um destino; as saídas de condição são true/false. graph.json preserva todo o projeto e pode ser importado no editor. O exportador Python usa Tkinter para uma interface simples; o TypeScript usa React. Classes geradas usam atributos sem tipo específico.
-`;
-}
-
 export async function createProject(g: Graph, language: ExportLanguage) {
+  const compilation = compile(g, { references: language === 'typescript' });
+  if (!compilation.ok) {
+    throw new Error(
+      compilation.diagnostics
+        .filter((d) => d.severity === 'error')
+        .map((d) => d.message)
+        .join('\n'),
+    );
+  }
   const zip = new JSZip();
-  zip.file('graph.json', JSON.stringify(g, null, 2));
-  zip.file('README.md', readme(g, language));
   if (language === 'typescript') addTypeScriptProject(zip, g);
-  else addPythonProject(zip, g);
+  else {
+    zip.file('graph.json', JSON.stringify(g, null, 2));
+    zip.file(
+      'README.md',
+      '# ' +
+        g.name +
+        '\nExecute python3 app.py. Requer Tkinter. Auth, banco e APIs de demonstração são simulados.',
+    );
+    addPythonProject(zip, g);
+  }
   return zip;
 }
 

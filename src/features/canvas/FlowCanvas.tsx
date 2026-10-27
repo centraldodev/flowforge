@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -39,6 +39,8 @@ import {
 import { BlockNode, type FlowNode } from './BlockNode';
 import { DEFAULT_VIEWPORT, GRID_SNAP_SIZE, getGraphFlows } from './constants';
 import { toFlowEdges, toFlowNodes } from './toFlow';
+import { TimeTravelPanel } from './TimeTravelPanel';
+import type { Simulation } from '../../state/useSimulation';
 
 const nodeTypes = { block: BlockNode };
 
@@ -62,10 +64,17 @@ type Props = {
   onDragStop: () => void;
   /** Ref para o elemento da área do canvas (usada para centralizar novos blocos). */
   containerRef?: RefObject<HTMLElement | null>;
+  /** Simulação e depurador visual integrado */
+  simulation?: Simulation;
+  /** Estado de exibição da linha do tempo Time-Travel */
+  isTimeTravelOpen?: boolean;
+  onCloseTimeTravel?: () => void;
 };
 
 export function FlowCanvas(p: Props) {
   const screens = p.graph.nodes.filter((n) => n.data.kind === 'screen');
+  const [isTimeTravelOpen, setIsTimeTravelOpen] = useState(false);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
 
   // Identifica a tela ativa da barra de abas
   const activeScreenId =
@@ -73,10 +82,55 @@ export function FlowCanvas(p: Props) {
       ? p.activeScreenId
       : screens[0]?.id || '';
 
+  const debugOptions = p.simulation
+    ? {
+        breakpoints: p.simulation.debuggerState.breakpoints,
+        currentBlockId: p.simulation.debuggerState.currentBlockId,
+        status: p.simulation.debuggerState.status,
+        onToggleBreakpoint: p.simulation.toggleBreakpoint,
+        activeFrame: p.simulation.activeFrame,
+      }
+    : undefined;
+
+  // Informações da linha/conexão em evidência para destacar os blocos de origem e destino
+  const selectedEdgeInfo = useMemo(() => {
+    if (!selectedEdgeId) return null;
+    const standard = p.graph.edges.find((e) => e.id === selectedEdgeId);
+    if (standard) return { source: standard.source, target: standard.target };
+    if (selectedEdgeId.startsWith('route:')) {
+      const parts = selectedEdgeId.split(':');
+      return { source: parts[1], target: parts[2] };
+    }
+    return null;
+  }, [selectedEdgeId, p.graph.edges]);
+
   // Filtra nós e conexões exclusivos para a aba de tela selecionada
-  const flowNodes = toFlowNodes(p.graph, p.selected, activeScreenId);
+  const flowNodes = toFlowNodes(
+    p.graph,
+    p.selected,
+    activeScreenId,
+    debugOptions,
+    selectedEdgeInfo,
+  );
   const visibleNodeIds = new Set(flowNodes.map((n) => n.id));
-  const flowEdges = toFlowEdges(p.graph, p.trace, visibleNodeIds);
+  const flowEdges = toFlowEdges(
+    p.graph,
+    p.trace,
+    visibleNodeIds,
+    p.simulation?.activeFrame,
+    selectedEdgeId,
+  );
+
+  // Cancela o destaque de conexão ao pressionar tecla Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedEdgeId(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Rastreia o início do arrasto de conexão para permitir soltar na aba da tela
   const connectingRef = useRef<{ nodeId: string | null; handleId: string | null } | null>(null);
@@ -105,6 +159,7 @@ export function FlowCanvas(p: Props) {
   }
 
   function handleSelectScreen(screenId: string) {
+    setSelectedEdgeId(null);
     p.onSelectScreen(screenId);
     p.onSelect(screenId);
   }
@@ -310,8 +365,17 @@ export function FlowCanvas(p: Props) {
           }
           connectingRef.current = null;
         }}
-        onNodeClick={(_, n) => p.onSelect(n.id)}
-        onPaneClick={() => p.onSelect(null)}
+        onEdgeClick={(_, edge) => {
+          setSelectedEdgeId((curr) => (curr === edge.id ? null : edge.id));
+        }}
+        onNodeClick={(_, n) => {
+          setSelectedEdgeId(null);
+          p.onSelect(n.id);
+        }}
+        onPaneClick={() => {
+          setSelectedEdgeId(null);
+          p.onSelect(null);
+        }}
         onNodeDragStart={p.onDragStart}
         onNodeDragStop={(_, node) => {
           p.onGraphChange(
@@ -347,6 +411,13 @@ export function FlowCanvas(p: Props) {
           offsetScale={8}
         />
       </ReactFlow>
+
+      {p.simulation && (p.isTimeTravelOpen ?? isTimeTravelOpen) && (
+        <TimeTravelPanel
+          simulation={p.simulation}
+          onClose={p.onCloseTimeTravel || (() => setIsTimeTravelOpen(false))}
+        />
+      )}
 
       <div className="canvas-footer">
         <div className="footer-stats">

@@ -150,3 +150,17 @@ export function evaluateListItems(
   }
   return [];
 }
+
+/**
+ * Extrai a lista de itens para um componente de tabela de dados.
+ */
+export function evaluateTableItems(
+  comp: Extract<UIComponent, { type: 'table' }>,
+  scope: EvaluationScope,
+): unknown[] {
+  const items = resolvePath(scope, comp.itemsPath);
+  if (Array.isArray(items)) {
+    return items;
+  }
+  return [];
+}

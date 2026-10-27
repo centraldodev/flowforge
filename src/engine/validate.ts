@@ -1,4 +1,5 @@
 import { catalog, interfaceKinds } from './catalog';
+import { httpConfigurationIssues } from './http';
 import { validateConnection } from './ports';
 import { reachableActions, screenRoutes } from './routes';
 import type { Block, Graph } from './types';
@@ -61,7 +62,7 @@ function validateBlock(g: Graph, n: Block, errors: string[]) {
 
 /** Retorna a lista de problemas do grafo (vazia quando o fluxo é válido). */
 export function validate(g: Graph): string[] {
-  const errors: string[] = [];
+  const errors: string[] = httpConfigurationIssues(g).map((issue) => issue.message);
 
   if (new Set(g.nodes.map((n) => n.id)).size !== g.nodes.length)
     errors.push('IDs de blocos duplicados.');

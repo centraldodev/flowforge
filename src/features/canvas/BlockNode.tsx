@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, MouseEvent } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import {
   catalog,
@@ -10,7 +10,33 @@ import {
 } from '../../engine';
 import { getGraphFlows, resolveBlockFlow } from './constants';
 
-export type FlowNode = Node<BlockData, 'block'>;
+export type FlowNodeData = BlockData & {
+  flows?: FlowStage[];
+  hasBreakpoint?: boolean;
+  isPausedHere?: boolean;
+  isExecuting?: boolean;
+  onToggleBreakpoint?: (id: string) => void;
+  connectionRole?: 'source' | 'target' | null;
+  isConnectionDimmed?: boolean;
+  debugPayload?: {
+    inputs?: Record<string, unknown>;
+    outputs?: Record<string, unknown>;
+  };
+};
+
+export type FlowNode = Node<FlowNodeData, 'block'>;
+
+function formatPayloadValue(val: unknown): string {
+  if (val === undefined) return '';
+  if (typeof val === 'string') return val.length > 25 ? val.slice(0, 22) + '...' : val;
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  try {
+    const str = JSON.stringify(val);
+    return str.length > 25 ? str.slice(0, 22) + '...' : str;
+  } catch {
+    return '[Obj]';
+  }
+}
 
 export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
   const def = catalog[data.kind] || {
@@ -42,46 +68,110 @@ export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
 
   const inPorts = rawPorts
     .filter((p) => p.direction === 'input')
-    .map((p) => ({
-      id: p.id,
-      label: p.name || p.id,
-      type: p.type || (p.valueType ? formatValueType(p.valueType) : getPortType(p.id)),
-      value:
-        (p as { value?: string }).value ||
-        (p.id === 'route' && data.config.target ? `/${data.config.target}` : undefined),
-    }));
+    .map((p) => {
+      const debugVal = data.debugPayload?.inputs?.[p.id];
+      const displayVal =
+        debugVal !== undefined
+          ? formatPayloadValue(debugVal)
+          : (p as { value?: string }).value ||
+            (p.id === 'route' && data.config.target ? `/${data.config.target}` : undefined);
+
+      return {
+        id: p.id,
+        label: p.name || p.id,
+        type: p.type || (p.valueType ? formatValueType(p.valueType) : getPortType(p.id)),
+        value: displayVal,
+        isDebugValue: debugVal !== undefined,
+      };
+    });
 
   const outPorts = rawPorts
     .filter((p) => p.direction === 'output')
-    .map((p) => ({
-      id: p.id,
-      label: p.name || p.id,
-      type: p.type || (p.valueType ? formatValueType(p.valueType) : getPortType(p.id)),
-      value: (p as { value?: string }).value,
-      isConnectable: p.id !== 'routes' || data.kind !== 'screen',
-    }));
+    .map((p) => {
+      const debugVal =
+        data.debugPayload?.outputs?.[p.id] ??
+        (p.id === 'value' ? data.debugPayload?.outputs?.['value'] : undefined);
+      const displayVal =
+        debugVal !== undefined ? formatPayloadValue(debugVal) : (p as { value?: string }).value;
+
+      return {
+        id: p.id,
+        label: p.name || p.id,
+        type: p.type || (p.valueType ? formatValueType(p.valueType) : getPortType(p.id)),
+        value: displayVal,
+        isDebugValue: debugVal !== undefined,
+        isConnectable: p.id !== 'routes' || data.kind !== 'screen',
+      };
+    });
 
   const hasIn = inPorts.length > 0;
   const hasOut = outPorts.length > 0;
   const maxRows = Math.max(inPorts.length, outPorts.length);
 
+  const handleBreakpointClick = (e: MouseEvent) => {
+    e.stopPropagation();
+    data.onToggleBreakpoint?.(id);
+  };
+
+  const blockClasses = [
+    'block',
+    data.kind === 'screen' ? 'block-screen-tab' : '',
+    selected ? 'selected' : '',
+    data.hasBreakpoint ? 'has-breakpoint' : '',
+    data.isPausedHere ? 'is-debug-paused' : '',
+    data.isExecuting ? 'is-debug-executing' : '',
+    data.connectionRole === 'source' ? 'is-connection-source' : '',
+    data.connectionRole === 'target' ? 'is-connection-target' : '',
+    data.isConnectionDimmed ? 'is-connection-dimmed' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <div
-      className={
-        'block ' +
-        (data.kind === 'screen' ? 'block-screen-tab ' : '') +
-        (selected ? 'selected' : '')
-      }
-      style={{ '--block-color': def.color } as CSSProperties}
-    >
+    <div className={blockClasses} style={{ '--block-color': def.color } as CSSProperties}>
       <div className="block-heading">
+        <button
+          type="button"
+          className={`block-breakpoint-btn ${data.hasBreakpoint ? 'active' : ''}`}
+          onClick={handleBreakpointClick}
+          title={
+            data.hasBreakpoint ? 'Remover breakpoint (parada)' : 'Inserir breakpoint de depuração'
+          }
+        >
+          <span className="breakpoint-dot" />
+        </button>
+
         <div className="block-heading-main">
-          <span className="block-icon">{def.icon}</span>
+          <span className="block-icon">
+            <span className="material-symbols-outlined">{def.icon}</span>
+          </span>
           <span className="block-title" title={title}>
             {title}
           </span>
         </div>
         <div className="block-heading-meta">
+          {data.connectionRole === 'source' && (
+            <span
+              className="block-connection-role-badge source"
+              title="Origem da conexão selecionada"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>
+                arrow_forward
+              </span>
+              Origem
+            </span>
+          )}
+          {data.connectionRole === 'target' && (
+            <span
+              className="block-connection-role-badge target"
+              title="Destino da conexão selecionada"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>
+                input
+              </span>
+              Destino
+            </span>
+          )}
           <span
             className="block-phase-badge"
             title={`Fluxo ${index}: ${flow.name}`}
@@ -131,7 +221,18 @@ export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
                             : {inPort.type}
                           </span>
                         )}
-                        {inPort.value && <span className="port-val">{inPort.value}</span>}
+                        {inPort.value && (
+                          <span
+                            className={`port-val ${inPort.isDebugValue ? 'debug-val-badge' : ''}`}
+                            title={
+                              inPort.isDebugValue
+                                ? `Valor inspecionado: ${inPort.value}`
+                                : inPort.value
+                            }
+                          >
+                            {inPort.value}
+                          </span>
+                        )}
                       </span>
                     </div>
                   ) : (
@@ -147,7 +248,18 @@ export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
                             : {outPort.type}
                           </span>
                         )}
-                        {outPort.value && <span className="port-val">{outPort.value}</span>}
+                        {outPort.value && (
+                          <span
+                            className={`port-val ${outPort.isDebugValue ? 'debug-val-badge' : ''}`}
+                            title={
+                              outPort.isDebugValue
+                                ? `Valor inspecionado: ${outPort.value}`
+                                : outPort.value
+                            }
+                          >
+                            {outPort.value}
+                          </span>
+                        )}
                       </span>
                       <Handle
                         type="source"

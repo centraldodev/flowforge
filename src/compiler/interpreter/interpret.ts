@@ -106,6 +106,34 @@ export async function executeInstructions(
     }
 
     switch (inst.kind) {
+      case 'invoke': {
+        const step = program.steps.find((candidate) => candidate.blockId === inst.blockId);
+        if (!step) throw new Error(`Fluxo não encontrado: ${inst.blockId}`);
+        if (context.debugger) {
+          await context.debugger.beforeStep(
+            {
+              blockId: step.blockId,
+              blockKind: step.kind,
+              blockLabel: step.label,
+              message: `Executando ${step.label} (#${step.blockId})`,
+            },
+            context,
+          );
+        }
+        await executeInstructions(step.instructions, context, program);
+        if (context.debugger) {
+          await context.debugger.afterStep(
+            {
+              blockId: step.blockId,
+              blockKind: step.kind,
+              blockLabel: step.label,
+              message: `Concluído ${step.label} (#${step.blockId})`,
+            },
+            context,
+          );
+        }
+        break;
+      }
       case 'assign_state': {
         const val = await evaluateExpr(inst.value, context, program);
         context.store[inst.key] = val;
@@ -266,12 +294,121 @@ export async function executeInstructions(
             label: 'API',
             message: `API (${inst.action}): resposta recebida`,
           });
+        } else if (inst.adapter === 'storage') {
+          if (context.adapters.storage) {
+            res = await context.adapters.storage.execute(inst.action, evaluatedPayload, context);
+          } else {
+            res = {
+              success: true,
+              fileUrl: 'https://storage.flowforge.dev/' + (evaluatedPayload.path || 'upload'),
+            };
+          }
+          context.trace.push({
+            id: 'storage',
+            label: 'Armazenamento',
+            message: `Armazenamento (${inst.action}): sucesso`,
+          });
+        } else if (inst.adapter === 'email') {
+          if (context.adapters.email) {
+            res = await context.adapters.email.execute(inst.action, evaluatedPayload, context);
+          } else {
+            res = { success: true, messageId: '<msg_' + Date.now() + '@flowforge.dev>' };
+          }
+          context.trace.push({
+            id: 'email',
+            label: 'E-mail',
+            message: `E-mail (${inst.action}): enviado`,
+          });
+        } else if (inst.adapter === 'webhook') {
+          if (context.adapters.webhook) {
+            res = await context.adapters.webhook.execute(inst.action, evaluatedPayload, context);
+          } else {
+            res = { success: true, payload: evaluatedPayload };
+          }
+          context.trace.push({
+            id: 'webhook',
+            label: 'Webhook',
+            message: `Webhook (${inst.action}): recebido`,
+          });
+        } else if (inst.adapter === 'task') {
+          if (context.adapters.task) {
+            res = await context.adapters.task.execute(inst.action, evaluatedPayload, context);
+          } else {
+            res = { success: true, taskId: evaluatedPayload.taskName || 'tarefa' };
+          }
+          context.trace.push({
+            id: 'task',
+            label: 'Tarefa',
+            message: `Tarefa (${inst.action}): agendada`,
+          });
+        } else if (inst.adapter === 'payment') {
+          if (context.adapters.payment) {
+            res = await context.adapters.payment.execute(inst.action, evaluatedPayload, context);
+          } else {
+            res = {
+              success: true,
+              sessionId: 'cs_test_mock',
+              checkoutUrl: 'https://checkout.stripe.com/pay/mock',
+              status: 'pending',
+            };
+          }
+          context.trace.push({
+            id: 'payment',
+            label: 'Pagamento',
+            message: `Pagamento (${inst.action}): processado`,
+          });
+        } else if (inst.adapter === 'realtime') {
+          if (context.adapters.realtime) {
+            res = await context.adapters.realtime.execute(inst.action, evaluatedPayload, context);
+          } else {
+            res = {
+              success: true,
+              channel: evaluatedPayload.channel || 'general',
+              delivered: true,
+            };
+          }
+          context.trace.push({
+            id: 'realtime',
+            label: 'Tempo Real',
+            message: `Tempo Real (${inst.action}): transmitido`,
+          });
         }
 
         if (inst.targetVar) {
           context.variables[inst.targetVar] = res;
           context.outputs[inst.targetVar] = res;
         }
+        break;
+      }
+
+      case 'call_subflow': {
+        const evaluatedInputs: Record<string, unknown> = {};
+        for (const [k, expr] of Object.entries(inst.inputs)) {
+          evaluatedInputs[k] = await evaluateExpr(expr, context, program);
+        }
+
+        let res: unknown;
+        if (context.adapters.subflow) {
+          res = await context.adapters.subflow.execute(
+            inst.subflowId,
+            evaluatedInputs,
+            context,
+            inst.subflowDefinition,
+          );
+        } else {
+          res = evaluatedInputs.input ?? Object.values(evaluatedInputs)[0];
+        }
+
+        const target = inst.targetVar || inst.subflowId;
+        context.variables[target] = res;
+        context.outputs[target] = res;
+        context.variables['value'] = res;
+        context.outputs['value'] = res;
+        context.trace.push({
+          id: inst.subflowId,
+          label: 'Subfluxo',
+          message: `Subfluxo [${inst.subflowId}] executado com sucesso`,
+        });
         break;
       }
     }
@@ -320,7 +457,13 @@ export async function interpret(
       throw new Error(`Ponto de entrada não encontrado na IR: "${entryId}".`);
     }
 
+    if (context.debugger && context.debugger.getState().status === 'idle') {
+      context.debugger.startExecution(false);
+    }
+
     await executeInstructions(instructionsToRun, context, program);
+
+    context.debugger?.completeExecution();
 
     return {
       success: true,
@@ -333,6 +476,7 @@ export async function interpret(
     };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
+    context.debugger?.failExecution(error);
     return {
       success: false,
       screen: context.screen,

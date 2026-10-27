@@ -21,6 +21,7 @@ export function normalizeNode(node: Block): Block {
     ...node,
     data: {
       ...node.data,
+      contractVersion: node.data.contractVersion ?? 1,
       label: (node.data.label || node.id).trim(),
       config: { ...node.data.config },
       ports,

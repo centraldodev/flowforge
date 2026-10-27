@@ -30,6 +30,18 @@ export class PythonBackend implements CompilerBackend {
     const diagnostics: Diagnostic[] = [];
 
     const checkInstruction = (inst: InstructionIR) => {
+      if (
+        inst.kind === 'adapter_call' &&
+        inst.adapter === 'api' &&
+        inst.payload.mode?.kind === 'literal' &&
+        inst.payload.mode.value === 'real'
+      ) {
+        diagnostics.push({
+          code: 'UNSUPPORTED_REAL_HTTP',
+          severity: 'error',
+          message: 'HTTP real exige backend TypeScript nesta fase.',
+        });
+      }
       if (inst.kind === 'call_operation') {
         const op = inst.operation;
         // Se a operação for um código JS inseguro legado

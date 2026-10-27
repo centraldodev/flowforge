@@ -390,7 +390,15 @@ test('caracterização: database', async () => {
 
 test('caracterização: api', async () => {
   const p = ports('api');
-  assert.deepEqual(p.inputs, ['execute', 'body', 'listener', 'listenerClick', 'exec']);
+  assert.deepEqual(p.inputs, [
+    'connection',
+    'query',
+    'execute',
+    'body',
+    'listener',
+    'listenerClick',
+    'exec',
+  ]);
   assert.deepEqual(p.outputs, ['onSuccess', 'onError', 'response', 'then', 'next', 'value']);
 
   const g: Graph = {

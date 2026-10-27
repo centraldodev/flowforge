@@ -6,6 +6,9 @@ import {
   DEMO_FOCUS,
   parseGraph,
   validate,
+  customerOrdersProject,
+  schedulingConflictProject,
+  roleApprovalPortalProject,
   type CustomPort,
   type Graph,
   type Kind,
@@ -32,6 +35,8 @@ import {
   updateConfig,
   validateBlockId,
 } from '../state/graphOps';
+
+export type ProjectTemplateId = 'empty' | 'customerOrders' | 'scheduling' | 'roleApproval';
 
 type Options = {
   graph: Graph;
@@ -161,12 +166,37 @@ export function useEditorActions({ graph, commit, notify, resetSimulation, canva
     resetView();
   }
 
-  function createProject(name: string) {
-    const empty = emptyGraph(name);
-    commit(() => empty);
-    const firstScreen = screensOf(empty)[0]?.id || 'screen_1';
-    setActiveScreenId(firstScreen);
-    setSelected(firstScreen);
+  function createProject(name: string, templateId: ProjectTemplateId = 'empty') {
+    let targetGraph: Graph;
+    if (templateId === 'customerOrders') {
+      targetGraph = {
+        ...structuredClone(customerOrdersProject),
+        name: name.trim() || customerOrdersProject.name,
+      };
+    } else if (templateId === 'scheduling') {
+      targetGraph = {
+        ...structuredClone(schedulingConflictProject),
+        name: name.trim() || schedulingConflictProject.name,
+      };
+    } else if (templateId === 'roleApproval') {
+      targetGraph = {
+        ...structuredClone(roleApprovalPortalProject),
+        name: name.trim() || roleApprovalPortalProject.name,
+      };
+    } else {
+      targetGraph = emptyGraph(name.trim() || 'Novo aplicativo');
+    }
+
+    commit(() => targetGraph);
+    const firstScreen =
+      screensOf(targetGraph)[0]?.id ||
+      targetGraph.nodes.find((n) => n.data.kind === 'screen')?.id ||
+      targetGraph.nodes[0]?.id ||
+      '';
+    if (firstScreen) {
+      setActiveScreenId(firstScreen);
+      setSelected(firstScreen);
+    }
     resetView();
   }
 

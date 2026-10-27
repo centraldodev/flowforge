@@ -22,7 +22,10 @@ export * from './ui';
  * Normaliza o grafo, executa análise estática de tipos, rotas e cardinalidade,
  * e gera a ProgramIR se não houver erros diagnósticos impeditivos.
  */
-export function compile(graph: Graph): Result<ProgramIR, Diagnostic[]> {
+export function compile(
+  graph: Graph,
+  options: { references?: boolean } = {},
+): Result<ProgramIR, Diagnostic[]> {
   if (!graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
     return err([
       {
@@ -41,6 +44,6 @@ export function compile(graph: Graph): Result<ProgramIR, Diagnostic[]> {
     return err(diagnostics);
   }
 
-  const program = lower(normalized);
+  const program = lower(normalized, options.references);
   return ok(program, diagnostics);
 }

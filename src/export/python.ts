@@ -417,6 +417,18 @@ if __name__ == "__main__":
  * Adiciona ao ZIP os artefatos do projeto Python compilado a partir da ProgramIR.
  */
 export function addPythonProject(zip: JSZip, g: Graph) {
+  if (
+    g.nodes.some(
+      (node) =>
+        node.data.kind === 'httpConnection' ||
+        (node.data.kind === 'api' && node.data.config.mode === 'real') ||
+        node.data.kind === 'postgresConnection' ||
+        (node.data.kind === 'database' && node.data.config.mode === 'real'),
+    )
+  )
+    throw new Error(
+      'Integrações reais (HTTP ou PostgreSQL) exigem exportação TypeScript + React com backend nesta fase.',
+    );
   const comp = compile(g);
   let programCode: string;
   const pyBackend = defaultBackendRegistry.get('python');

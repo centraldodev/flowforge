@@ -495,16 +495,7 @@ export function generateBlockCode(graph: Graph, block: Block): string {
 
       let apiBody = '';
       if (config.mode === 'real' || config.useRealApi === 'true') {
-        apiBody = `const fetchBody = (['POST', 'PUT', 'PATCH'].includes(${jsLiteral(method)}) && body) ? JSON.stringify(body) : undefined;
-    const response = await fetch(${jsLiteral(url)}, {
-      method: ${jsLiteral(method)},
-      headers: { 'Content-Type': 'application/json' },
-      body: fetchBody
-    });
-    if (!response.ok) {
-      throw new Error('Falha na requisição API: HTTP ' + response.status);
-    }
-    const data = await response.json();`;
+        apiBody = `throw new Error('HTTP real exige o projeto ZIP com backend. Use a exportação TypeScript.');`;
       } else {
         const hasError = Boolean(
           config.simulateError === 'true' || (config.status && Number(config.status) >= 400),

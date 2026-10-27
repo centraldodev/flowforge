@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import type { Block, Graph } from '../../engine';
+import { catalog, type Block, type Graph } from '../../engine';
 
 type Props = {
   graph: Graph;
@@ -23,12 +23,25 @@ export function EdgeList({ graph, block, edges, onRemoveEdge }: Props) {
         edges.map((e) => {
           const isSource = e.source === block.id;
           const otherId = isSource ? e.target : e.source;
-          const otherLabel = graph.nodes.find((n) => n.id === otherId)?.data.label || 'Bloco';
+          const otherNode = graph.nodes.find((n) => n.id === otherId);
+          const otherLabel = otherNode?.data.label || 'Bloco';
+          const otherKind = otherNode?.data.kind;
+          const otherDef = otherKind ? catalog[otherKind] : undefined;
 
           return (
             <div className="connection-row" key={e.id}>
               <span>
-                <strong>{otherLabel}</strong>
+                <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  {otherDef && (
+                    <span
+                      className="material-symbols-outlined"
+                      style={{ fontSize: 14, color: otherDef.color }}
+                    >
+                      {otherDef.icon}
+                    </span>
+                  )}
+                  {otherLabel}
+                </strong>
                 <small>
                   {isSource ? 'saída' : 'entrada'}:{' '}
                   <code>{isSource ? e.sourceHandle : e.targetHandle}</code> →{' '}

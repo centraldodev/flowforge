@@ -6,6 +6,7 @@ export type Diagnostic = {
   message: string;
   nodeId?: string;
   portId?: string;
+  field?: string;
 };
 
 export type Result<T, E = Diagnostic[]> =

@@ -42,12 +42,76 @@ export interface LegacyFunctionAdapter {
   execute(operation: string, args: unknown[], context: ExecutionContext): Promise<unknown>;
 }
 
+export interface SubflowAdapter {
+  execute(
+    subflowId: string,
+    inputs: Record<string, unknown>,
+    context: ExecutionContext,
+    subflowDefinition?: import('../../engine/composition').SubflowDefinition,
+  ): Promise<unknown>;
+}
+
+export interface StorageAdapter {
+  execute(
+    action: string,
+    payload: Record<string, unknown>,
+    context: ExecutionContext,
+  ): Promise<unknown>;
+}
+
+export interface EmailAdapter {
+  execute(
+    action: string,
+    payload: Record<string, unknown>,
+    context: ExecutionContext,
+  ): Promise<unknown>;
+}
+
+export interface WebhookAdapter {
+  execute(
+    action: string,
+    payload: Record<string, unknown>,
+    context: ExecutionContext,
+  ): Promise<unknown>;
+}
+
+export interface TaskAdapter {
+  execute(
+    action: string,
+    payload: Record<string, unknown>,
+    context: ExecutionContext,
+  ): Promise<unknown>;
+}
+
+export interface PaymentAdapter {
+  execute(
+    action: string,
+    payload: Record<string, unknown>,
+    context: ExecutionContext,
+  ): Promise<unknown>;
+}
+
+export interface RealtimeAdapter {
+  execute(
+    action: string,
+    payload: Record<string, unknown>,
+    context: ExecutionContext,
+  ): Promise<unknown>;
+}
+
 export type ExecutionAdapters = {
   auth: AuthAdapter;
   api: ApiAdapter;
   database: DatabaseAdapter;
   delay: DelayAdapter;
   legacyFunction?: LegacyFunctionAdapter;
+  subflow?: SubflowAdapter;
+  storage?: StorageAdapter;
+  email?: EmailAdapter;
+  webhook?: WebhookAdapter;
+  task?: TaskAdapter;
+  payment?: PaymentAdapter;
+  realtime?: RealtimeAdapter;
 };
 
 export type ExecutionContext = {
@@ -63,6 +127,7 @@ export type ExecutionContext = {
   maxSteps: number;
   signal?: AbortSignal;
   adapters: ExecutionAdapters;
+  debugger?: import('./debugger').VisualDebugger;
 };
 
 export type ExecutionResult = {

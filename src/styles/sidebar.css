@@ -74,7 +74,9 @@
   flex-shrink: 0;
 }
 
-.rail button {
+.rail > button,
+.rail-bottom > button,
+.blocks-trigger > button {
   width: 36px;
   height: 36px;
   border-radius: 6px;
@@ -87,12 +89,16 @@
     background-color 0.15s;
 }
 
-.rail button:hover {
+.rail > button:hover,
+.rail-bottom > button:hover,
+.blocks-trigger > button:hover {
   background: #ffffff0a;
   color: #d1d4e0;
 }
 
-.rail .active {
+.rail > button.active,
+.rail-bottom > button.active,
+.blocks-trigger > button.active {
   background: #b9a5f616;
   color: #c8b2ff;
   border: 1px solid #b9a5f62b;
@@ -253,11 +259,15 @@
   width: 26px;
   flex-shrink: 0;
   border-radius: 5px;
-  display: grid;
-  place-items: center;
-  font: 600 14px var(--font-heading, 'Space Grotesk', sans-serif);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--icon-color, inherit);
   background: color-mix(in srgb, var(--icon-color, #ffffff) 14%, transparent);
+}
+
+.library-icon .material-symbols-outlined {
+  font-size: 16px;
 }
 
 .library-block-name {
@@ -340,35 +350,343 @@
 }
 
 /* ==========================================================================
-   Flyout da Biblioteca (quando a barra lateral está recolhida)
+   Modal Flutuante de Blocos (ao lado da barra lateral recolhida)
    ========================================================================== */
 
-.blocks-flyout.library {
-  position: absolute;
-  left: calc(100% + 8px);
-  top: 156px;
-  bottom: 16px;
-  width: 285px;
-  padding: 18px 16px;
-  overflow: auto;
-  z-index: 20;
-  border: 1px solid #44404f;
-  border-radius: 12px;
-  box-shadow: 8px 15px 45px #0008;
-  background: #1b1e25;
+.blocks-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.blocks-flyout.library::before {
+.blocks-flyout-modal {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: -40px;
+  width: 760px;
+  max-width: calc(100vw - 80px);
+  max-height: calc(100vh - 80px);
+  background: #171a22;
+  border: 1px solid #3d3b4b;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow:
+    0 16px 45px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  animation: flyoutSlideIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes flyoutSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* Ponte invisível para o ponteiro do mouse transitar do botão para o modal sem fechar */
+.blocks-flyout-modal::before {
   content: '';
   position: absolute;
-  left: -10px;
+  left: -14px;
   top: 0;
   bottom: 0;
-  width: 10px;
+  width: 14px;
 }
 
-.unified-sidebar .blocks-flyout .search {
-  margin: 16px 0 20px;
+.blocks-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #282d3b;
+  flex-shrink: 0;
+}
+
+.blocks-modal-header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.blocks-modal-header .modal-icon {
+  margin-bottom: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #b9a5f618;
+  border: 1px solid #b9a5f635;
+  color: #c4b1f2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.blocks-modal-header h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  color: #f1f3f7;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.blocks-modal-header h2 .block-count {
+  font-size: 11px;
+  background: #252936;
+  color: #a4adc1;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.blocks-modal-header p {
+  font-size: 11px;
+  color: #7d8495;
+  margin: 1px 0 0;
+}
+
+.blocks-modal-close-btn {
+  background: transparent;
+  border: none;
+  color: #7d8495;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.blocks-modal-close-btn:hover {
+  background: #252936;
+  color: #e8e9f1;
+}
+
+.blocks-modal-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #12141b;
+  border: 1px solid #2b303d;
+  border-radius: 8px;
+  padding: 0 10px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.blocks-modal-search:focus-within {
+  border-color: var(--color-primary, #b9a5f6);
+  box-shadow: 0 0 0 2px #b9a5f625;
+}
+
+.blocks-modal-search-icon {
+  color: #6c7385;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+.blocks-modal-search input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #f1f3f7;
+  font-size: 12px;
+  padding: 9px 0;
+  min-width: 0;
+}
+
+.blocks-modal-search input::placeholder {
+  color: #5d6475;
+}
+
+.blocks-modal-search-clear {
+  color: #798296;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.blocks-modal-search-clear:hover {
+  color: #e8e9f1;
+}
+
+/* ==========================================================================
+   Colunas de Blocos (Interface, Lógica, Dados)
+   ========================================================================== */
+
+.blocks-modal-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.blocks-modal-column {
+  display: flex;
+  flex-direction: column;
+  background: #12151c;
+  border: 1px solid #242936;
+  border-radius: 9px;
+  padding: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.blocks-modal-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #1e222d;
+  flex-shrink: 0;
+}
+
+.blocks-modal-column-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #8c94a8;
+}
+
+.blocks-modal-column-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: #5d6577;
+  background: #1c202a;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.blocks-modal-column-items {
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-right: 2px;
+  max-height: 420px;
+}
+
+.blocks-modal-block-item {
+  width: 100%;
+  height: 36px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.blocks-modal-block-item:hover {
+  background: #ffffff0e;
+  border-color: #ffffff14;
+}
+
+.blocks-modal-block-item .library-icon {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--icon-color, inherit);
+  background: color-mix(in srgb, var(--icon-color, #ffffff) 14%, transparent);
+}
+
+.blocks-modal-block-item .library-icon .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.blocks-modal-block-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #d1d4df;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.blocks-modal-block-plus {
+  color: #5a6173;
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
+}
+
+.blocks-modal-block-item:hover .blocks-modal-block-plus {
+  opacity: 1;
+  color: var(--color-primary, #b9a5f6);
+}
+
+.blocks-modal-column-empty {
+  font-size: 11px;
+  color: #555b6a;
+  text-align: center;
+  padding: 24px 8px;
+}
+
+.blocks-modal-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 16px;
+  text-align: center;
+  color: #727a8d;
+  gap: 10px;
+}
+
+.blocks-modal-empty p {
+  font-size: 12px;
+  color: #8890a3;
+}
+
+.blocks-modal-empty button {
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  background: #232733;
+  color: #cbb9ff;
+  border: 1px solid #33394b;
+  cursor: pointer;
 }
 
 /* ==========================================================================
@@ -434,11 +752,6 @@
   }
   .unified-sidebar.is-collapsed {
     width: 48px;
-  }
-  .blocks-flyout.library {
-    width: min(285px, calc(100vw - 65px));
-    top: 156px;
-    bottom: 10px;
   }
   .unified-sidebar .expanded-content {
     position: static;

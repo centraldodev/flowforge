@@ -139,6 +139,35 @@ export type UIComponent =
     }
   | {
       id: string;
+      type: 'table';
+      itemsPath: string;
+      columns: Array<{
+        key: string;
+        label: string;
+        width?: string;
+        sortable?: boolean;
+      }>;
+      actions?: Array<{
+        label: string;
+        actionEvent: string;
+        variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+      }>;
+      pageSize?: number;
+      emptyState?: UIComponent;
+      visible?: UIBinding;
+      accessibility?: UIAccessibility;
+    }
+  | {
+      id: string;
+      type: 'form';
+      children: UIComponent[];
+      submitLabel?: string;
+      submitEvent?: string;
+      visible?: UIBinding;
+      accessibility?: UIAccessibility;
+    }
+  | {
+      id: string;
       type: 'modal';
       title?: string;
       openBinding?: UIBinding;
@@ -151,6 +180,8 @@ export type UIComponent =
 export type ScreenUI = {
   screenId: string;
   title: string;
+  route?: string;
+  params?: string[];
   root: UIComponent;
   states?: {
     loading?: UIComponent;

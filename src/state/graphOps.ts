@@ -33,6 +33,23 @@ const mapNode = (g: Graph, id: string, fn: (n: Block) => Block): Graph => ({
 });
 
 export const updateConfig = (g: Graph, id: string, config: Record<string, string>): Graph => {
+  if ('connectionId' in config) {
+    const source = g.nodes.find(
+      (node) => node.id === config.connectionId && node.data.kind === 'httpConnection',
+    );
+    const edges = g.edges.filter(
+      (edge) => !(edge.target === id && edge.targetHandle === 'connection'),
+    );
+    if (source)
+      edges.push({
+        id: `http-${source.id}-${id}`,
+        source: source.id,
+        sourceHandle: 'connection',
+        target: id,
+        targetHandle: 'connection',
+      });
+    return { ...g, edges };
+  }
   const updated = mapNode(g, id, (n) => ({
     ...n,
     data: { ...n.data, config: { ...n.data.config, ...config } },
@@ -237,10 +254,11 @@ export function createBlock(kind: Kind, position: Position, screenId: string, g?
       label: catalog[kind].name,
       config: {
         ...catalog[kind].defaults,
-        ...(kind !== 'screen' && screenId ? { screenId } : {}),
+        ...(kind === 'api' ? { mode: 'real', url: '/' } : {}),
+        ...(kind !== 'screen' && kind !== 'httpConnection' && screenId ? { screenId } : {}),
         ...(kind === 'navigate' ? { target: screenId } : {}),
       },
-      ports: [],
+      ports: kind === 'api' || kind === 'httpConnection' ? undefined : [],
     },
   };
   const tempGraph: Graph = g

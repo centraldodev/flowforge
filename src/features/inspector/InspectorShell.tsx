@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   PanelRightClose,
   PanelRightOpen,
-  Settings2,
   GitBranch,
   SlidersHorizontal,
   KeyRound,
@@ -19,8 +18,9 @@ import {
   Monitor,
 } from 'lucide-react';
 import { PropertyField, type FieldDefinition } from '../../components/PropertyField';
-import type { Block, Graph } from '../../engine';
+import { catalog, type Block, type Graph } from '../../engine';
 import { BlockIdEditor } from './BlockIdEditor';
+import { HttpRequestTools } from './HttpRequestTools';
 
 type Props = {
   children: ReactNode;
@@ -32,6 +32,7 @@ type Props = {
   connections: ReactNode;
   onDuplicate: () => void;
   onDelete: () => void;
+  onChangeConfig?: (config: Record<string, string>) => void;
 };
 
 export function InspectorShell(p: Props) {
@@ -154,18 +155,35 @@ export function InspectorShell(p: Props) {
                 onMouseLeave={closeSoon}
               >
                 <button
-                  title="Identidade do Bloco (ID & Título)"
-                  aria-label="Identidade do Bloco (ID & Título)"
+                  title={`Identidade do Bloco (${catalog[p.chosen.data.kind]?.name || p.chosen.id})`}
+                  aria-label={`Identidade do Bloco (${catalog[p.chosen.data.kind]?.name || p.chosen.id})`}
                   aria-expanded={active === 'identity'}
                   aria-haspopup="dialog"
                   className={active === 'identity' ? 'active' : ''}
                   onClick={(e) => show('identity', e.currentTarget)}
                 >
-                  <Tag size={19} />
+                  <span
+                    className="material-symbols-outlined"
+                    style={{
+                      fontSize: 20,
+                      color: catalog[p.chosen.data.kind]?.color || '#c4b1f2',
+                    }}
+                  >
+                    {catalog[p.chosen.data.kind]?.icon || 'widgets'}
+                  </span>
                 </button>
               </div>
 
               {/* Demais propriedades de configuração */}
+              {['api', 'httpConnection'].includes(p.chosen.data.kind) && (
+                <button
+                  title="Testar e configurar HTTP"
+                  aria-label="Testar e configurar HTTP"
+                  onClick={(event) => show('http-tools', event.currentTarget)}
+                >
+                  <Globe size={19} />
+                </button>
+              )}
               {p.fields
                 .filter((f) => f.id !== 'label')
                 .map((f) => {
@@ -224,7 +242,12 @@ export function InspectorShell(p: Props) {
             </>
           ) : (
             <button title="Selecione um bloco" aria-label="Selecione um bloco" disabled>
-              <Settings2 size={20} />
+              <span
+                className="material-symbols-outlined"
+                style={{ fontSize: 20, color: '#6b7280' }}
+              >
+                widgets
+              </span>
             </button>
           )}
         </nav>
@@ -238,7 +261,9 @@ export function InspectorShell(p: Props) {
               ? 'Identidade do bloco'
               : active === 'connections'
                 ? 'Conexões do bloco'
-                : field?.label || 'Propriedade'
+                : active === 'http-tools'
+                  ? 'Testar e configurar HTTP'
+                  : field?.label || 'Propriedade'
           }
           onMouseEnter={cancel}
           onMouseLeave={closeSoon}
@@ -249,7 +274,9 @@ export function InspectorShell(p: Props) {
                 ? 'Identidade do Bloco'
                 : active === 'connections'
                   ? 'Conexões'
-                  : field?.label}
+                  : active === 'http-tools'
+                    ? 'Integração HTTP'
+                    : field?.label}
             </h2>
             <button
               title="Fechar painel flutuante"
@@ -269,6 +296,13 @@ export function InspectorShell(p: Props) {
             </div>
           ) : active === 'connections' ? (
             p.connections
+          ) : active === 'http-tools' && p.chosen && p.graph && p.onChangeConfig ? (
+            <HttpRequestTools
+              key={p.chosen.id}
+              block={p.chosen}
+              graph={p.graph}
+              onChangeConfig={p.onChangeConfig}
+            />
           ) : field ? (
             field.options ? (
               <div

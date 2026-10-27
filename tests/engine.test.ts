@@ -654,9 +654,12 @@ test('generateBlockCode gera funções JavaScript prontas com nomes derivados do
   for (const k of kinds) {
     const fields = fieldsFor(k);
     const codeField = fields.find((f) => f.key === 'code');
-    assert.ok(codeField, `Bloco ${k} deve possuir o campo 'code'`);
-    assert.equal(codeField?.label, 'Código');
-    assert.equal(codeField?.area, true);
+    if (k === 'api') assert.equal(codeField, undefined, 'API é configurada visualmente');
+    else {
+      assert.ok(codeField, `Bloco ${k} deve possuir o campo 'code'`);
+      assert.equal(codeField?.label, 'Código');
+      assert.equal(codeField?.area, true);
+    }
 
     const b = createBlock(k, { x: 0, y: 0 }, 'screen_1');
     const directGenerated = generateBlockCode(demo, b);

@@ -4,6 +4,7 @@ import { PropertyField, type FieldDefinition } from '../../components/PropertyFi
 import { catalog, type Block, type Graph } from '../../engine';
 import { BlockIdEditor } from './BlockIdEditor';
 import { DatabaseManager } from './DatabaseManager';
+import { HttpRequestTools } from './HttpRequestTools';
 
 type Props = {
   chosen: Block | undefined;
@@ -46,7 +47,9 @@ export function InspectorPanel({
     <div className="inspector">
       <div className="inspector-content">
         <div className="selected-kind">
-          <span style={{ '--kind-color': def.color } as CSSProperties}>{def.icon}</span>
+          <span style={{ '--kind-color': def.color } as CSSProperties}>
+            <span className="material-symbols-outlined">{def.icon}</span>
+          </span>
           <div>
             <div className="kind-header-top">
               <small>{def.category}</small>
@@ -65,6 +68,14 @@ export function InspectorPanel({
         {nameField && <PropertyField {...nameField} />}
 
         <div className="form-separator">CONFIGURAÇÃO</div>
+        {graph && onChangeConfig && ['api', 'httpConnection'].includes(chosen.data.kind) && (
+          <HttpRequestTools
+            key={chosen.id}
+            block={chosen}
+            graph={graph}
+            onChangeConfig={onChangeConfig}
+          />
+        )}
         {chosen.data.kind === 'database' && onChangeConfig && (
           <DatabaseManager block={chosen} onChange={onChangeConfig} />
         )}
