@@ -331,6 +331,7 @@ BUILTIN_OPERATIONS = {
     "text_trim": lambda a="", *x: str(a if a is not None else "").strip(),
     "text_split": lambda a="", sep=",", *x: str(a if a is not None else "").split(str(sep or ",")),
     "text_replace": lambda a="", s="", r="", *x: str(a if a is not None else "").replace(str(s or ""), str(r or "")),
+    "object_from_fields": lambda *values: {str(values[i]): values[i + 1] for i in range(0, len(values) - 1, 2)},
     "object_create": lambda d=None, *x: (
         dict(d) if isinstance(d, dict) else (
             json.loads(d) if isinstance(d, str) and d.strip().startswith("{") else {"value": d}

@@ -19,3 +19,6 @@
 
 /* 6. Simulador (Preview): Superfícies mobile, web, desktop e trace de execução */
 @import './preview.css';
+
+/* 7. Editor Visual de Frontend (Interface Builder) */
+@import './frontend.css';

@@ -84,52 +84,53 @@ export function ProductionReadinessModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="🚀 Prontidão de Produção (Release v1.0.0)">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Prontidão de Produção (Release v1.0.0)"
+      className="readiness-modal"
+    >
+      <span className="modal-icon">
+        <Rocket size={24} />
+      </span>
+      <h2>Prontidão de Produção (Release v1.0.0)</h2>
+      <p>
+        Relatório de integridade, conformidade arquitetural e checklist de lançamento para o
+        monorepo.
+      </p>
+
       <div className="test-runner-container">
         {/* Banner de Prontidão */}
-        <div
-          className="readiness-score-card"
-          style={{
-            background:
-              'linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%)',
-            border: '1px solid #334155',
-            borderRadius: '10px',
-            padding: '18px',
-            marginBottom: '16px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
+        <div className="readiness-score-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div
+              className="readiness-score-circle"
               style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '50%',
-                background: '#0f172a',
                 border: `3px solid ${getGradeColor(report.grade)}`,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 'bold',
               }}
             >
               <span style={{ fontSize: '18px', color: getGradeColor(report.grade) }}>
                 {report.score}%
               </span>
-              <span style={{ fontSize: '10px', color: '#94a3b8' }}>Classe {report.grade}</span>
+              <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>
+                Classe {report.grade}
+              </span>
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '16px', color: '#f8fafc' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', color: 'var(--color-text)' }}>
                 {report.status === 'ready'
                   ? 'Pronto para Produção Enterprise'
                   : report.status === 'needs_review'
                     ? 'Requer Pequenos Ajustes'
                     : 'Ajustes Críticos Pendentes'}
               </h3>
-              <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#94a3b8' }}>
+              <p
+                style={{
+                  margin: '4px 0 0',
+                  fontSize: '13px',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
                 {report.summary.passed} verificações aprovadas · {report.summary.warnings} aviso(s)
                 · {report.summary.failures} falha(s)
               </p>
@@ -157,17 +158,7 @@ export function ProductionReadinessModal({
         {/* Lista de Verificações */}
         <div className="test-scenarios-list" style={{ maxHeight: '380px', overflowY: 'auto' }}>
           {report.checks.map((chk) => (
-            <div
-              key={chk.id}
-              className="scenario-card"
-              style={{
-                background: '#1e293b',
-                border: '1px solid #334155',
-                borderRadius: '8px',
-                padding: '12px 16px',
-                marginBottom: '10px',
-              }}
-            >
+            <div key={chk.id} className="readiness-check-item">
               <div
                 style={{
                   display: 'flex',
@@ -178,19 +169,27 @@ export function ProductionReadinessModal({
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {getCategoryIcon(chk.category)}
-                  <span style={{ fontWeight: 600, color: '#f1f5f9', fontSize: '14px' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '14px' }}>
                     {chk.title}
                   </span>
                 </div>
                 {getStatusBadge(chk.status)}
               </div>
-              <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#cbd5e1' }}>{chk.message}</p>
+              <p
+                style={{
+                  margin: '4px 0 0',
+                  fontSize: '13px',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                {chk.message}
+              </p>
               {chk.details && (
                 <p
                   style={{
                     margin: '6px 0 0',
                     fontSize: '12px',
-                    color: '#94a3b8',
+                    color: 'var(--color-text-muted)',
                     fontStyle: 'italic',
                   }}
                 >
@@ -202,17 +201,8 @@ export function ProductionReadinessModal({
         </div>
 
         {/* Rodapé com Dicas Operacionais */}
-        <div
-          style={{
-            marginTop: '16px',
-            paddingTop: '12px',
-            borderTop: '1px solid #334155',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <span style={{ fontSize: '12px', color: '#64748b' }}>
+        <div className="readiness-footer">
+          <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
             OpenAPI 3.0 disponível em <code>/api/docs</code> no backend exportado.
           </span>
           <div style={{ display: 'flex', gap: '10px' }}>

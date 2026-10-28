@@ -8,8 +8,14 @@ import { fieldsSource } from '../templates/modular/fields';
 import { contentSource } from '../templates/modular/content';
 import { layoutSource } from '../templates/modular/layout';
 import { screenViewSource, rendererSource, renderTypesSource } from '../templates/modular/screen';
-import { appSource, mainSource, routesSource } from '../templates/modular/app';
-import { styleTemplate, htmlTemplate } from '../templates/typescript/assets';
+import { appSource, darkModeAppSource, mainSource, routesSource } from '../templates/modular/app';
+import {
+  styleTemplate,
+  darkModeStyleAdditions,
+  htmlTemplate,
+  darkModeHtmlTemplate,
+} from '../templates/typescript/assets';
+import { generateVisualCss } from '../../engine/visualDesign';
 
 export function emitPages(plan: ArtifactPlan, graph: Graph) {
   plan.text('packages/contracts/src/ui.ts', uiTypesSource, 'contract');
@@ -66,9 +72,10 @@ export function emitPages(plan: ArtifactPlan, graph: Graph) {
     [],
     ['apps/web/src/app/page-registry.ts'],
   );
+  const isDark = Boolean(graph.darkModeEnabled);
   plan.text(
     'apps/web/src/app/App.tsx',
-    appSource,
+    isDark ? darkModeAppSource : appSource,
     'app',
     [],
     [
@@ -84,6 +91,21 @@ export function emitPages(plan: ArtifactPlan, graph: Graph) {
     [],
     ['apps/web/src/app/App.tsx', 'apps/web/src/styles/global.css'],
   );
-  plan.text('apps/web/src/styles/global.css', styleTemplate, 'style');
-  plan.text('apps/web/index.html', htmlTemplate, 'entrypoint', [], ['apps/web/src/main.tsx']);
+  plan.text(
+    'apps/web/src/styles/global.css',
+    isDark ? `${styleTemplate}\n${darkModeStyleAdditions}` : styleTemplate,
+    'style',
+  );
+  plan.text(
+    'apps/web/src/styles/visual-design.css',
+    generateVisualCss(graph.visualDesign, isDark),
+    'style',
+  );
+  plan.text(
+    'apps/web/index.html',
+    isDark ? darkModeHtmlTemplate : htmlTemplate,
+    'entrypoint',
+    [],
+    ['apps/web/src/main.tsx'],
+  );
 }

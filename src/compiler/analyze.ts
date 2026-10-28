@@ -3,6 +3,7 @@ import { validateBlockContract } from '../engine/blockRegistry';
 import { httpConfigurationIssues } from '../engine/http';
 import { databaseConfigurationIssues } from '../engine/database';
 import { authConfigurationIssues } from '../engine/auth';
+import { buildCompositionManifest, detectSubflowCycles } from '../engine/composition';
 import {
   formatValueType,
   getBlockPortDefinitions,
@@ -25,6 +26,22 @@ function isJson(text: string): boolean {
 /** Realiza análise semântica estrita de nós, configurações, rotas, tipos, conexões e cardinalidade */
 export function analyze(graph: Graph): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
+  const subflows = buildCompositionManifest(graph).subflows;
+  for (const node of graph.nodes.filter((item) => item.data.kind === 'subflow')) {
+    if (!subflows.some((item) => item.id === (node.data.config.subflowId || node.id)))
+      diagnostics.push({
+        code: 'MISSING_SUBFLOW',
+        severity: 'error',
+        nodeId: node.id,
+        message: `Subfluxo "${node.data.label}" não possui uma definição válida.`,
+      });
+  }
+  if (detectSubflowCycles(subflows).hasCycle)
+    diagnostics.push({
+      code: 'SUBFLOW_CYCLE',
+      severity: 'error',
+      message: 'Há um ciclo recursivo entre subfluxos.',
+    });
   diagnostics.push(
     ...httpConfigurationIssues(graph).map((issue) => ({
       ...issue,
@@ -63,6 +80,42 @@ export function analyze(graph: Graph): Diagnostic[] {
   // 2. Validação individual dos blocos
   for (const node of graph.nodes) {
     const { kind, label, config } = node.data;
+
+    if (kind === 'auth' && config.execution === 'real') {
+      if (
+        !graph.nodes.some(
+          (item) => item.data.kind === 'postgresConnection' && item.id === config.authDatabaseId,
+        )
+      )
+        diagnostics.push({
+          code: 'MISSING_AUTH_DATABASE',
+          severity: 'error',
+          nodeId: node.id,
+          message: `Autenticação "${label}": selecione uma conexão PostgreSQL para usuários e sessões.`,
+        });
+      if (config.provider && config.provider !== 'email')
+        diagnostics.push({
+          code: 'UNSUPPORTED_AUTH_PROVIDER',
+          severity: 'error',
+          nodeId: node.id,
+          message: `Autenticação "${label}": este provedor real ainda não está disponível.`,
+        });
+      if (
+        graph.nodes.some(
+          (item) =>
+            item.data.kind === 'auth' &&
+            item.data.config.execution === 'real' &&
+            item.data.config.authDatabaseId &&
+            item.data.config.authDatabaseId !== config.authDatabaseId,
+        )
+      )
+        diagnostics.push({
+          code: 'AUTH_DATABASE_MISMATCH',
+          severity: 'error',
+          nodeId: node.id,
+          message: `Autenticação "${label}": todos os blocos de autenticação real devem usar a mesma conexão PostgreSQL.`,
+        });
+    }
 
     if (!catalog[kind]) {
       diagnostics.push({

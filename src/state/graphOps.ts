@@ -60,6 +60,23 @@ export const updateConfig = (g: Graph, id: string, config: Record<string, string
   return updated;
 };
 
+export const deleteBlockConfigKey = (g: Graph, id: string, key: string): Graph => {
+  const updated = mapNode(g, id, (n) => {
+    const nextConfig = { ...n.data.config };
+    delete nextConfig[key];
+    return { ...n, data: { ...n.data, config: nextConfig } };
+  });
+  if (key === 'connectionId') {
+    return {
+      ...updated,
+      edges: updated.edges.filter(
+        (edge) => !(edge.target === id && edge.targetHandle === 'connection'),
+      ),
+    };
+  }
+  return syncGraphCode(updated, [id]);
+};
+
 export const renameBlock = (g: Graph, id: string, label: string) =>
   mapNode(g, id, (n) => ({ ...n, data: { ...n.data, label } }));
 
@@ -662,7 +679,10 @@ export function connectionError(c: Connection, g?: Graph): string | null {
  * Adiciona a conexão validando modo, tipo e cardinalidade.
  * Não substitui conexões silenciosamente: lança erro se a cardinalidade for excedida.
  */
-export function connect(g: Graph, c: Connection): Graph {
+export function connect(
+  g: Graph,
+  c: Connection & { data?: { callArg?: string; customCode?: string } },
+): Graph {
   const err = validateConnection(g, c);
   if (err) {
     throw new Error(err);
@@ -670,9 +690,37 @@ export function connect(g: Graph, c: Connection): Graph {
   const edgeId = (c as { id?: string }).id || crypto.randomUUID();
   const nextGraph: Graph = {
     ...g,
-    edges: [...g.edges, { ...c, id: edgeId }],
+    edges: [
+      ...g.edges,
+      {
+        ...c,
+        id: edgeId,
+        data: c.data ? { ...c.data } : undefined,
+      },
+    ],
   };
   return syncGraphCode(nextGraph, c.source && c.target ? [c.source, c.target] : undefined);
+}
+
+/**
+ * Atualiza o argumento ou expressão de chamada de uma conexão e sincroniza o código real dos blocos.
+ */
+export function updateEdgeCallArg(g: Graph, edgeId: string, callArg: string): Graph {
+  const edge = g.edges.find((e) => e.id === edgeId);
+  if (!edge) return g;
+  const nextEdges = g.edges.map((e) => {
+    if (e.id === edgeId) {
+      return {
+        ...e,
+        data: {
+          ...e.data,
+          callArg,
+        },
+      };
+    }
+    return e;
+  });
+  return syncGraphCode({ ...g, edges: nextEdges }, [edge.source, edge.target]);
 }
 
 export const screensOf = (g: Graph) => g.nodes.filter((n) => n.data.kind === 'screen');

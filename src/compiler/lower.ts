@@ -1,4 +1,6 @@
 import type { Block, Graph } from '../engine/types';
+import { buildCompositionManifest } from '../engine/composition';
+import { logicOperation, selectedLogicVersion } from '../engine/catalogo/logicCatalog';
 import type { ExprIR, InstructionIR, ProgramIR, ScreenIR, StepIR } from './ir';
 
 /** Converte valores literais seguros em expressões IR */
@@ -132,7 +134,11 @@ export function lowerBlock(
       const falseTargets = findTargetBlocks(graph, block.id, 'false');
 
       let condExpr: ExprIR;
-      const op = config.operator || (config.compare ? 'equals' : 'truthy');
+      const op = logicOperation(
+        'condition',
+        config.operator || (config.compare ? 'equals' : 'truthy'),
+        selectedLogicVersion(config),
+      );
       if (op === 'gt') {
         condExpr = {
           kind: 'binary_op',
@@ -141,7 +147,7 @@ export function lowerBlock(
           right: toLiteralExpr(Number(config.compare ?? config.value ?? 0)),
           valueType: { kind: 'boolean' },
         };
-      } else if (op === 'equals') {
+      } else if (op === 'eq') {
         condExpr = {
           kind: 'binary_op',
           op: 'eq',
@@ -196,9 +202,13 @@ export function lowerBlock(
         kind: 'conditional',
         condition: {
           kind: 'call_operation',
-          operation: `validate_${config.rule || 'required'}`,
+          operation: logicOperation('validator', config.rule, selectedLogicVersion(config)),
           args: [
-            { kind: 'read_var', name: 'value', valueType: { kind: 'any' } },
+            resolveInputExpr(graph, block.id, 'value', {
+              kind: 'read_var',
+              name: 'value',
+              valueType: { kind: 'any' },
+            }),
             toLiteralExpr(config.param || ''),
           ],
           valueType: { kind: 'boolean' },
@@ -267,6 +277,7 @@ export function lowerBlock(
         payload: {
           blockId: toLiteralExpr(block.id),
           provider: toLiteralExpr(config.provider || 'email'),
+          execution: toLiteralExpr(config.execution || 'demo'),
           mode: toLiteralExpr(config.mode || 'login'),
           email: resolveInputExpr(graph, block.id, 'email', toLiteralExpr(config.email || '')),
           password: resolveInputExpr(
@@ -326,17 +337,19 @@ export function lowerBlock(
       const dataFallback: ExprIR = config.data
         ? toLiteralExpr(config.data)
         : { kind: 'read_var', name: 'value', valueType: { kind: 'any' } };
-      payload.data = resolveInputExpr(
-        graph,
-        block.id,
-        'data',
-        resolveInputExpr(
-          graph,
-          block.id,
-          'value',
-          resolveInputExpr(graph, block.id, 'user', dataFallback),
-        ),
-      );
+      payload.data = ['insert', 'update'].includes(operation)
+        ? resolveInputExpr(
+            graph,
+            block.id,
+            'data',
+            resolveInputExpr(
+              graph,
+              block.id,
+              'value',
+              resolveInputExpr(graph, block.id, 'user', dataFallback),
+            ),
+          )
+        : { kind: 'literal', value: {}, valueType: { kind: 'object' } };
 
       const idFallback: ExprIR = toLiteralExpr(config.recordId || config.id || '');
       payload.id = resolveInputExpr(graph, block.id, 'id', idFallback);
@@ -476,6 +489,7 @@ export function lowerBlock(
           // ignora JSON inválido
         }
       }
+      def ??= buildCompositionManifest(graph).subflows.find((item) => item.id === config.subflowId);
 
       const inputs: Record<string, ExprIR> = {
         input: resolveInputExpr(graph, block.id, 'input', {
@@ -546,6 +560,7 @@ export function lowerBlock(
         action: config.action || 'upload',
         payload: {
           blockId: toLiteralExpr(block.id),
+          execution: toLiteralExpr(config.execution || 'real'),
           provider: toLiteralExpr(config.provider || 'local'),
           bucket: toLiteralExpr(config.bucket || 'uploads'),
           maxSizeBytes: toLiteralExpr(config.maxSizeBytes || '5242880'),
@@ -606,6 +621,7 @@ export function lowerBlock(
         action: 'send',
         payload: {
           blockId: toLiteralExpr(block.id),
+          execution: toLiteralExpr(config.execution || 'real'),
           provider: toLiteralExpr(config.provider || 'smtp'),
           from: toLiteralExpr(config.from || 'contato@exemplo.com'),
           to: resolveInputExpr(graph, block.id, 'to', toLiteralExpr(config.to || '')),
@@ -718,6 +734,7 @@ export function lowerBlock(
         action: 'schedule',
         payload: {
           blockId: toLiteralExpr(block.id),
+          execution: toLiteralExpr(config.execution || 'real'),
           taskName: toLiteralExpr(config.taskName || 'Tarefa'),
           schedule: toLiteralExpr(config.schedule || '0 * * * *'),
         },
@@ -778,6 +795,7 @@ export function lowerBlock(
         action: config.operation || 'createCheckout',
         payload: {
           blockId: toLiteralExpr(block.id),
+          execution: toLiteralExpr(config.execution || 'real'),
           provider: toLiteralExpr(config.provider || 'stripe'),
           currency: toLiteralExpr(config.currency || 'BRL'),
           amount: resolveInputExpr(
@@ -1125,10 +1143,19 @@ export function lowerBlock(
         'data',
         toLiteralExpr(config.fields ?? '{}'),
       );
+      const fields = (config.fieldNames || '')
+        .split(',')
+        .map((field) => field.trim())
+        .filter((field) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(field));
       instructions.push({
         kind: 'call_operation',
-        operation: 'object_create',
-        args: [dataExpr],
+        operation: fields.length ? 'object_from_fields' : 'object_create',
+        args: fields.length
+          ? fields.flatMap((field) => [
+              toLiteralExpr(field),
+              resolveInputExpr(graph, block.id, field, toLiteralExpr('')),
+            ])
+          : [dataExpr],
         targetVar: 'object',
       });
       instructions.push({

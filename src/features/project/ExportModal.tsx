@@ -81,9 +81,9 @@ export function ExportModal({ isOpen, onClose, graph, errors, onNotify }: Props)
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Exportar projeto">
+    <Modal isOpen={isOpen} onClose={onClose} title="Exportar projeto" className="export-modal">
       <span className="modal-icon">
-        <Code2 size={25} />
+        <Code2 size={24} />
       </span>
       <div className="eyebrow">PRÓXIMA ETAPA: PRODUÇÃO & HOSPEDAGEM</div>
       <h2>Seu aplicativo em código real</h2>

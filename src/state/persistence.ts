@@ -1,19 +1,19 @@
 import { useEffect, useRef } from 'react';
-import { demo, parseGraph, type Graph } from '../engine';
+import { parseGraph, type Graph } from '../engine';
 
 const STORAGE_KEY = 'flowforge-v1';
 /** Intervalo sem alterações antes de gravar (evita gravar a cada frame durante arrastes). */
 const SAVE_DELAY_MS = 400;
 
-/** Projeto salvo no navegador, ou o exemplo quando não há nada salvo. */
+/** Projeto salvo no navegador, ou um projeto vazio quando não há nada salvo. */
 export function loadSavedGraph(): Graph {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) return parseGraph(saved);
   } catch {
-    // JSON corrompido ou localStorage indisponível: começa pelo exemplo.
+    // JSON corrompido ou localStorage indisponível: começa com projeto vazio.
   }
-  return structuredClone(demo);
+  return { version: 1, name: 'Novo aplicativo', nodes: [], edges: [] };
 }
 
 /** Salva o grafo no localStorage com debounce e garante a gravação ao fechar a página. */

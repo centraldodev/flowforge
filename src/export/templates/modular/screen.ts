@@ -21,6 +21,6 @@ export function ScreenView({ definition, ...props }: ScreenProps & { definition:
   const scope: EvaluationScope = { store: props.store, inputs: props.values, variables: {} };
   const state = evaluateScreenState(definition, scope);
   const component = state === 'ready' ? definition.root : definition.states?.[state] || definition.root;
-  return <div className="screen-ui-root">{renderComponent(component, scope, props.values, props.onChange, props.onAction)}</div>;
+  return <div className="ff-design-frame" data-screen-id={definition.screenId}><div className="screen-ui-root">{renderComponent(component, scope, props.values, props.onChange, props.onAction)}</div></div>;
 }
 `;

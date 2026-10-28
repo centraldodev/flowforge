@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import type { Graph } from '../src/engine/types';
 import {
   customerOrdersProject,
   schedulingConflictProject,
   roleApprovalPortalProject,
 } from '../src/engine';
 import { createProject } from '../src/export';
+import { createTypeScriptPlan } from '../src/export/typescript';
 
 test('Fase 10: Auditoria E2E de Estrutura do Monorepo Exportado (Customer Orders)', async () => {
   const zip = await createProject(customerOrdersProject, 'typescript');
@@ -153,4 +155,173 @@ test('Fase 10: Auditoria de Compatibilidade dos 3 Apps Canônicos', async () => 
   assert.ok(roleFiles.includes('package.json'));
   assert.ok(roleFiles.includes('apps/api/src/auth/gateway.mjs'));
   assert.ok(roleFiles.includes('apps/api/src/policies/index.mjs'));
+});
+
+test('Auditoria 2026-10-27: Verificação das Correções de Segurança, Integridade e Runtime Exportado', async () => {
+  const zip = await createProject(customerOrdersProject, 'typescript');
+
+  // Item 1 & 10: Autenticação segura, PBKDF2 e bloqueio de escalonamento de privilégios
+  const authGw = await zip.file('apps/api/src/auth/gateway.mjs')?.async('string');
+  assert.ok(authGw, 'Gateway de autenticação deve existir');
+  assert.ok(authGw.includes('pbkdf2Sync'), 'Deve utilizar PBKDF2 com salt para hashing de senha');
+  assert.ok(
+    authGw.includes('PRIVILEGE_ESCALATION_DENIED'),
+    'Deve rejeitar escalonamento para role não-user no registro público',
+  );
+  assert.ok(
+    authGw.includes('export function verifySession'),
+    'Deve exportar função verifySession para autorização central',
+  );
+
+  // Item 2 & 5: Gateway de banco de dados com autorização central, isolamento multi-tenant e PostgreSQL real
+  const dbGw = await zip.file('apps/api/src/database/gateway.mjs')?.async('string');
+  assert.ok(dbGw, 'Gateway de banco de dados deve existir');
+  assert.ok(dbGw.includes('verifySession'), 'Deve validar sessão e token de autenticação');
+  assert.ok(dbGw.includes('authorizeRequest'), 'Deve invocar o avaliador de políticas de acesso');
+  assert.ok(
+    dbGw.includes('UNAUTHORIZED_TENANT'),
+    'Deve rejeitar requisições multi-tenant sem tenant identificado na sessão',
+  );
+  assert.ok(dbGw.includes('runMigrations'), 'Deve executar migrações de esquema DDL');
+  assert.ok(
+    dbGw.includes('new Pool('),
+    'Deve instanciar Pool de conexões PostgreSQL para modo real',
+  );
+
+  // Dependência pg no apps/api/package.json
+  const apiPkgRaw = await zip.file('apps/api/package.json')?.async('string');
+  assert.ok(apiPkgRaw);
+  const apiPkg = JSON.parse(apiPkgRaw);
+  assert.ok(
+    apiPkg.dependencies?.pg,
+    'apps/api/package.json deve declarar dependência de produção pg',
+  );
+
+  // Item 3 & 4: Contratos completos e registro de todos os adaptadores
+  const runtimeContracts = await zip.file('packages/contracts/src/runtime.ts')?.async('string');
+  assert.ok(runtimeContracts, 'runtime.ts deve ser emitido');
+  assert.ok(runtimeContracts.includes('SubflowAdapter'), 'Deve tipar SubflowAdapter');
+  assert.ok(
+    runtimeContracts.includes('email?: ActionAdapter'),
+    'Deve incluir adapter email em Adapters',
+  );
+  assert.ok(
+    runtimeContracts.includes('storage?: ActionAdapter'),
+    'Deve incluir adapter storage em Adapters',
+  );
+  assert.ok(
+    runtimeContracts.includes('payment?: ActionAdapter'),
+    'Deve incluir adapter payment em Adapters',
+  );
+
+  const contextCode = await zip.file('apps/web/src/runtime/context.ts')?.async('string');
+  assert.ok(contextCode, 'apps/web/src/runtime/context.ts deve existir');
+  assert.ok(
+    contextCode.includes('ModularSubflowAdapter'),
+    'Deve prover adaptador ModularSubflowAdapter no contexto',
+  );
+  assert.ok(
+    contextCode.includes('MockEmailAdapter'),
+    'Deve prover adaptador MockEmailAdapter no contexto',
+  );
+  assert.ok(
+    zip.file('apps/web/src/runtime/adapters/subflow.js'),
+    'Arquivo do adaptador de subflow deve ser emitido',
+  );
+  assert.ok(
+    zip.file('apps/web/src/runtime/adapters/email.js'),
+    'Arquivo do adaptador de email deve ser emitido',
+  );
+
+  // Workflows gerados com retorno explícito (evitando TS2355)
+  const workflowFile = Object.keys(zip.files).find(
+    (f) =>
+      f.startsWith('apps/web/src/') &&
+      f.includes('/workflows/') &&
+      f.endsWith('.ts') &&
+      !f.endsWith('.manifest.json'),
+  );
+  assert.ok(workflowFile, 'Pelo menos um arquivo de workflow deve ser gerado');
+  const wfContent = await zip.file(workflowFile)?.async('string');
+  assert.ok(wfContent);
+  assert.ok(
+    wfContent.includes('return undefined;'),
+    'Workflow deve ter retorno explícito para satisfazer Promise<unknown>',
+  );
+
+  // Item 6: Verificação de pagamentos
+  const paymentProject: Graph = {
+    version: 1,
+    name: 'payment-audit',
+    nodes: [
+      {
+        id: 'p1',
+        type: 'block',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Payment',
+          kind: 'payment',
+          config: { provider: 'stripe', amount: '100' },
+        },
+      },
+    ],
+    edges: [],
+  };
+  const paymentPlan = createTypeScriptPlan(paymentProject);
+  const paymentGw = paymentPlan.files.get('apps/api/src/payments/gateway.mjs')?.content;
+  assert.ok(paymentGw, 'Gateway de pagamentos deve existir');
+  assert.ok(
+    paymentGw.includes('PAYMENT_NOT_FOUND'),
+    'Deve retornar erro quando pagamento não existe ou é inválido',
+  );
+  assert.ok(paymentGw.includes("'pending'"), 'Novo pagamento deve iniciar com status pending');
+
+  // Item 7: Validação criptográfica de Webhooks e proteção anti-replay
+  const webhookProject: Graph = {
+    version: 1,
+    name: 'webhook-audit',
+    nodes: [
+      {
+        id: 'w1',
+        type: 'block',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Webhook',
+          kind: 'webhook',
+          contractVersion: 1,
+          config: { endpoint: '/api/webhooks/audit', secretEnv: 'FLOWFORGE_SECRET_WEBHOOK_SECRET' },
+        },
+      },
+    ],
+    edges: [],
+  };
+  const webhookPlan = createTypeScriptPlan(webhookProject);
+  const integrationsGw = webhookPlan.files.get('apps/api/src/integrations/gateway.mjs')?.content;
+  assert.ok(integrationsGw, 'Gateway de integrações deve existir');
+  assert.ok(
+    integrationsGw.includes('timingSafeEqual'),
+    'Deve usar timingSafeEqual para validar HMAC',
+  );
+  assert.ok(integrationsGw.includes('MISSING_SIGNATURE'), 'Deve exigir cabeçalho de assinatura');
+  assert.ok(
+    integrationsGw.includes('DUPLICATE_EVENT'),
+    'Deve rejeitar eventos duplicados (anti-replay)',
+  );
+
+  // Item 8: Servidor serve frontend estático mesmo sem conector HTTP externo
+  const appCode = await zip.file('apps/api/src/app.mjs')?.async('string');
+  assert.ok(appCode, 'app.mjs deve existir');
+  assert.ok(appCode.includes('serveStatic'), 'app.mjs deve montar serveStatic');
+  assert.ok(zip.file('apps/api/src/runtime/static.mjs'), 'Módulo static.mjs deve ser emitido');
+
+  // Item 9: Dockerfile copia scripts no estágio builder
+  const dockerfile = await zip.file('Dockerfile')?.async('string');
+  assert.ok(dockerfile, 'Dockerfile deve existir');
+  const builderIndex = dockerfile.indexOf('AS builder');
+  const runnerIndex = dockerfile.indexOf('AS runner');
+  const builderStage = dockerfile.slice(builderIndex, runnerIndex);
+  assert.ok(
+    builderStage.includes('COPY scripts ./scripts'),
+    'Estágio builder deve copiar scripts para viabilizar check-api',
+  );
 });

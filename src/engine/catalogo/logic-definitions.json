@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "definitions": [
+    {
+      "id": "condition",
+      "version": 1,
+      "operationField": "operator",
+      "defaultOperation": "truthy",
+      "options": [
+        { "value": "truthy", "label": "É verdadeiro / tem valor", "operation": "truthy" },
+        { "value": "equals", "label": "É igual a", "operation": "eq" },
+        { "value": "gt", "label": "É maior que", "operation": "gt" }
+      ]
+    },
+    {
+      "id": "validator",
+      "version": 1,
+      "operationField": "rule",
+      "defaultOperation": "required",
+      "options": [
+        {
+          "value": "required",
+          "label": "Obrigatório (Não vazio)",
+          "operation": "validate_required"
+        },
+        { "value": "email", "label": "Formato de E-mail", "operation": "validate_email" },
+        {
+          "value": "minLength",
+          "label": "Tamanho Mínimo (caracteres)",
+          "operation": "validate_minLength"
+        },
+        {
+          "value": "maxLength",
+          "label": "Tamanho Máximo (caracteres)",
+          "operation": "validate_maxLength"
+        },
+        { "value": "numeric", "label": "Numérico", "operation": "validate_numeric" },
+        { "value": "cpf", "label": "CPF (11 dígitos)", "operation": "validate_cpf" },
+        { "value": "regex", "label": "Expressão Regular (Regex)", "operation": "validate_regex" }
+      ]
+    }
+  ]
+}

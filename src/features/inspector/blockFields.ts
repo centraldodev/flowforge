@@ -6,6 +6,11 @@ import { getGraphFlows } from '../canvas/constants';
 import { type Option } from '../../engine/blockFields';
 import { blockRegistry } from '../../engine/blockRegistry';
 import { httpConnection } from '../../engine/http';
+import {
+  logicDefinition,
+  localLogicCatalog,
+  selectedLogicVersion,
+} from '../../engine/catalogo/logicCatalog';
 export { fieldsFor } from '../../engine/blockFields';
 
 export function screenOptions(g: Graph): Option[] {
@@ -35,6 +40,20 @@ export function configFields(
   onChange: (config: Record<string, string>) => void,
 ): FieldDefinition[] {
   const config = block.data.config;
+  const logicKind =
+    block.data.kind === 'condition' || block.data.kind === 'validator'
+      ? block.data.kind
+      : undefined;
+  let logicOptions: Option[] = [];
+  if (logicKind) {
+    try {
+      logicOptions = logicDefinition(logicKind, selectedLogicVersion(config)).options.map(
+        ({ value, label }) => ({ value, label }),
+      );
+    } catch {
+      /* O compilador informa a versão indisponível. */
+    }
+  }
   return blockRegistry[block.data.kind].properties
     .filter((spec) => !spec.visible || spec.visible(config))
     .map((spec) => ({
@@ -42,22 +61,43 @@ export function configFields(
       label:
         spec.usage === 'unsupported' ? `${spec.label} (sem efeito na execução atual)` : spec.label,
       value:
-        spec.key === 'connectionId'
-          ? httpConnection(g, block.id)?.id || ''
-          : config[spec.key] || '',
+        spec.key === 'catalogVersion' && logicKind
+          ? String(selectedLogicVersion(config))
+          : spec.key === 'connectionId'
+            ? httpConnection(g, block.id)?.id || ''
+            : config[spec.key] || '',
       options:
-        spec.options === 'screens'
-          ? screenOptions(g)
-          : spec.options === 'flows'
-            ? flowOptions(g)
-            : spec.options === 'httpConnections'
-              ? [
-                  { value: '', label: 'Selecione uma conexão' },
-                  ...g.nodes
-                    .filter((node) => node.data.kind === 'httpConnection')
-                    .map((node) => ({ value: node.id, label: node.data.label })),
-                ]
-              : spec.options,
+        logicKind && spec.options === 'logicCatalogVersions'
+          ? localLogicCatalog
+              .listPublished()
+              .filter((record) => record.definition.id === logicKind)
+              .map((record) => ({
+                value: String(record.definition.version),
+                label: `Versão ${record.definition.version}`,
+              }))
+          : logicKind && spec.key === (logicKind === 'condition' ? 'operator' : 'rule')
+            ? logicOptions
+            : spec.options === 'screens'
+              ? screenOptions(g)
+              : spec.options === 'flows'
+                ? flowOptions(g)
+                : spec.options === 'httpConnections'
+                  ? [
+                      { value: '', label: 'Selecione uma conexão' },
+                      ...g.nodes
+                        .filter((node) => node.data.kind === 'httpConnection')
+                        .map((node) => ({ value: node.id, label: node.data.label })),
+                    ]
+                  : spec.options === 'postgresConnections'
+                    ? [
+                        { value: '', label: 'Selecione uma conexão PostgreSQL' },
+                        ...g.nodes
+                          .filter((node) => node.data.kind === 'postgresConnection')
+                          .map((node) => ({ value: node.id, label: node.data.label })),
+                      ]
+                    : Array.isArray(spec.options)
+                      ? spec.options
+                      : undefined,
       area: spec.area,
       entries: spec.entries,
       onChange: (value: string) => onChange({ [spec.key]: value }),

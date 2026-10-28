@@ -10,6 +10,13 @@ export type TraceItem = {
   message: string;
 };
 
+export type ExecutionEvent = {
+  level: 'info' | 'success' | 'warning' | 'error';
+  message: string;
+  blockId?: string;
+  timestamp: number;
+};
+
 export interface AuthAdapter {
   execute(
     action: string,
@@ -128,6 +135,7 @@ export type ExecutionContext = {
   signal?: AbortSignal;
   adapters: ExecutionAdapters;
   debugger?: import('./debugger').VisualDebugger;
+  onEvent?: (event: ExecutionEvent) => void;
 };
 
 export type ExecutionResult = {

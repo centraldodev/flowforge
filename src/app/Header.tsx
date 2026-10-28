@@ -4,6 +4,7 @@ import {
   Clock,
   Code2,
   FlaskConical,
+  LayoutDashboard,
   Pause,
   Play,
   Rocket,
@@ -15,6 +16,8 @@ import {
 import type { DebuggerStatus } from '../compiler/interpreter/debuggerTypes';
 
 type Props = {
+  workspaceMode: 'flow' | 'frontend';
+  onWorkspaceMode: (mode: 'flow' | 'frontend') => void;
   projectName: string;
   onRenameProject: (name: string) => void;
   onSimulate: () => void;
@@ -37,6 +40,8 @@ type Props = {
 };
 
 export function Header({
+  workspaceMode,
+  onWorkspaceMode,
   projectName,
   onRenameProject,
   onSimulate,
@@ -82,6 +87,26 @@ export function Header({
         />
       </div>
       <div className="top-actions">
+        <div className="workspace-mode" role="group" aria-label="Área de trabalho">
+          <button
+            type="button"
+            aria-pressed={workspaceMode === 'flow'}
+            className={workspaceMode === 'flow' ? 'active' : ''}
+            onClick={() => onWorkspaceMode('flow')}
+          >
+            <Workflow size={14} />
+            <span>Fluxos</span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={workspaceMode === 'frontend'}
+            className={workspaceMode === 'frontend' ? 'active' : ''}
+            onClick={() => onWorkspaceMode('frontend')}
+          >
+            <LayoutDashboard size={14} />
+            <span>Interface</span>
+          </button>
+        </div>
         {/* Controles de Depuração Visual */}
         {onStartDebug && (
           <>
@@ -191,6 +216,7 @@ export function Header({
             <Rocket size={16} />
           </button>
         )}
+
         <button
           type="button"
           className="secondary"

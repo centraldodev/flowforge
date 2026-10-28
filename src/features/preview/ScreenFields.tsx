@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Graph } from '../../engine';
+import { generateVisualCss, type Device } from '../../engine/visualDesign';
 import {
   evaluateBinding,
   evaluateListItems,
@@ -9,6 +10,7 @@ import {
   type EvaluationScope,
   type ScreenUI,
   type UIComponent,
+  type UIMenuItem,
 } from '../../compiler/ui';
 
 type Props = {
@@ -19,6 +21,7 @@ type Props = {
   store?: Record<string, unknown>;
   onChange: (id: string, value: string) => void;
   onAction: (id: string) => void;
+  device?: Device;
 };
 
 /**
@@ -34,6 +37,7 @@ export function ScreenFields({
   store = {},
   onChange,
   onAction,
+  device = 'mobile',
 }: Props) {
   const currentScreenNode = graph.nodes.find((n) => n.id === screen);
   const activeScreenUI: ScreenUI | undefined =
@@ -94,8 +98,11 @@ export function ScreenFields({
   }
 
   return (
-    <div className="screen-ui-root" style={{ width: '100%' }}>
-      {renderComponent(activeScreenUI.root, scope, values, onChange, onAction)}
+    <div className="ff-design-frame" data-screen-id={activeScreenUI.screenId} data-device={device}>
+      <style>{generateVisualCss(graph.visualDesign, Boolean(graph.darkModeEnabled))}</style>
+      <div className="screen-ui-root" style={{ width: '100%', position: 'relative' }}>
+        {renderComponent(activeScreenUI.root, scope, values, onChange, onAction)}
+      </div>
     </div>
   );
 }
@@ -220,7 +227,7 @@ function renderComponent(
       const val = values[key] ?? comp.defaultValue ?? '';
       return (
         <label className="field" key={comp.id} id={`label_${comp.id}`}>
-          {comp.label}
+          {comp.label && <span className="ff-input-label">{comp.label}</span>}
           <input
             id={comp.id}
             type={comp.inputType || 'text'}
@@ -239,22 +246,13 @@ function renderComponent(
       const val = values[key] ?? comp.defaultValue ?? '';
       return (
         <label className="field" key={comp.id} id={`label_${comp.id}`}>
-          {comp.label}
+          {comp.label && <span className="ff-input-label">{comp.label}</span>}
           <textarea
             id={comp.id}
             rows={comp.rows || 3}
             placeholder={comp.placeholder}
             value={val}
             onChange={(e) => onChange(key, e.target.value)}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              fontFamily: 'inherit',
-              fontSize: '13px',
-              width: '100%',
-              boxSizing: 'border-box',
-            }}
             {...a11yProps}
           />
         </label>
@@ -266,20 +264,11 @@ function renderComponent(
       const val = values[key] ?? comp.defaultValue ?? (comp.options[0]?.value || '');
       return (
         <label className="field" key={comp.id} id={`label_${comp.id}`}>
-          {comp.label}
+          {comp.label && <span className="ff-input-label">{comp.label}</span>}
           <select
             id={comp.id}
             value={val}
             onChange={(e) => onChange(key, e.target.value)}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '6px',
-              border: '1px solid #cbd5e1',
-              fontFamily: 'inherit',
-              fontSize: '13px',
-              width: '100%',
-              boxSizing: 'border-box',
-            }}
             {...a11yProps}
           >
             {comp.options.map((opt) => (
@@ -381,8 +370,305 @@ function renderComponent(
           onClick={() => onAction(comp.actionEvent)}
           {...a11yProps}
         >
+          {comp.iconName && (
+            <span
+              className="material-symbols-outlined"
+              style={{ fontSize: '18px', marginRight: comp.label ? '6px' : '0' }}
+            >
+              {comp.iconName}
+            </span>
+          )}
           {comp.label}
         </button>
+      );
+    }
+
+    case 'icon': {
+      return (
+        <span
+          key={comp.id}
+          id={comp.id}
+          className="material-symbols-outlined"
+          style={{
+            fontSize: comp.size ? `${comp.size}px` : '24px',
+            color: comp.color || 'inherit',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: comp.actionEvent ? 'pointer' : 'default',
+            userSelect: 'none',
+          }}
+          onClick={comp.actionEvent ? () => onAction(comp.actionEvent!) : undefined}
+          {...a11yProps}
+        >
+          {comp.iconName || 'star'}
+        </span>
+      );
+    }
+
+    case 'dropdown': {
+      let dynamicItems: UIMenuItem[] = [];
+      if (comp.itemsPath) {
+        const raw =
+          (scope.store as Record<string, unknown> | undefined)?.[comp.itemsPath] ||
+          scope[comp.itemsPath];
+        if (Array.isArray(raw)) {
+          dynamicItems = raw.map((item, idx) => ({
+            id:
+              typeof item === 'object' && item && 'id' in item
+                ? String(item.id)
+                : `${comp.id}_dyn_${idx}`,
+            label:
+              typeof item === 'object' && item && 'label' in item
+                ? String(item.label)
+                : typeof item === 'object' && item && 'nome' in item
+                  ? String(item.nome)
+                  : String(item),
+            icon: typeof item === 'object' && item && 'icon' in item ? String(item.icon) : 'label',
+            actionType: 'value' as const,
+            value:
+              typeof item === 'object' && item && 'value' in item
+                ? String(item.value)
+                : typeof item === 'object' && item && 'id' in item
+                  ? String(item.id)
+                  : String(item),
+          }));
+        }
+      }
+      const allItems: UIMenuItem[] = dynamicItems.length > 0 ? dynamicItems : comp.items || [];
+
+      return (
+        <details
+          key={comp.id}
+          id={comp.id}
+          className="ui-dropdown"
+          style={{ position: 'relative', width: '100%', marginBottom: '8px' }}
+          {...a11yProps}
+        >
+          <summary
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '10px 14px',
+              background: '#1e222b',
+              border: '1px solid #334155',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              listStyle: 'none',
+              color: '#f8fafc',
+              fontWeight: 500,
+              fontSize: '14px',
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {comp.iconName && comp.iconName !== 'arrow_drop_down' && (
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                  {comp.iconName}
+                </span>
+              )}
+              <span>{comp.label}</span>
+            </span>
+            <span className="material-symbols-outlined" style={{ fontSize: '20px', opacity: 0.7 }}>
+              arrow_drop_down
+            </span>
+          </summary>
+          <div
+            className="ui-dropdown-menu"
+            style={{
+              position: 'absolute',
+              top: 'calc(100% + 4px)',
+              left: 0,
+              right: 0,
+              background: '#181b22',
+              border: '1px solid #334155',
+              borderRadius: '8px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+              zIndex: 100,
+              overflow: 'hidden',
+            }}
+          >
+            {allItems.map((item, idx) => (
+              <button
+                key={item.id || idx}
+                type="button"
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom:
+                    idx < allItems.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                  color: '#e2e8f0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+                onClick={(e) => {
+                  const details = e.currentTarget.closest('details');
+                  if (details) details.open = false;
+                  if (item.actionType === 'screen' && item.targetScreenId) {
+                    onAction(item.targetScreenId);
+                  } else if (item.actionType === 'workflow' && item.actionEvent) {
+                    onAction(item.actionEvent);
+                  } else if (comp.bindingPath && item.value) {
+                    onChange(comp.bindingPath, String(item.value));
+                  } else if (comp.actionEvent) {
+                    onAction(comp.actionEvent);
+                  }
+                }}
+              >
+                {item.icon && (
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ fontSize: '16px', color: '#a78bfa' }}
+                  >
+                    {item.icon}
+                  </span>
+                )}
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </details>
+      );
+    }
+
+    case 'hamburger': {
+      let dynamicItems: UIMenuItem[] = [];
+      if (comp.itemsPath) {
+        const raw =
+          (scope.store as Record<string, unknown> | undefined)?.[comp.itemsPath] ||
+          scope[comp.itemsPath];
+        if (Array.isArray(raw)) {
+          dynamicItems = raw.map((item, idx) => ({
+            id:
+              typeof item === 'object' && item && 'id' in item
+                ? String(item.id)
+                : `${comp.id}_dyn_${idx}`,
+            label:
+              typeof item === 'object' && item && 'label' in item
+                ? String(item.label)
+                : typeof item === 'object' && item && 'nome' in item
+                  ? String(item.nome)
+                  : String(item),
+            icon:
+              typeof item === 'object' && item && 'icon' in item ? String(item.icon) : 'web_asset',
+            actionType: 'value' as const,
+            value:
+              typeof item === 'object' && item && 'value' in item
+                ? String(item.value)
+                : typeof item === 'object' && item && 'id' in item
+                  ? String(item.id)
+                  : String(item),
+          }));
+        }
+      }
+      const allItems: UIMenuItem[] = dynamicItems.length > 0 ? dynamicItems : comp.items || [];
+
+      return (
+        <details
+          key={comp.id}
+          id={comp.id}
+          className="ui-hamburger-menu"
+          style={{ position: 'relative', display: 'inline-block' }}
+          {...a11yProps}
+        >
+          <summary
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '42px',
+              height: '42px',
+              background: '#1e222b',
+              border: '1px solid #334155',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              listStyle: 'none',
+              color: '#f8fafc',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>
+              {comp.iconName || 'menu'}
+            </span>
+          </summary>
+          <div
+            className="ui-hamburger-drawer"
+            style={{
+              position: 'absolute',
+              top: 'calc(100% + 4px)',
+              left: 0,
+              minWidth: '220px',
+              background: '#181b22',
+              border: '1px solid #334155',
+              borderRadius: '8px',
+              boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
+              zIndex: 120,
+              padding: '6px 0',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                padding: '8px 14px',
+                fontSize: '11px',
+                fontWeight: 600,
+                color: '#94a3b8',
+                textTransform: 'uppercase',
+                letterSpacing: '0.6px',
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              {comp.label || 'Navegação'}
+            </div>
+            {allItems.map((item, idx) => (
+              <button
+                key={item.id || idx}
+                type="button"
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#e2e8f0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+                onClick={(e) => {
+                  const details = e.currentTarget.closest('details');
+                  if (details) details.open = false;
+                  if (item.actionType === 'screen' && item.targetScreenId) {
+                    onAction(item.targetScreenId);
+                  } else if (item.actionType === 'workflow' && item.actionEvent) {
+                    onAction(item.actionEvent);
+                  } else if (comp.bindingPath && item.value) {
+                    onChange(comp.bindingPath, String(item.value));
+                  } else if (comp.actionEvent) {
+                    onAction(comp.actionEvent);
+                  }
+                }}
+              >
+                {item.icon && (
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ fontSize: '18px', color: '#a78bfa' }}
+                  >
+                    {item.icon}
+                  </span>
+                )}
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </details>
       );
     }
 

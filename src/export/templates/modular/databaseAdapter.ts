@@ -1,5 +1,51 @@
 export const databaseAdapterSource = `export class MockDatabaseAdapter {
   async execute(action, payload, context) {
+    if (payload.mode === 'real') {
+      const token = context.store.__authToken || null;
+      const response = await fetch('/api/db', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+        },
+        signal: context.signal,
+        body: JSON.stringify({
+          id: payload.blockId,
+          operation: payload.operation || action || 'query',
+          payload: {
+            data: payload.data ?? payload.value,
+            id: payload.id ?? payload.recordId,
+            filter: payload.filter,
+            limit: payload.limit,
+            offset: payload.offset,
+            orderBy: payload.orderBy,
+            orderDirection: payload.orderDirection
+          }
+        })
+      });
+      if (!response.headers.get('content-type')?.includes('application/json')) {
+        throw new Error('Backend de banco de dados indisponível.');
+      }
+      const result = await response.json();
+      if (!response.ok || !result.ok) {
+        throw Object.assign(new Error(result.error?.message || 'Falha na operação de banco de dados.'), {
+          code: result.error?.code || 'DB_ERROR',
+          status: response.status
+        });
+      }
+      context.variables['value'] = result.data;
+      context.outputs['value'] = result.data;
+      if (result.total !== undefined) {
+        context.variables['total'] = result.total;
+        context.outputs['total'] = result.total;
+      }
+      if (result.deletedCount !== undefined) {
+        context.variables['deletedCount'] = result.deletedCount;
+        context.outputs['deletedCount'] = result.deletedCount;
+      }
+      return result.data;
+    }
+
     const table = String(payload.table || "itens");
     const rows = (context.store[table] ??= []);
 

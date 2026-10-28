@@ -8,6 +8,7 @@ import type {
   AccessPolicyDefinition,
 } from '../engine/auth';
 import { evaluatePolicy } from '../engine/auth';
+import { PLAYGROUND_ACCOUNT } from '../engine/playgroundCredentials';
 
 export type AuthExecutionResult = {
   ok: boolean;
@@ -232,7 +233,18 @@ export async function executeAuthAction(
 }
 
 /** Middleware de autenticação e políticas de segurança para o servidor */
-export function createAuthGateway(options: { manifest?: AuthManifest } = {}) {
+export function createAuthGateway(
+  options: { manifest?: AuthManifest; seedPlaygroundAccount?: boolean } = {},
+) {
+  if (options.seedPlaygroundAccount && !serverUsers.has(PLAYGROUND_ACCOUNT.email)) {
+    registerServerUser({
+      email: PLAYGROUND_ACCOUNT.email,
+      password: PLAYGROUND_ACCOUNT.password,
+      name: PLAYGROUND_ACCOUNT.name,
+      role: 'user',
+      provider: 'email',
+    });
+  }
   return async (req: IncomingMessage, res: ServerResponse) => {
     if (req.method !== 'POST') {
       res.statusCode = 405;

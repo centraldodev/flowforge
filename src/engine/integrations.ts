@@ -7,6 +7,7 @@ export type StorageConfig = {
   maxSizeBytes: number;
   allowedTypes: string[];
   secretEnv: string;
+  execution: 'real' | 'demo';
 };
 
 export type EmailConfig = {
@@ -17,6 +18,7 @@ export type EmailConfig = {
   subject?: string;
   body?: string;
   secretEnv: string;
+  execution: 'real' | 'demo';
 };
 
 export type WebhookConfig = {
@@ -30,6 +32,7 @@ export type TaskConfig = {
   id: string;
   taskName: string;
   schedule: string;
+  execution: 'real' | 'demo';
 };
 
 export type IntegrationsManifest = {
@@ -58,6 +61,7 @@ export function buildIntegrationsManifest(graph: Graph): IntegrationsManifest {
           .map((t) => t.trim())
           .filter(Boolean),
         secretEnv: config.secretEnv || 'FLOWFORGE_SECRET_STORAGE_KEY',
+        execution: config.execution === 'demo' ? 'demo' : 'real',
       });
     } else if (kind === 'email') {
       email.push({
@@ -68,6 +72,7 @@ export function buildIntegrationsManifest(graph: Graph): IntegrationsManifest {
         subject: config.subject,
         body: config.body,
         secretEnv: config.secretEnv || 'FLOWFORGE_SECRET_EMAIL_API_KEY',
+        execution: config.execution === 'demo' ? 'demo' : 'real',
       });
     } else if (kind === 'webhook') {
       webhooks.push({
@@ -81,6 +86,7 @@ export function buildIntegrationsManifest(graph: Graph): IntegrationsManifest {
         id: node.id,
         taskName: config.taskName || 'Tarefa Agendada',
         schedule: config.schedule || '0 * * * *',
+        execution: config.execution === 'demo' ? 'demo' : 'real',
       });
     }
   }

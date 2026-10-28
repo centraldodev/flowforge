@@ -3,6 +3,23 @@ const DEMO_USER = { email: "demo@exemplo.com", password: "123456", nome: "Usuár
 
 export class MockAuthAdapter {
   async execute(action, payload, context) {
+    if (payload.execution === "real" || payload.mode === "real") {
+      if (payload.provider && payload.provider !== "email") throw new Error("Este provedor de autenticação real ainda não está disponível.");
+      const token = context.store.__authToken || "";
+      const emailKey = Object.keys(context.inputs).find((key) => key.toLowerCase().includes('email'));
+      const passwordKey = Object.keys(context.inputs).find((key) => /senha|password/i.test(key));
+      const email = payload.email || (emailKey ? context.inputs[emailKey] : '');
+      const password = payload.password || (passwordKey ? context.inputs[passwordKey] : '');
+      const response = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) }, signal: context.signal,
+        body: JSON.stringify({ action, payload: { email, password, token } }) });
+      if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('Serviço de autenticação indisponível.');
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw Object.assign(new Error(result.error?.message || 'Falha na autenticação.'), { code: result.error?.code, status: response.status });
+      if (action === 'logout') { delete context.store.__authToken; delete context.store.__session; return { ok: true }; }
+      if (result.session?.token) context.store.__authToken = result.session.token;
+      if (result.user) { context.store.__session = [result.user]; context.variables.user = result.user; context.outputs.user = result.user; }
+      return result.user || result.session || result;
+    }
     let email = String(payload.email || "");
     let password = String(payload.password || "");
 

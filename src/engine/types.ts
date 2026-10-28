@@ -92,6 +92,10 @@ export type Link = {
   target: string;
   sourceHandle?: string | null;
   targetHandle?: string | null;
+  data?: {
+    callArg?: string;
+    customCode?: string;
+  };
 };
 
 export type FlowStage = {
@@ -101,7 +105,9 @@ export type FlowStage = {
 };
 
 export type Graph = {
+  visualDesign?: import('./visualDesign').VisualDesign;
   httpEnvironment?: 'development' | 'production';
+  darkModeEnabled?: boolean;
   version: 1;
   name: string;
   nodes: Block[];

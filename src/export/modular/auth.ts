@@ -1,6 +1,7 @@
 import type { Graph } from '../../engine/types';
 import { buildAuthManifest } from '../../engine/auth';
 import { ArtifactPlan, json } from './artifacts';
+import { parseConnectionConfig } from '../../engine/database';
 
 export function emitAuth(plan: ArtifactPlan, graph: Graph): boolean {
   const manifest = buildAuthManifest(graph);
@@ -116,17 +117,95 @@ export function authorizeRequest({ user, target, action = '*', record }) {
 
   // 3. Runtime de Autenticação em apps/api/src/auth/gateway.mjs
   const providersJson = json(manifest.providers);
-  const authGatewayCode = `import { randomBytes, createHash } from 'node:crypto';
+  const realAuth = graph.nodes.find(
+    (node) => node.data.kind === 'auth' && node.data.config.execution === 'real',
+  );
+  const connection =
+    realAuth &&
+    graph.nodes.find(
+      (node) =>
+        node.id === realAuth.data.config.authDatabaseId && node.data.kind === 'postgresConnection',
+    );
+  const persistence = connection ? parseConnectionConfig(connection) : null;
+  if (realAuth && !persistence) throw new Error('Autenticação real exige uma conexão PostgreSQL.');
+  if (persistence)
+    plan.text(
+      `${root}auth/store.mjs`,
+      `import { createHash } from 'node:crypto';
+const connection = ${json(persistence)};
+let pending;
+async function database() {
+  if (!pending) pending = (async () => {
+    const environment = process.env.FLOWFORGE_ENV || ${JSON.stringify(graph.httpEnvironment || 'development')};
+    if (!['development', 'production'].includes(environment)) throw new Error('Ambiente de autenticação inválido.');
+    const config = connection[environment];
+    const secret = process.env[config.secretEnv];
+    if (!secret) throw new Error('Credencial PostgreSQL da autenticação não configurada.');
+    const { Pool } = await import('pg');
+    const params = /^postgres(?:ql)?:\\/\\//i.test(secret) ? { connectionString: secret } : { host: config.host, port: config.port, database: config.database, user: config.user, password: secret };
+    const pool = new Pool({ ...params, connectionTimeoutMillis: config.timeoutMs, ssl: config.ssl === 'require' ? { rejectUnauthorized: true } : undefined });
+    try {
+      await pool.query('CREATE TABLE IF NOT EXISTS flowforge_auth_users (id text PRIMARY KEY, email text NOT NULL UNIQUE, name text NOT NULL, role text NOT NULL, org_id text, provider text NOT NULL, password_hash text NOT NULL)');
+      await pool.query('CREATE TABLE IF NOT EXISTS flowforge_auth_sessions (token_hash text PRIMARY KEY, user_id text NOT NULL REFERENCES flowforge_auth_users(id) ON DELETE CASCADE, expires_at bigint NOT NULL)');
+      return pool;
+    } catch (error) { await pool.end(); throw error; }
+  })().catch((error) => { pending = undefined; throw error; });
+  return pending;
+}
+const hashToken = (token) => createHash('sha256').update(token).digest('hex');
+const userFrom = (row) => row && ({ id: row.id, email: row.email, name: row.name, role: row.role, orgId: row.org_id || undefined, provider: row.provider, passwordHash: row.password_hash });
+export async function getUser(email) { const db = await database(); return userFrom((await db.query('SELECT * FROM flowforge_auth_users WHERE email = $1', [email])).rows[0]); }
+export async function createUser(user) {
+  const db = await database();
+  try { await db.query('INSERT INTO flowforge_auth_users (id,email,name,role,org_id,provider,password_hash) VALUES ($1,$2,$3,$4,$5,$6,$7)', [user.id,user.email,user.name,user.role,user.orgId || null,user.provider,user.passwordHash]); }
+  catch (error) { if (error.code === '23505') throw Object.assign(new Error('Este e-mail já está cadastrado.'), { status: 409, code: 'EMAIL_ALREADY_EXISTS' }); throw error; }
+}
+export async function saveSession(session) { const db = await database(); await db.query('INSERT INTO flowforge_auth_sessions (token_hash,user_id,expires_at) VALUES ($1,$2,$3)', [hashToken(session.token), session.user.id, session.expiresAt]); }
+export async function findSession(token) {
+  if (!token) return null;
+  const db = await database();
+  const row = (await db.query('SELECT u.*, s.expires_at FROM flowforge_auth_sessions s JOIN flowforge_auth_users u ON u.id = s.user_id WHERE s.token_hash = $1 AND s.expires_at > $2', [hashToken(token), Date.now()])).rows[0];
+  if (!row) return null;
+  const { passwordHash: _passwordHash, ...user } = userFrom(row);
+  return { token, user, expiresAt: Number(row.expires_at) };
+}
+export async function deleteSession(token) { if (token) { const db = await database(); await db.query('DELETE FROM flowforge_auth_sessions WHERE token_hash = $1', [hashToken(token)]); } }
+`,
+      'auth-store',
+      [connection!.id],
+    );
+  const authGatewayCode = `import { randomBytes, pbkdf2Sync } from 'node:crypto';
 import { policies, evaluatePolicy, authorizeRequest } from '../policies/index.mjs';
+${persistence ? "import * as persistentStore from './store.mjs';" : ''}
 
 const configuredProviders = ${providersJson};
 
 // Armazenamento de usuários e sessões
-const users = new Map();
-const sessions = new Map();
+export const users = new Map();
+export const sessions = new Map();
 
-function hashPassword(password) {
-  return createHash('sha256').update(String(password)).digest('hex');
+export function hashPassword(password, salt = randomBytes(16).toString('hex')) {
+  const hash = pbkdf2Sync(String(password), salt, 10000, 64, 'sha512').toString('hex');
+  return \`\${salt}:\${hash}\`;
+}
+
+export function verifyPassword(password, stored) {
+  if (!stored) return false;
+  const [salt, hash] = stored.split(':');
+  if (!salt || !hash) return false;
+  const computed = pbkdf2Sync(String(password), salt, 10000, 64, 'sha512').toString('hex');
+  return computed === hash;
+}
+
+export function verifySession(token) {
+  ${persistence ? 'return persistentStore.findSession(token);' : ''}
+  if (!token) return null;
+  const session = sessions.get(token);
+  if (!session || Date.now() > session.expiresAt) {
+    if (session) sessions.delete(token);
+    return null;
+  }
+  return session;
 }
 
 export function createAuthGateway(options = {}) {
@@ -152,8 +231,8 @@ export function createAuthGateway(options = {}) {
       // 1. Verificação de Políticas de Acesso
       if (body.checkPolicy || action === 'check-policy') {
         const token = req.headers.authorization?.replace(/^Bearer\\s+/i, '') || payload.token || '';
-        const session = sessions.get(token);
-        const user = session && Date.now() < session.expiresAt ? session.user : null;
+        const session = await verifySession(token);
+        const user = session ? session.user : null;
 
         const authz = authorizeRequest({
           user,
@@ -186,8 +265,8 @@ export function createAuthGateway(options = {}) {
           return;
         }
 
-        const user = users.get(email);
-        if (!user || user.passwordHash !== hashPassword(password)) {
+        const user = ${persistence ? 'await persistentStore.getUser(email)' : 'users.get(email)'};
+        if (!user || !verifyPassword(password, user.passwordHash)) {
           res.statusCode = 401;
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ ok: false, error: { code: 'INVALID_CREDENTIALS', message: 'E-mail ou senha incorretos.', status: 401 } }));
@@ -201,7 +280,7 @@ export function createAuthGateway(options = {}) {
           user: { id: user.id, email: user.email, name: user.name, role: user.role, orgId: user.orgId, provider: user.provider },
           expiresAt: Date.now() + duration * 1000,
         };
-        sessions.set(token, session);
+        ${persistence ? 'await persistentStore.saveSession(session);' : 'sessions.set(token, session);'}
 
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
@@ -225,10 +304,25 @@ export function createAuthGateway(options = {}) {
           res.end(JSON.stringify({ ok: false, error: { code: 'WEAK_PASSWORD', message: 'A senha deve conter no mínimo 6 caracteres.', status: 400 } }));
           return;
         }
-        if (users.has(email)) {
+        if (${persistence ? 'await persistentStore.getUser(email)' : 'users.has(email)'}) {
           res.statusCode = 409;
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ ok: false, error: { code: 'EMAIL_ALREADY_EXISTS', message: 'Este e-mail já está cadastrado.', status: 409 } }));
+          return;
+        }
+
+        // Bloqueio rigoroso de elevação de privilégios no cadastro público
+        if (payload.role && payload.role !== 'user') {
+          res.statusCode = 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({
+            ok: false,
+            error: {
+              code: 'PRIVILEGE_ESCALATION_DENIED',
+              message: 'Não é permitida atribuição de papéis privilegiados no cadastro público.',
+              status: 400
+            }
+          }));
           return;
         }
 
@@ -236,12 +330,12 @@ export function createAuthGateway(options = {}) {
           id: 'usr_' + randomBytes(6).toString('hex'),
           email,
           name: payload.name || email.split('@')[0],
-          role: payload.role || 'user',
-          orgId: payload.orgId,
+          role: 'user',
+          orgId: undefined,
           provider: 'email',
           passwordHash: hashPassword(password),
         };
-        users.set(email, newUser);
+        ${persistence ? 'await persistentStore.createUser(newUser);' : 'users.set(email, newUser);'}
 
         const duration = Number(configuredProviders[0]?.sessionDurationSec || 86400);
         const token = 'ff_sess_' + randomBytes(24).toString('hex');
@@ -250,7 +344,7 @@ export function createAuthGateway(options = {}) {
           user: { id: newUser.id, email: newUser.email, name: newUser.name, role: newUser.role, orgId: newUser.orgId, provider: newUser.provider },
           expiresAt: Date.now() + duration * 1000,
         };
-        sessions.set(token, session);
+        ${persistence ? 'await persistentStore.saveSession(session);' : 'sessions.set(token, session);'}
 
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
@@ -261,9 +355,9 @@ export function createAuthGateway(options = {}) {
       // 4. SESSION CHECK
       if (action === 'session') {
         const token = payload.token || req.headers.authorization?.replace(/^Bearer\\s+/i, '') || '';
-        const session = sessions.get(token);
+        const session = await verifySession(token);
         if (!session || Date.now() > session.expiresAt) {
-          if (token) sessions.delete(token);
+          ${persistence ? '' : 'if (token) sessions.delete(token);'}
           res.statusCode = 401;
           res.setHeader('Content-Type', 'application/json');
           res.end(JSON.stringify({ ok: false, error: { code: 'UNAUTHORIZED', message: 'Sessão expirada ou não autenticada.', status: 401 } }));
@@ -278,7 +372,7 @@ export function createAuthGateway(options = {}) {
       // 5. LOGOUT
       if (action === 'logout') {
         const token = payload.token || req.headers.authorization?.replace(/^Bearer\\s+/i, '') || '';
-        if (token) sessions.delete(token);
+        ${persistence ? 'await persistentStore.deleteSession(token);' : 'if (token) sessions.delete(token);'}
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({ ok: true }));
@@ -289,9 +383,9 @@ export function createAuthGateway(options = {}) {
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ ok: false, error: { code: 'UNSUPPORTED_ACTION', message: 'Ação não suportada.' } }));
     } catch (err) {
-      res.statusCode = 500;
+      res.statusCode = err.status || 500;
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ ok: false, error: { code: 'INTERNAL_ERROR', message: err.message || 'Erro interno.' } }));
+      res.end(JSON.stringify({ ok: false, error: { code: err.code === 'EMAIL_ALREADY_EXISTS' ? err.code : 'INTERNAL_ERROR', message: err.status ? err.message : 'Serviço de autenticação indisponível.' } }));
     }
   };
 }
@@ -301,7 +395,7 @@ export function createAuthGateway(options = {}) {
     authGatewayCode,
     'auth-runtime',
     manifest.providers.map((p) => p.id),
-    [`${root}policies/index.mjs`],
+    [`${root}policies/index.mjs`, ...(persistence ? [`${root}auth/store.mjs`] : [])],
   );
 
   return true;

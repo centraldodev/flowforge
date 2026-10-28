@@ -1,5 +1,6 @@
 import type { Graph } from '../../engine/types';
 import { buildHttpManifest, httpConnection } from '../../engine/http';
+import { staticSource } from '../../server/templates/static';
 import { httpGatewayModules } from '../../server/httpGateway';
 import { ArtifactPlan, identity, json } from './artifacts';
 import { emitDatabase } from './database';
@@ -10,8 +11,8 @@ import { emitPaymentsAndRealtime } from './paymentsRealtime';
 import { emitOpenApi } from './openapi';
 
 export function emitServer(plan: ArtifactPlan, graph: Graph) {
-  const hasDb = emitDatabase(plan, graph);
   const hasAuth = emitAuth(plan, graph);
+  const hasDb = emitDatabase(plan, graph, hasAuth);
   const hasIntegrations = emitAdditionalIntegrations(plan, graph);
   const hasPaymentsRealtime = emitPaymentsAndRealtime(plan, graph);
   const manifest = buildHttpManifest(graph);
@@ -88,19 +89,25 @@ export function emitServer(plan: ArtifactPlan, graph: Graph) {
     'configuration',
   );
 
-  const imports: string[] = [];
-  const appDeps: string[] = [];
-  const inits: string[] = [];
+  plan.text(root + 'runtime/static.mjs', staticSource, 'runtime');
+
+  const imports: string[] = [
+    "import { fileURLToPath } from 'node:url';",
+    "import { serveStatic } from './runtime/static.mjs';",
+  ];
+  const appDeps: string[] = [root + 'runtime/static.mjs'];
+  const inits: string[] = [
+    "const staticRoot = fileURLToPath(new URL('../../web/dist/', import.meta.url));",
+  ];
   const routes: string[] = [];
 
   if (hasHttp) {
-    imports.push("import { fileURLToPath } from 'node:url';");
     imports.push("import { createHttpGateway } from './http/gateway.mjs';");
     imports.push("import manifest from './integrations/registry.mjs';");
-    inits.push(
-      "const http = createHttpGateway({ manifest, staticRoot: fileURLToPath(new URL('../../web/dist/', import.meta.url)) });",
+    inits.push('const http = createHttpGateway({ manifest, staticRoot });');
+    routes.push(
+      "if (['/__flowforge/http', '/__flowforge/secrets'].includes(p)) return http(req, res);",
     );
-    routes.push('return http(req, res);');
     appDeps.push(root + 'http/gateway.mjs', root + 'integrations/registry.mjs');
   }
 
@@ -169,7 +176,12 @@ export function createApp() {
     const p = req.url?.split('?')[0] || '';
     logger.info(\`\${req.method || 'GET'} \${p}\`);
     ${routes.join('\n    ')}
-    ${!hasHttp ? "res.statusCode = 404; res.end(JSON.stringify({ ok: false, error: 'Not found' }));" : ''}
+    if (req.method === 'GET') {
+      if (await serveStatic(req, res, p, staticRoot)) return;
+    }
+    res.statusCode = 404;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ ok: false, error: 'Not found' }));
   };
 }
 `;

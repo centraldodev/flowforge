@@ -4,6 +4,7 @@ import { lowerInstruction } from '../../compiler/backends/javascript/codegen';
 import { emitProgram } from '../../compiler/backends/javascript/ast';
 import { SymbolTable } from '../../compiler/backends/javascript/symbols';
 import { buildCompositionManifest } from '../../engine/composition';
+import { lowerBlock } from '../../compiler/lower';
 import { ArtifactPlan, hash, identity, json, relative } from './artifacts';
 import { emitRegistry } from './registry';
 
@@ -103,7 +104,7 @@ export function emitWorkflows(plan: ArtifactPlan, program: ProgramIR, graph: Gra
     const operation = {
       id: step.id,
       symbol,
-      code: `export async function ${symbol}(context: Context): Promise<unknown> {\n${body}\n}\n`,
+      code: `export async function ${symbol}(context: Context): Promise<unknown> {\n${body}\n  return undefined;\n}\n`,
     };
     const group = groups.get(path) || [];
     group.push(operation);
@@ -140,6 +141,45 @@ export function emitWorkflows(plan: ArtifactPlan, program: ProgramIR, graph: Gra
         expression: `() => import(${JSON.stringify(relative('apps/web/src/workflows/registry.ts', target).replace(/\.ts$/, ''))}).then((module) => ({ default: module.${operation.symbol} }))`,
       });
   };
+  for (const definition of buildCompositionManifest(graph).subflows) {
+    const inner: Graph = {
+      version: 1,
+      name: definition.name,
+      nodes: definition.nodes,
+      edges: definition.edges,
+    };
+    const targets = new Set(
+      inner.edges
+        .filter(
+          (edge) =>
+            edge.targetHandle === 'execute' ||
+            edge.targetHandle === 'listener' ||
+            !edge.targetHandle,
+        )
+        .map((edge) => edge.target),
+    );
+    const roots = inner.nodes.filter((node) => !targets.has(node.id));
+    const instructions = (roots.length ? roots : inner.nodes.slice(0, 1)).flatMap((node) =>
+      lowerBlock(node, inner),
+    );
+    const body = emitProgram(
+      instructions.flatMap((instruction) => lowerInstruction(instruction, new SymbolTable())),
+    );
+    const path = `apps/web/src/workflows/subflows/${identity(definition.id)}.ts`;
+    const ops = 'apps/web/src/runtime/operations/index.ts';
+    plan.text(
+      path,
+      `import type { Context } from '@flowforge/contracts/runtime';\nimport { BUILTIN_OPERATIONS } from ${JSON.stringify(relative(path, ops).replace(/\.ts$/, ''))};\nexport default async function run(context: Context): Promise<unknown> {\n${body}\nreturn undefined;\n}\n`,
+      'subflow',
+      [definition.id],
+      [ops, 'packages/contracts/src/runtime.ts'],
+    );
+    entries.push({
+      id: 'subflow:' + definition.id,
+      path,
+      expression: `() => import(${JSON.stringify(relative('apps/web/src/workflows/registry.ts', path).replace(/\.ts$/, ''))})`,
+    });
+  }
   for (const [path, group] of groups) write(path, group);
   emitRegistry(
     plan,

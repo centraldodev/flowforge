@@ -7,7 +7,6 @@ import {
   FileJson,
   Settings2,
   Code2,
-  BookOpen,
   Layers,
 } from 'lucide-react';
 import { visibleKinds, type Kind } from '../../engine';
@@ -22,7 +21,6 @@ type Props = {
   onSave: () => void;
   onSettings: () => void;
   onExport: () => void;
-  onExample: () => void;
   onAdd: (kind: Kind) => void;
 };
 
@@ -53,7 +51,10 @@ export function Sidebar(p: Props) {
   }
 
   useEffect(() => {
-    if (p.expanded) close();
+    if (p.expanded) {
+      cancelClose();
+      setBlocksModalOpen(false);
+    }
   }, [p.expanded]);
 
   useEffect(() => () => cancelClose(), []);
@@ -93,10 +94,6 @@ export function Sidebar(p: Props) {
             <button onClick={p.onExport}>
               <Code2 size={15} />
               Exportar projeto
-            </button>
-            <button onClick={p.onExample}>
-              <BookOpen size={15} />
-              Carregar exemplo
             </button>
             <button onClick={p.onSettings}>
               <Settings2 size={15} />
@@ -162,9 +159,6 @@ export function Sidebar(p: Props) {
             </button>
             <button title="Exportar projeto" aria-label="Exportar projeto" onClick={p.onExport}>
               <Code2 size={18} />
-            </button>
-            <button title="Carregar exemplo" aria-label="Carregar exemplo" onClick={p.onExample}>
-              <BookOpen size={18} />
             </button>
             <div className="rail-bottom">
               <button title="Configurações" aria-label="Configurações" onClick={p.onSettings}>

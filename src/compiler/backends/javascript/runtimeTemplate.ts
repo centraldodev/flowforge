@@ -299,6 +299,7 @@ const BUILTIN_OPERATIONS = {
   text_trim(a) { return String(a ?? "").trim(); },
   text_split(a, sep) { return String(a ?? "").split(String(sep ?? ",")); },
   text_replace(a, s, r) { return String(a ?? "").split(String(s ?? "")).join(String(r ?? "")); },
+  object_from_fields(...values) { const result = Object.create(null); for (let i = 0; i + 1 < values.length; i += 2) result[String(values[i])] = values[i + 1]; return result; },
   object_create(d) {
     if (typeof d === "object" && d !== null && !Array.isArray(d)) return { ...d };
     if (typeof d === "string" && d.trim().startsWith("{")) {

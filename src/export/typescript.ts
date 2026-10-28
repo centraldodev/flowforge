@@ -11,6 +11,13 @@ import { emitDeployment } from './modular/deployment';
 import { exportReadme } from './modular/readme';
 import { emitTests } from './modular/tests';
 import { analyzeEnvironment } from '../engine/envDiagnostics';
+import { buildDatabaseManifest } from '../engine/database';
+import {
+  logicDefinition,
+  selectedLogicVersion,
+  type LogicKind,
+} from '../engine/catalogo/logicCatalog';
+import { buildCompositionManifest } from '../engine/composition';
 
 /** Planeja todos os artefatos antes de escrever qualquer arquivo no ZIP. */
 export function createTypeScriptPlan(graph: Graph): ArtifactPlan {
@@ -42,6 +49,24 @@ export function createTypeScriptPlan(graph: Graph): ArtifactPlan {
     'visual-source',
     graph.nodes.map((node) => node.id),
   );
+  const logicKinds: LogicKind[] = ['condition', 'validator'];
+  const catalogNodes = [
+    ...graph.nodes,
+    ...buildCompositionManifest(graph).subflows.flatMap((flow) => flow.nodes),
+  ];
+  const definitions = logicKinds.flatMap((kind) => {
+    const versions = new Set(
+      catalogNodes
+        .filter((node) => node.data.kind === kind)
+        .map((node) => selectedLogicVersion(node.data.config)),
+    );
+    return [...versions].sort((a, b) => a - b).map((version) => logicDefinition(kind, version));
+  });
+  plan.text(
+    'flowforge/catalog/logic-definitions.json',
+    json({ schemaVersion: 1, definitions }),
+    'catalog-snapshot',
+  );
   plan.text('README.md', exportReadme(graph.name, hasServer), 'documentation');
   const envReport = analyzeEnvironment(graph);
   const secrets = envReport.requiredVariables
@@ -49,12 +74,17 @@ export function createTypeScriptPlan(graph: Graph): ArtifactPlan {
     .filter((name) => name !== 'FLOWFORGE_PORT')
     .sort();
   if (hasServer)
-    for (const environment of ['development', 'production'])
+    for (const environment of ['development', 'production'] as const) {
+      const databaseSecrets = buildDatabaseManifest(graph).connections.map(
+        (connection) => connection[environment].secretEnv,
+      );
+      const environmentSecrets = [...new Set([...secrets, ...databaseSecrets])].sort();
       plan.text(
         '.env.' + environment + '.example',
-        `FLOWFORGE_ENV=${environment}\nFLOWFORGE_PORT=8787\n${secrets.map((name) => name + '=').join('\n')}\n`,
+        `FLOWFORGE_ENV=${environment}\nFLOWFORGE_PORT=8787\n${environmentSecrets.map((name) => name + '=').join('\n')}\n`,
         'environment',
       );
+    }
   plan.validate();
   return plan;
 }

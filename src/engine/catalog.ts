@@ -55,6 +55,7 @@ export const catalog: Record<Kind, BlockDefinition> = {
     color: AUTH,
     defaults: {
       provider: 'email',
+      execution: 'demo',
       mode: 'login',
       clientId: 'google-oauth-flowforge.apps.googleusercontent.com',
       mockToken: 'ya29.a0AfH6SMC_MOCK_TOKEN_GOOGLE_FLOWFORGE_SECURE',
@@ -429,12 +430,10 @@ export const catalog: Record<Kind, BlockDefinition> = {
   },
 };
 
-export const categories = ['Interface', 'Lógica', 'Dados'] as const;
+export const categories = ['Lógica', 'Dados'] as const;
 
-/** Tipos visíveis na biblioteca de blocos da barra lateral (telas agora são gerenciadas como abas). */
+/** Tipos visíveis na biblioteca de blocos da barra lateral (blocos de interface agora pertencem exclusivamente à área de Interfaces). */
 export const visibleKinds: Kind[] = [
-  'button',
-  'input',
   'function',
   'condition',
   'validator',

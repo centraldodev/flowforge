@@ -17,8 +17,13 @@ import {
   GatewayTaskAdapter,
 } from './integrationsAdapter';
 import { GatewayPaymentAdapter, GatewayRealtimeAdapter } from './paymentsRealtimeAdapter';
+import { PLAYGROUND_ACCOUNT } from '../../engine/playgroundCredentials';
 
-const DEMO_USER = { email: 'demo@exemplo.com', password: '123456', nome: 'Usuário Demo' };
+const DEMO_USER = {
+  email: PLAYGROUND_ACCOUNT.email,
+  password: PLAYGROUND_ACCOUNT.password,
+  nome: PLAYGROUND_ACCOUNT.name,
+};
 
 /** Adaptador mock de autenticação determinístico e isolado (sem acesso externo) */
 export class MockAuthAdapter implements AuthAdapter {
@@ -418,5 +423,6 @@ export function createExecutionContext(init?: Partial<ExecutionContext>): Execut
     signal: init?.signal,
     adapters: init?.adapters ?? createDefaultAdapters(),
     debugger: init?.debugger,
+    onEvent: init?.onEvent,
   };
 }

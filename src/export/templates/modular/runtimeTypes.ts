@@ -3,12 +3,26 @@ export type Notification = { message: string; type: string; duration?: number };
 export type Trace = { id: string; label: string; message: string };
 export type ActionAdapter = { execute(action: string, payload: Values, context: Context): Promise<unknown> };
 export type DelayAdapter = { execute(duration: number, signal?: AbortSignal): Promise<void> };
-export type Adapters = { auth: ActionAdapter; api: ActionAdapter; database: ActionAdapter; delay: DelayAdapter };
+export type SubflowAdapter = { execute(subflowId: string, inputs: Values, context: Context, definition?: unknown): Promise<unknown> };
+export type Adapters = {
+  auth: ActionAdapter;
+  api: ActionAdapter;
+  database: ActionAdapter;
+  delay: DelayAdapter;
+  email?: ActionAdapter;
+  storage?: ActionAdapter;
+  webhook?: ActionAdapter;
+  task?: ActionAdapter;
+  payment?: ActionAdapter;
+  realtime?: ActionAdapter;
+  subflow?: SubflowAdapter;
+  [key: string]: unknown;
+};
 export type Context = {
   inputs: Values; store: Values; variables: Values; outputs: Values;
   notifications: Notification[]; trace: Trace[]; logs: string[];
   screen?: string; signal?: AbortSignal; stepCount: number; maxSteps: number;
-  adapters: Adapters; invoke(id: string): Promise<unknown>;
+  adapters: Adapters; invoke(id: string, scope?: Context): Promise<unknown>;
 };
 export type Options = Omit<Partial<Context>, 'adapters' | 'invoke'> & { adapters?: Partial<Adapters>; fastDelay?: boolean };
 export type Workflow = (context: Context) => Promise<unknown>;
@@ -25,11 +39,11 @@ export class FlowForgeProgram {
   constructor(options: Options = {}) {
     this.context = createContext(options);
     this.context.screen ??= entryScreenId;
-    this.context.invoke = async (id) => {
+    this.context.invoke = async (id, scope) => {
       const load = workflows[id];
       if (!load) throw new Error('Fluxo não encontrado: ' + id);
       const workflow = await load();
-      return workflow.default(this.context);
+      return workflow.default(scope || this.context);
     };
   }
   async dispatch(eventId: string, inputs: Values = {}): Promise<Result> {

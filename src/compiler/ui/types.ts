@@ -34,12 +34,26 @@ export type UIAccessibility = {
   ariaLive?: 'polite' | 'assertive';
 };
 
+export type UIMenuItem = {
+  id: string;
+  label: string;
+  icon?: string;
+  actionType?: 'screen' | 'workflow' | 'value';
+  targetScreenId?: string;
+  actionEvent?: string;
+  value?: string;
+};
+
 export type UIComponent =
   | {
       id: string;
       type: 'container';
       layout?: UILayout;
       children: UIComponent[];
+      variant?: 'default' | 'card' | 'header' | 'footer';
+      title?: string;
+      iconName?: string;
+      navItems?: Array<{ id: string; label: string; icon: string; actionEvent?: string }>;
       visible?: UIBinding;
       accessibility?: UIAccessibility;
     }
@@ -122,8 +136,45 @@ export type UIComponent =
       type: 'button';
       label: string;
       variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+      iconName?: string;
       actionEvent: string;
       disabled?: UIBinding;
+      visible?: UIBinding;
+      accessibility?: UIAccessibility;
+    }
+  | {
+      id: string;
+      type: 'icon';
+      iconName: string;
+      label?: string;
+      size?: number;
+      color?: string;
+      actionEvent?: string;
+      visible?: UIBinding;
+      accessibility?: UIAccessibility;
+    }
+  | {
+      id: string;
+      type: 'dropdown';
+      label: string;
+      iconName?: string;
+      items: UIMenuItem[];
+      itemsPath?: string;
+      bindingPath?: string;
+      defaultValue?: string;
+      actionEvent?: string;
+      visible?: UIBinding;
+      accessibility?: UIAccessibility;
+    }
+  | {
+      id: string;
+      type: 'hamburger';
+      label?: string;
+      iconName?: string;
+      items: UIMenuItem[];
+      itemsPath?: string;
+      bindingPath?: string;
+      actionEvent?: string;
       visible?: UIBinding;
       accessibility?: UIAccessibility;
     }

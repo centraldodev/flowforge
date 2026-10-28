@@ -76,7 +76,11 @@ export interface RealtimePublishResponse {
  */
 const MANIFEST = ${json(paymentManifest.payments)};
 
-export function createPaymentGateway() {
+const payments = new Map();
+
+export function createPaymentGateway(options = {}) {
+  void options;
+
   return async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     const url = new URL(req.url, 'http://' + (req.headers.host || '127.0.0.1'));
@@ -102,15 +106,30 @@ export function createPaymentGateway() {
         return;
       }
 
+      const selected = MANIFEST.find((item) => item.id === payload.blockId);
+      if (!selected) { res.statusCode = 404; return res.end(JSON.stringify({ ok: false, error: { code: 'PAYMENT_NOT_CONFIGURED', message: 'Pagamento não configurado.' } })); }
+      if (selected.execution !== 'demo') { res.statusCode = 501; return res.end(JSON.stringify({ ok: false, error: { code: 'PAYMENT_NOT_IMPLEMENTED', message: 'Integração real de pagamento ainda não está disponível.' } })); }
+      const isDemo = true;
+
       if (provider === 'pix') {
         const paymentId = 'pix_' + Math.random().toString(36).slice(2, 10);
         const qrCode = '00020126580014br.gov.bcb.pix0136' + Math.random().toString(36).slice(2, 14);
+        payments.set(paymentId, {
+          id: paymentId,
+          provider: 'pix',
+          amount,
+          currency,
+          status: 'pending',
+          demo: isDemo,
+          createdAt: new Date().toISOString()
+        });
         res.statusCode = 200;
         res.end(JSON.stringify({
           success: true,
           provider: 'pix',
           paymentId,
           status: 'pending',
+          demo: isDemo,
           qrCode,
           amount,
           currency,
@@ -119,13 +138,23 @@ export function createPaymentGateway() {
         return;
       }
 
-      const sessionId = 'cs_live_' + Math.random().toString(36).slice(2, 14);
+      const sessionId = 'cs_demo_' + Math.random().toString(36).slice(2, 14);
+      payments.set(sessionId, {
+        id: sessionId,
+        provider: 'stripe',
+        amount,
+        currency,
+        status: 'pending',
+        demo: isDemo,
+        createdAt: new Date().toISOString()
+      });
       res.statusCode = 200;
       res.end(JSON.stringify({
         success: true,
         provider: 'stripe',
         sessionId,
-        checkoutUrl: 'https://checkout.stripe.com/c/pay/' + sessionId,
+        demo: isDemo,
+        checkoutUrl: null,
         status: 'pending',
         amount,
         currency,
@@ -135,9 +164,31 @@ export function createPaymentGateway() {
     }
 
     if (req.method === 'GET' && path === '/api/payments/verify') {
-      const id = url.searchParams.get('id') || 'sample_id';
+      const id = url.searchParams.get('id');
+      if (!id || !payments.has(id)) {
+        res.statusCode = 404;
+        res.end(JSON.stringify({
+          ok: false,
+          error: {
+            code: 'PAYMENT_NOT_FOUND',
+            message: 'Pagamento não encontrado ou inexistente.',
+            status: 404
+          }
+        }));
+        return;
+      }
+
+      const record = payments.get(id);
       res.statusCode = 200;
-      res.end(JSON.stringify({ success: true, id, status: 'paid', verifiedAt: new Date().toISOString() }));
+      res.end(JSON.stringify({
+        success: true,
+        id,
+        status: record.status,
+        demo: record.demo,
+        amount: record.amount,
+        currency: record.currency,
+        verifiedAt: new Date().toISOString()
+      }));
       return;
     }
 

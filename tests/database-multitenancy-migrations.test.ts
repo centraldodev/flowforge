@@ -124,6 +124,6 @@ test('Fase 11: Exportação Modular emite Contratos de Banco, Migrator e Migraç
   // 4. Gateway de banco com suporte a x-tenant-id
   const gateway = plan.files.get('apps/api/src/database/gateway.mjs');
   assert.ok(gateway);
-  assert.ok(gateway.content.includes('x-tenant-id'));
-  assert.ok(gateway.content.includes('TENANT_FORBIDDEN'));
+  assert.ok(gateway.content.includes('user?.orgId'));
+  assert.ok(gateway.content.includes('UNAUTHORIZED_TENANT'));
 });

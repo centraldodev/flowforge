@@ -1,6 +1,6 @@
 import codeCatalog from './codeCatalog.json';
 import { isExecInput } from './ports';
-import type { Block, Graph, Kind } from './types';
+import type { Block, Graph, Kind, Link } from './types';
 
 type CatalogEntry = {
   description: string;
@@ -34,10 +34,92 @@ export function jsLiteral(value: unknown, quote: "'" | '"' = "'"): string {
   return JSON.stringify(value);
 }
 
+/** Formata um valor de retorno como expressão JavaScript válida (literal ou identificador). */
+export function formatReturnExpression(val: string | undefined, fallback = '""'): string {
+  if (val === undefined || val === null) return fallback;
+  const trimmed = String(val).trim();
+  if (!trimmed) return fallback;
+  if (
+    (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith('`') && trimmed.endsWith('`'))
+  ) {
+    return trimmed;
+  }
+  if (
+    /^-?\d+(\.\d+)?$/.test(trimmed) ||
+    trimmed === 'true' ||
+    trimmed === 'false' ||
+    trimmed === 'null' ||
+    trimmed === 'undefined'
+  ) {
+    return trimmed;
+  }
+  if (
+    /^[a-zA-Z_$][a-zA-Z0-9_$.]*$/.test(trimmed) ||
+    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+    (trimmed.startsWith('[') && trimmed.endsWith(']')) ||
+    trimmed.startsWith('new ')
+  ) {
+    return trimmed;
+  }
+  return jsLiteral(trimmed, '"');
+}
+
 /** Sanitiza um ID de bloco para ser um identificador de função JavaScript válido. */
 export function toSafeFunctionName(id: string): string {
   const sanitized = id.replace(/[^a-zA-Z0-9_$]/g, '_');
   return /^[0-9]/.test(sanitized) ? `fn_${sanitized}` : sanitized;
+}
+
+/**
+ * Gera o código JavaScript real correspondente a uma conexão específica entre dois blocos.
+ */
+export function getEdgeGeneratedCode(graph: Graph, block: Block, edge: Link): string {
+  const isSource = edge.source === block.id;
+  const sourceNode = isSource ? block : graph.nodes.find((n) => n.id === edge.source);
+  const targetNode = isSource ? graph.nodes.find((n) => n.id === edge.target) : block;
+  if (!sourceNode || !targetNode) return '// Conexão sem nós correspondentes';
+
+  const sourceHandle =
+    edge.sourceHandle || (sourceNode.data.kind === 'condition' ? 'true' : 'next');
+  const targetFn = toSafeFunctionName(targetNode.id);
+
+  let defaultArg = 'value';
+  if (sourceNode.data.kind === 'condition') {
+    if (sourceHandle === 'true') {
+      defaultArg = sourceNode.data.config.trueValue
+        ? formatReturnExpression(sourceNode.data.config.trueValue, 'value')
+        : 'true';
+    } else {
+      defaultArg = sourceNode.data.config.falseValue
+        ? formatReturnExpression(sourceNode.data.config.falseValue, 'false')
+        : 'new Error("Dados inválidos")';
+    }
+  } else if (sourceNode.data.kind === 'button') {
+    defaultArg = '';
+  } else if (sourceNode.data.kind === 'auth') {
+    defaultArg = sourceHandle === 'onSuccess' ? 'user' : 'new Error("Falha na autenticação")';
+  } else if (targetNode.data.kind === 'error') {
+    defaultArg = 'new Error("Falha na validação")';
+  }
+
+  const effectiveArg =
+    edge.data?.callArg !== undefined && edge.data.callArg !== '' ? edge.data.callArg : defaultArg;
+
+  if (targetNode.data.kind === 'screen') {
+    return `// Redireciona para tela\nreturn navigateTo('${targetNode.id}');`;
+  }
+  if (targetNode.data.kind === 'condition') {
+    return `// Condição Aninhada (If dentro de If) ➔ ${targetNode.data.label || targetNode.id}\nreturn ${targetFn}(${effectiveArg});`;
+  }
+  if (targetNode.data.kind === 'database') {
+    return `// Grava no Banco ➔ ${targetNode.data.label || targetNode.id}\nreturn ${targetFn}(${effectiveArg});`;
+  }
+  if (targetNode.data.kind === 'error') {
+    return `// Tratamento de Erro ➔ ${targetNode.data.label || targetNode.id}\nreturn ${targetFn}(${effectiveArg});`;
+  }
+  return `// Chamada do bloco ➔ ${targetNode.data.label || targetNode.id}\nreturn ${targetFn}(${effectiveArg});`;
 }
 
 /**
@@ -65,13 +147,19 @@ export function generateBlockCode(graph: Graph, block: Block): string {
     const targetNode = graph.nodes.find((n) => n.id === edge.target);
     if (!targetNode) return '';
     const targetFn = toSafeFunctionName(targetNode.id);
-    let arg = defaultArg;
+    let arg =
+      edge.data?.callArg !== undefined && edge.data.callArg !== '' ? edge.data.callArg : defaultArg;
     if (targetNode.data.kind === 'error' && (!arg || arg === 'false')) {
       arg = 'new Error("Falha na validação")';
     } else if (targetNode.data.kind === 'screen') {
       arg = defaultArg.includes('user') ? 'user' : '';
     }
-    return `return ${targetFn}(${arg});`;
+
+    let comment = '';
+    if (targetNode.data.kind === 'condition') {
+      comment = `// Condição Aninhada (If dentro de If) ➔ ${targetNode.data.label || targetNode.id}\n    `;
+    }
+    return `${comment}return ${targetFn}(${arg});`;
   };
 
   let code = entry.template;
@@ -270,20 +358,45 @@ export function generateBlockCode(graph: Graph, block: Block): string {
         passArg = safe;
       } else {
         paramExtraction = `if (value && typeof value.then === 'function') {\n    return value.then((resolved) => ${fnName}(resolved));\n  }\n  `;
-        conditionParamsDecl = 'value';
+        const param = config.paramName || 'value';
+        const hasCustomParams = Boolean(config.paramName || config.defaultValue !== undefined);
+        conditionParamsDecl = hasCustomParams
+          ? `${param} = ${config.defaultValue !== undefined && config.defaultValue !== '' ? config.defaultValue : '""'}`
+          : 'value';
         if (config.operator === 'equals') {
-          conditionExpr = `value === ${jsLiteral(config.compare ?? '')}`;
+          conditionExpr = `${param} === ${jsLiteral(config.compare ?? '')}`;
+        } else if (config.operator === 'not_equals') {
+          conditionExpr = `${param} !== ${jsLiteral(config.compare ?? '')}`;
         } else if (config.operator === 'gt') {
-          conditionExpr = `Number(value) > ${Number(config.compare || 0)}`;
+          conditionExpr = `Number(${param}) > ${Number(config.compare || 0)}`;
+        } else if (config.operator === 'lt') {
+          conditionExpr = `Number(${param}) < ${Number(config.compare || 0)}`;
+        } else if (config.operator === 'gte') {
+          conditionExpr = `Number(${param}) >= ${Number(config.compare || 0)}`;
+        } else if (config.operator === 'lte') {
+          conditionExpr = `Number(${param}) <= ${Number(config.compare || 0)}`;
         } else {
-          conditionExpr = `Boolean(value)`;
+          conditionExpr = `Boolean(${param})`;
         }
-        passArg = 'value';
+        passArg = param;
       }
 
-      const trueBranch = getCallForHandle('true', passArg) || 'return true;';
-      const falseBranch =
-        getCallForHandle('false', 'new Error("Dados inválidos")') || 'return false;';
+      const trueArg = config.trueValue
+        ? formatReturnExpression(config.trueValue, passArg)
+        : passArg;
+      const falseArg = config.falseValue
+        ? formatReturnExpression(config.falseValue, 'new Error("Dados inválidos")')
+        : 'new Error("Dados inválidos")';
+
+      const trueFallback = config.trueValue
+        ? `return ${formatReturnExpression(config.trueValue, 'true')};`
+        : 'return true;';
+      const falseFallback = config.falseValue
+        ? `return ${formatReturnExpression(config.falseValue, 'false')};`
+        : 'return false;';
+
+      const trueBranch = getCallForHandle('true', trueArg) || trueFallback;
+      const falseBranch = getCallForHandle('false', falseArg) || falseFallback;
 
       code = code.replace(/\{\{params\}\}/g, conditionParamsDecl);
       code = code.replace(/\{\{paramExtraction\}\}/g, paramExtraction);

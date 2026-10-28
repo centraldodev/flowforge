@@ -2,13 +2,8 @@
 import { useMemo, useState, type RefObject } from 'react';
 import { useReactFlow, type Connection } from '@xyflow/react';
 import {
-  demo,
-  DEMO_FOCUS,
   parseGraph,
   validate,
-  customerOrdersProject,
-  schedulingConflictProject,
-  roleApprovalPortalProject,
   type CustomPort,
   type Graph,
   type Kind,
@@ -17,6 +12,7 @@ import {
 import type { FieldDefinition } from '../components/PropertyField';
 import { DEFAULT_VIEWPORT } from '../features/canvas/constants';
 import { configFields } from '../features/inspector/blockFields';
+import { appTemplates, type ProjectTemplateId } from '../engine/appTemplates';
 import {
   addBlock,
   addPortToBlock,
@@ -33,10 +29,12 @@ import {
   renameBlockId,
   screensOf,
   updateConfig,
+  deleteBlockConfigKey,
+  updateEdgeCallArg,
   validateBlockId,
 } from '../state/graphOps';
 
-export type ProjectTemplateId = 'empty' | 'customerOrders' | 'scheduling' | 'roleApproval';
+export type { ProjectTemplateId } from '../engine/appTemplates';
 
 type Options = {
   graph: Graph;
@@ -47,12 +45,11 @@ type Options = {
   activeFlowFilter?: string | null;
 };
 
-/** Seleção inicial: foco do exemplo quando presente, senão a primeira tela. */
+/** Seleciona a primeira tela do projeto aberto. */
 function initialFocus(graph: Graph) {
-  const has = (id: string) => graph.nodes.some((n) => n.id === id);
   return {
-    screenId: has(DEMO_FOCUS.screenId) ? DEMO_FOCUS.screenId : screensOf(graph)[0]?.id || '',
-    blockId: has(DEMO_FOCUS.blockId) ? DEMO_FOCUS.blockId : null,
+    screenId: screensOf(graph)[0]?.id || '',
+    blockId: null,
   };
 }
 
@@ -170,33 +167,14 @@ export function useEditorActions({
     return true;
   }
 
-  function loadExample() {
-    commit(() => structuredClone(demo));
-    setActiveScreenId(DEMO_FOCUS.screenId);
-    setSelected(DEMO_FOCUS.blockId);
-    resetView();
-  }
-
   function createProject(name: string, templateId: ProjectTemplateId = 'empty') {
-    let targetGraph: Graph;
-    if (templateId === 'customerOrders') {
-      targetGraph = {
-        ...structuredClone(customerOrdersProject),
-        name: name.trim() || customerOrdersProject.name,
-      };
-    } else if (templateId === 'scheduling') {
-      targetGraph = {
-        ...structuredClone(schedulingConflictProject),
-        name: name.trim() || schedulingConflictProject.name,
-      };
-    } else if (templateId === 'roleApproval') {
-      targetGraph = {
-        ...structuredClone(roleApprovalPortalProject),
-        name: name.trim() || roleApprovalPortalProject.name,
-      };
-    } else {
-      targetGraph = emptyGraph(name.trim() || 'Novo aplicativo');
-    }
+    const targetGraph: Graph =
+      templateId === 'empty'
+        ? emptyGraph(name.trim() || 'Novo aplicativo')
+        : {
+            ...structuredClone(appTemplates[templateId]),
+            name: name.trim() || appTemplates[templateId].name,
+          };
 
     commit(() => targetGraph);
     const firstScreen =
@@ -207,6 +185,9 @@ export function useEditorActions({
     if (firstScreen) {
       setActiveScreenId(firstScreen);
       setSelected(firstScreen);
+    } else {
+      setActiveScreenId('');
+      setSelected(null);
     }
     resetView();
   }
@@ -246,11 +227,20 @@ export function useEditorActions({
     onAddPort: (port: CustomPort) => chosen && commit((g) => addPortToBlock(g, chosen.id, port)),
     onRemovePort: (portId: string) =>
       chosen && commit((g) => removePortFromBlock(g, chosen.id, portId)),
+    onUpdateEdgeCallArg: (edgeId: string, callArg: string) =>
+      commit((g) => updateEdgeCallArg(g, edgeId, callArg)),
+    onConnect: (c: Connection & { data?: { callArg?: string; customCode?: string } }) =>
+      connectBlocks(c),
   };
 
   function updateChosenConfig(cfg: Record<string, string>) {
     if (!chosen) return;
     commit((g) => updateConfig(g, chosen.id, cfg));
+  }
+
+  function deleteChosenConfigKey(key: string) {
+    if (!chosen) return;
+    commit((g) => deleteBlockConfigKey(g, chosen.id, key));
   }
 
   return {
@@ -271,8 +261,10 @@ export function useEditorActions({
       deleteChosen,
       renameChosenId,
       updateChosenConfig,
+      deleteChosenConfigKey,
+      updateEdgeCallArg: (edgeId: string, callArg: string) =>
+        commit((g) => updateEdgeCallArg(g, edgeId, callArg)),
       preparePreview,
-      loadExample,
       createProject,
       importFile,
     },

@@ -2,6 +2,7 @@ import { catalog, simulatedKinds } from './catalog';
 import { fieldsFor, type FieldSpec } from './blockFields';
 import { getBlockPortDefinitions } from './ports';
 import type { Block, BlockDefinition, Kind } from './types';
+import { logicDefinition, selectedLogicVersion } from './catalogo/logicCatalog';
 
 export type BlockTarget = 'typescript' | 'python';
 export type PropertyUsage = 'runtime' | 'editor' | 'legacy' | 'unsupported';
@@ -117,15 +118,36 @@ export function validateBlockContract(block: Block): ContractIssue[] {
         message: `Bloco "${block.data.label}" usa versão ${version}; versão suportada: ${contract.version}.`,
       },
     ];
+  const logicKind =
+    block.data.kind === 'condition' || block.data.kind === 'validator'
+      ? block.data.kind
+      : undefined;
+  let logicOptions: { value: string; label: string }[] | undefined;
+  if (logicKind) {
+    try {
+      logicOptions = logicDefinition(logicKind, selectedLogicVersion(block.data.config)).options;
+    } catch {
+      return [
+        {
+          code: 'MISSING_CATALOG_VERSION',
+          message: `Bloco "${block.data.label}": versão do catálogo indisponível ou incompatível.`,
+        },
+      ];
+    }
+  }
   const invalidOptions: ContractIssue[] = contract.properties
     .filter((field) => {
       const value = block.data.config[field.key];
+      const options =
+        logicKind && field.key === (logicKind === 'condition' ? 'operator' : 'rule')
+          ? logicOptions
+          : field.options;
       // Projetos legados usam field também como nome da variável, não apenas tipo visual.
       if (block.data.kind === 'input' && field.key === 'field') return false;
       return (
         value &&
-        Array.isArray(field.options) &&
-        !field.options.some((option) => option.value === value) &&
+        Array.isArray(options) &&
+        !options.some((option) => option.value === value) &&
         (!field.visible || field.visible(block.data.config))
       );
     })

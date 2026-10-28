@@ -2,6 +2,30 @@ import type { ExprIR, InstructionIR, ProgramIR } from '../ir';
 import { BUILTIN_OPERATIONS } from './operations';
 import type { ExecutionContext, ExecutionResult } from './types';
 
+function event(
+  context: ExecutionContext,
+  level: 'info' | 'success' | 'warning' | 'error',
+  message: string,
+  blockId?: string,
+) {
+  context.onEvent?.({ level, message, blockId, timestamp: Date.now() });
+}
+
+function errorDetails(error: unknown): string {
+  if (!error || typeof error !== 'object') return 'Falha na execução.';
+  const detail = error as { code?: unknown; status?: unknown; message?: unknown };
+  const code =
+    typeof detail.code === 'string' && /^[A-Z0-9_]{1,80}$/.test(detail.code)
+      ? ` Código: ${detail.code}.`
+      : '';
+  const status =
+    typeof detail.status === 'number' && Number.isInteger(detail.status)
+      ? ` HTTP ${detail.status}.`
+      : '';
+  const message = typeof detail.message === 'string' ? ` ${detail.message.slice(0, 400)}` : '';
+  return `Falha na operação.${code}${status}${message}`;
+}
+
 /** Avalia uma expressão da IR dentro do contexto de execução */
 export async function evaluateExpr(
   expr: ExprIR,
@@ -109,6 +133,7 @@ export async function executeInstructions(
       case 'invoke': {
         const step = program.steps.find((candidate) => candidate.blockId === inst.blockId);
         if (!step) throw new Error(`Fluxo não encontrado: ${inst.blockId}`);
+        event(context, 'info', `Executando bloco: ${step.label}`, step.blockId);
         if (context.debugger) {
           await context.debugger.beforeStep(
             {
@@ -121,6 +146,7 @@ export async function executeInstructions(
           );
         }
         await executeInstructions(step.instructions, context, program);
+        event(context, 'success', `Bloco concluído: ${step.label}`, step.blockId);
         if (context.debugger) {
           await context.debugger.afterStep(
             {
@@ -138,6 +164,7 @@ export async function executeInstructions(
         const val = await evaluateExpr(inst.value, context, program);
         context.store[inst.key] = val;
         context.outputs[inst.key] = val;
+        event(context, 'info', 'Estado atualizado.');
         context.trace.push({
           id: inst.key,
           label: 'Estado',
@@ -154,6 +181,7 @@ export async function executeInstructions(
       }
 
       case 'call_operation': {
+        event(context, 'info', `Operação: ${inst.operation}`);
         const evaluatedArgs = await Promise.all(
           inst.args.map((a) => evaluateExpr(a, context, program)),
         );
@@ -187,6 +215,13 @@ export async function executeInstructions(
 
       case 'conditional': {
         const cond = await evaluateExpr(inst.condition, context, program);
+        event(
+          context,
+          'info',
+          cond
+            ? 'Condição verdadeira: seguindo caminho válido.'
+            : 'Condição falsa: seguindo caminho alternativo.',
+        );
         if (cond) {
           await executeInstructions(inst.thenBranch, context, program);
         } else if (inst.elseBranch && inst.elseBranch.length > 0) {
@@ -199,6 +234,13 @@ export async function executeInstructions(
         const val = await evaluateExpr(inst.expr, context, program);
         const strVal = String(val ?? '');
         const matched = inst.cases.find((c) => String(c.value) === strVal);
+        event(
+          context,
+          'info',
+          matched
+            ? 'Alternador: opção correspondente encontrada.'
+            : 'Alternador: seguindo opção padrão.',
+        );
 
         if (matched) {
           await executeInstructions(matched.branch, context, program);
@@ -218,6 +260,7 @@ export async function executeInstructions(
 
       case 'navigate': {
         context.screen = inst.targetScreenId;
+        event(context, 'info', 'Navegação para outra tela.', inst.targetScreenId);
         context.trace.push({
           id: inst.targetScreenId,
           label: 'Navegação',
@@ -228,6 +271,15 @@ export async function executeInstructions(
 
       case 'notify': {
         const msg = String(await evaluateExpr(inst.message, context, program));
+        event(
+          context,
+          inst.notifyType === 'error'
+            ? 'error'
+            : inst.notifyType === 'warning'
+              ? 'warning'
+              : 'info',
+          `Notificação (${inst.notifyType}): ${msg}`,
+        );
         context.notifications.push({
           message: msg,
           type: inst.notifyType,
@@ -244,6 +296,7 @@ export async function executeInstructions(
       }
 
       case 'delay': {
+        event(context, 'info', `Bloco de atraso configurado para ${inst.durationMs} ms.`);
         await context.adapters.delay.execute(inst.durationMs, context.signal);
         context.trace.push({
           id: 'delay',
@@ -257,6 +310,7 @@ export async function executeInstructions(
         try {
           await executeInstructions(inst.body, context, program);
         } catch (err) {
+          event(context, 'error', `${errorDetails(err)} Seguindo o caminho de erro.`);
           if (inst.catchVar) {
             context.variables[inst.catchVar] = err;
             context.outputs[inst.catchVar] = err;
@@ -267,6 +321,7 @@ export async function executeInstructions(
       }
 
       case 'adapter_call': {
+        event(context, 'info', `Integração ${inst.adapter}: iniciando ${inst.action}.`);
         const evaluatedPayload: Record<string, unknown> = {};
         for (const [k, expr] of Object.entries(inst.payload)) {
           evaluatedPayload[k] = await evaluateExpr(expr, context, program);
@@ -378,10 +433,12 @@ export async function executeInstructions(
           context.variables[inst.targetVar] = res;
           context.outputs[inst.targetVar] = res;
         }
+        event(context, 'success', `Integração ${inst.adapter}: ${inst.action} concluído.`);
         break;
       }
 
       case 'call_subflow': {
+        event(context, 'info', 'Iniciando subfluxo.', inst.subflowId);
         const evaluatedInputs: Record<string, unknown> = {};
         for (const [k, expr] of Object.entries(inst.inputs)) {
           evaluatedInputs[k] = await evaluateExpr(expr, context, program);
@@ -409,6 +466,7 @@ export async function executeInstructions(
           label: 'Subfluxo',
           message: `Subfluxo [${inst.subflowId}] executado com sucesso`,
         });
+        event(context, 'success', 'Subfluxo concluído.', inst.subflowId);
         break;
       }
     }
@@ -424,6 +482,7 @@ export async function interpret(
   entryId: string,
   context: ExecutionContext,
 ): Promise<ExecutionResult> {
+  event(context, 'info', 'Execução iniciada.', entryId);
   try {
     let instructionsToRun: InstructionIR[] | undefined;
 
@@ -464,6 +523,7 @@ export async function interpret(
     await executeInstructions(instructionsToRun, context, program);
 
     context.debugger?.completeExecution();
+    event(context, 'success', 'Execução concluída.');
 
     return {
       success: true,
@@ -476,6 +536,7 @@ export async function interpret(
     };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
+    event(context, 'error', errorDetails(error));
     context.debugger?.failExecution(error);
     return {
       success: false,

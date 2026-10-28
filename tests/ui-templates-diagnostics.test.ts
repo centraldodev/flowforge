@@ -48,7 +48,7 @@ test('Fase 9: Diagnóstico de Ambiente dos Templates Canônicos', () => {
   assert.equal(report.featuresDetected.hasDatabase, true);
   assert.equal(report.featuresDetected.hasAuth, true);
   assert.ok(report.requiredVariables.some((v) => v.name === 'FLOWFORGE_SECRET_DATABASE_URL'));
-  assert.ok(report.requiredVariables.some((v) => v.name === 'FLOWFORGE_SECRET_JWT_SECRET'));
+  assert.ok(!report.requiredVariables.some((v) => v.name === 'FLOWFORGE_SECRET_JWT_SECRET'));
 });
 
 test('Fase 9: Exportação Modular dos Templates contém docker-compose e check-env', () => {

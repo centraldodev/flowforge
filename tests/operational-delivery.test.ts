@@ -46,7 +46,7 @@ test('Fase 7: Assistente de ambiente detecta variáveis ausentes e gera orienta�
   assert.strictEqual(filledReport.ok, true);
   assert.strictEqual(filledReport.missingVariables.length, 0);
   assert.ok(filledReport.configuredVariables.includes('FLOWFORGE_SECRET_DATABASE_URL'));
-  assert.ok(filledReport.configuredVariables.includes('FLOWFORGE_SECRET_JWT_SECRET'));
+  assert.ok(!filledReport.requiredVariables.some((v) => v.name === 'FLOWFORGE_SECRET_JWT_SECRET'));
 });
 
 test('Fase 7: Logger estruturado e sanitização automática de segredos', async () => {

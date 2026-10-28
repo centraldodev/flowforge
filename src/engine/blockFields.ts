@@ -1,5 +1,6 @@
 // Definições de propriedades independentes da interface React.
 import type { Kind } from './types';
+import { logicDefinition } from './catalogo/logicCatalog';
 
 export type Option = { value: string; label: string };
 
@@ -7,7 +8,13 @@ export type FieldSpec = {
   key: string;
   label: string;
   /** Lista fixa de opções, 'screens' para as telas do projeto, ou 'flows' para os fluxos cadastrados. */
-  options?: Option[] | 'screens' | 'flows' | 'httpConnections';
+  options?:
+    | Option[]
+    | 'screens'
+    | 'flows'
+    | 'httpConnections'
+    | 'postgresConnections'
+    | 'logicCatalogVersions';
   entries?: boolean;
   area?: boolean;
   /** Exibe o campo somente quando a condição for verdadeira. */
@@ -30,17 +37,34 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
   function: [],
   condition: [
     {
+      key: 'catalogVersion',
+      label: 'Versão publicada do catálogo',
+      options: 'logicCatalogVersions',
+    },
+    {
       key: 'operator',
       label: 'Comparação',
-      options: [
-        { value: 'truthy', label: 'É verdadeiro / tem valor' },
-        { value: 'equals', label: 'É igual a' },
-        { value: 'gt', label: 'É maior que' },
-      ],
+      options: logicDefinition('condition').options.map(({ value, label }) => ({ value, label })),
     },
-    { key: 'compare', label: 'Comparar com', visible: (c) => c.operator !== 'truthy' },
+    { key: 'compare', label: 'Comparar com (valor2)', visible: (c) => c.operator !== 'truthy' },
+    { key: 'trueValue', label: 'Retorno se True (ex: valor3)' },
+    { key: 'falseValue', label: 'Retorno se False (ex: "Texto personalizado")' },
   ],
   auth: [
+    {
+      key: 'execution',
+      label: 'Execução',
+      options: [
+        { value: 'demo', label: 'Demonstração' },
+        { value: 'real', label: 'Autenticação pelo servidor' },
+      ],
+    },
+    {
+      key: 'authDatabaseId',
+      label: 'Banco PostgreSQL para usuários e sessões',
+      options: 'postgresConnections',
+      visible: (c) => c.execution === 'real',
+    },
     {
       key: 'provider',
       label: 'Provedor',
@@ -57,6 +81,8 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
       options: [
         { value: 'login', label: 'Entrar' },
         { value: 'register', label: 'Criar conta' },
+        { value: 'session', label: 'Consultar sessão' },
+        { value: 'logout', label: 'Sair' },
       ],
       visible: (c) => !c.provider || c.provider === 'email',
     },
@@ -118,17 +144,14 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
   ],
   validator: [
     {
+      key: 'catalogVersion',
+      label: 'Versão publicada do catálogo',
+      options: 'logicCatalogVersions',
+    },
+    {
       key: 'rule',
       label: 'Regra de Validação',
-      options: [
-        { value: 'required', label: 'Obrigatório (Não vazio)' },
-        { value: 'email', label: 'Formato de E-mail' },
-        { value: 'minLength', label: 'Tamanho Mínimo (caracteres)' },
-        { value: 'maxLength', label: 'Tamanho Máximo (caracteres)' },
-        { value: 'numeric', label: 'Numérico' },
-        { value: 'cpf', label: 'CPF (11 dígitos)' },
-        { value: 'regex', label: 'Expressão Regular (Regex)' },
-      ],
+      options: logicDefinition('validator').options.map(({ value, label }) => ({ value, label })),
     },
     { key: 'param', label: 'Parâmetro da regra (mín, máx ou padrão regex)' },
     { key: 'message', label: 'Mensagem de erro se inválido' },
@@ -449,7 +472,10 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
       visible: (c) => c.operation !== 'not',
     },
   ],
-  object: [{ key: 'fields', label: 'Campos do objeto (JSON ou chaves separadas por vírgula)' }],
+  object: [
+    { key: 'fields', label: 'Campos do objeto (JSON)' },
+    { key: 'fieldNames', label: 'Campos conectados (separados por vírgula)' },
+  ],
   array: [{ key: 'items', label: 'Itens iniciais (separados por vírgula)' }],
   subflow: [
     { key: 'subflowId', label: 'Identificador do Subfluxo' },
@@ -457,6 +483,14 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
     { key: 'subflowDefinition', label: 'Definição do Subfluxo (JSON)', area: true },
   ],
   storage: [
+    {
+      key: 'execution',
+      label: 'Execução',
+      options: [
+        { value: 'real', label: 'Serviço real' },
+        { value: 'demo', label: 'Demonstração' },
+      ],
+    },
     {
       key: 'provider',
       label: 'Provedor de Armazenamento',
@@ -471,6 +505,14 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
     { key: 'secretEnv', label: 'Referência ao Segredo de Acesso' },
   ],
   email: [
+    {
+      key: 'execution',
+      label: 'Execução',
+      options: [
+        { value: 'real', label: 'Serviço real' },
+        { value: 'demo', label: 'Demonstração' },
+      ],
+    },
     {
       key: 'provider',
       label: 'Provedor de E-mail',
@@ -491,10 +533,26 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
     { key: 'secretEnv', label: 'Referência ao Segredo de Assinatura (HMAC)' },
   ],
   task: [
+    {
+      key: 'execution',
+      label: 'Execução',
+      options: [
+        { value: 'real', label: 'Serviço real' },
+        { value: 'demo', label: 'Demonstração' },
+      ],
+    },
     { key: 'taskName', label: 'Nome da Tarefa' },
     { key: 'schedule', label: 'Expressão Cron (ex: 0 * * * *)' },
   ],
   payment: [
+    {
+      key: 'execution',
+      label: 'Execução',
+      options: [
+        { value: 'real', label: 'Serviço real' },
+        { value: 'demo', label: 'Demonstração' },
+      ],
+    },
     {
       key: 'provider',
       label: 'Provedor de Pagamento',

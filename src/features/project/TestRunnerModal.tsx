@@ -99,7 +99,21 @@ export function TestRunnerModal({ isOpen, onClose, graph, onUpdateGraph }: Props
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Cenários de Teste E2E (Sem Código)">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Cenários de Teste E2E (Sem Código)"
+      className="test-runner-modal"
+    >
+      <span className="modal-icon">
+        <FlaskConical size={24} />
+      </span>
+      <h2>Cenários de Teste E2E (Sem Código)</h2>
+      <p>
+        Crie e execute baterias de validação automatizadas em fluxos e interfaces sem escrever
+        código.
+      </p>
+
       <div className="test-runner-container">
         <div className="test-runner-header">
           <div className="test-runner-summary">

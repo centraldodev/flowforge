@@ -28,26 +28,32 @@ export type TaskResult = { ok: true; taskId: string };
   );
 
   // 2. Módulo de Gateway de Integrações no Servidor
-  const gatewayCode = `import { createHmac } from 'node:crypto';
+  const gatewayCode = `import { createHmac, timingSafeEqual, createHash } from 'node:crypto';
+import { mkdir, open } from 'node:fs/promises';
+import { join } from 'node:path';
+const MANIFEST = ${json(manifest)};
 
 export function createIntegrationsGateway(options = {}) {
   const storageBucket = new Map();
   const sentEmails = [];
   const scheduledTasks = [];
+  const env = options.env || process.env;
+  const stateDir = options.stateDir || env.FLOWFORGE_WEBHOOK_STATE_DIR || join(process.cwd(), '.flowforge', 'webhook-events');
 
   return async (req, res) => {
     const url = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
     const pathname = url.pathname;
     res.setHeader('Content-Type', 'application/json');
 
-    // Leitura do corpo JSON
+    // Leitura do corpo original para verificação criptográfica
+    let rawText = '';
     let body = {};
     if (['POST', 'PUT'].includes(req.method)) {
       try {
         const buffers = [];
         for await (const chunk of req) buffers.push(chunk);
-        const text = Buffer.concat(buffers).toString('utf-8');
-        if (text) body = JSON.parse(text);
+        rawText = Buffer.concat(buffers).toString('utf-8');
+        if (rawText) body = JSON.parse(rawText);
       } catch {
         res.statusCode = 400;
         return res.end(JSON.stringify({ ok: false, error: 'JSON malformado' }));
@@ -56,6 +62,10 @@ export function createIntegrationsGateway(options = {}) {
 
     // Rotas de Storage
     if (pathname.startsWith('/api/storage')) {
+      const configured = MANIFEST.storage.find((item) => item.id === body.blockId);
+      if (!configured) { res.statusCode = 404; return res.end(JSON.stringify({ ok: false, error: { code: 'INTEGRATION_NOT_CONFIGURED', message: 'Integração não configurada.' } })); }
+      if (configured.execution !== 'demo') { res.statusCode = 501; return res.end(JSON.stringify({ ok: false, error: { code: 'INTEGRATION_NOT_IMPLEMENTED', message: 'Integração real ainda não está disponível.' } })); }
+
       if (req.method === 'POST') {
         const maxSizeBytes = Number(body.maxSizeBytes || 5242880);
         const size = Number(body.size || 1024);
@@ -67,12 +77,16 @@ export function createIntegrationsGateway(options = {}) {
         const fileUrl = 'https://storage.flowforge.dev/' + filePath;
         storageBucket.set(filePath, { fileUrl, size, uploadedAt: new Date().toISOString() });
         res.statusCode = 200;
-        return res.end(JSON.stringify({ ok: true, fileUrl, size, path: filePath }));
+        return res.end(JSON.stringify({ ok: true, demo: true, fileUrl, size, path: filePath }));
       }
     }
 
     // Rotas de Email
     if (pathname.startsWith('/api/email')) {
+      const configured = MANIFEST.email.find((item) => item.id === body.blockId);
+      if (!configured) { res.statusCode = 404; return res.end(JSON.stringify({ ok: false, error: { code: 'INTEGRATION_NOT_CONFIGURED', message: 'Integração não configurada.' } })); }
+      if (configured.execution !== 'demo') { res.statusCode = 501; return res.end(JSON.stringify({ ok: false, error: { code: 'INTEGRATION_NOT_IMPLEMENTED', message: 'Integração real ainda não está disponível.' } })); }
+
       if (req.method === 'POST') {
         if (!body.to) {
           res.statusCode = 400;
@@ -81,20 +95,52 @@ export function createIntegrationsGateway(options = {}) {
         const messageId = '<msg_' + Date.now() + '@flowforge.dev>';
         sentEmails.push({ messageId, to: body.to, subject: body.subject, sentAt: new Date().toISOString() });
         res.statusCode = 200;
-        return res.end(JSON.stringify({ ok: true, messageId }));
+        return res.end(JSON.stringify({ ok: true, demo: true, messageId }));
       }
     }
 
     // Rotas de Webhook
     if (pathname.startsWith('/api/webhooks')) {
-      const signature = req.headers['x-hub-signature-256'] || req.headers['x-signature'] || body.signature;
-      const secretEnvName = body.secretEnv || 'FLOWFORGE_SECRET_WEBHOOK_SECRET';
-      const secret = process.env[secretEnvName] || 'secret';
-      
-      // Validação de assinatura se fornecida
-      if (body.expectedSignature && signature !== body.expectedSignature) {
+      const signatureHeader = req.headers['x-hub-signature-256'] || req.headers['x-signature'] || req.headers['stripe-signature'];
+      if (!signatureHeader) {
         res.statusCode = 401;
-        return res.end(JSON.stringify({ ok: false, error: 'Assinatura inválida' }));
+        return res.end(JSON.stringify({ ok: false, error: { code: 'MISSING_SIGNATURE', message: 'Cabeçalho de assinatura do webhook obrigatório.' } }));
+      }
+
+      const config = MANIFEST.webhooks.find((item) => item.path === pathname);
+      if (!config) { res.statusCode = 404; return res.end(JSON.stringify({ ok: false, error: { code: 'WEBHOOK_NOT_CONFIGURED', message: 'Webhook não configurado.' } })); }
+      const envSecret = env[config.secretEnv];
+      if (!envSecret) {
+        res.statusCode = 503;
+        return res.end(JSON.stringify({ ok: false, error: { code: 'WEBHOOK_SECRET_NOT_CONFIGURED', message: 'Segredo de validação de webhook não configurado no servidor.' } }));
+      }
+
+      // Verificação HMAC SHA-256 sobre o corpo bruto
+      const expectedHmac = createHmac('sha256', envSecret).update(rawText).digest('hex');
+      const cleanSignature = String(signatureHeader).replace(/^sha256=/i, '');
+
+      let signaturesMatch = false;
+      try {
+        signaturesMatch = timingSafeEqual(Buffer.from(expectedHmac, 'hex'), Buffer.from(cleanSignature, 'hex'));
+      } catch {
+        signaturesMatch = false;
+      }
+
+      if (!signaturesMatch) {
+        res.statusCode = 401;
+        return res.end(JSON.stringify({ ok: false, error: { code: 'INVALID_SIGNATURE', message: 'Assinatura HMAC de webhook inválida.' } }));
+      }
+
+      // Persistência atômica por identidade autenticada: cabeçalhos de transporte não definem o evento.
+      const identity = body.id ? String(body.id) : createHash('sha256').update(rawText).digest('hex');
+      const eventHash = createHash('sha256').update(pathname + ':' + identity).digest('hex');
+      try {
+        await mkdir(stateDir, { recursive: true, mode: 0o700 });
+        const marker = await open(join(stateDir, eventHash), 'wx', 0o600);
+        await marker.close();
+      } catch (error) {
+        if (error.code === 'EEXIST') { res.statusCode = 409; return res.end(JSON.stringify({ ok: false, error: { code: 'DUPLICATE_EVENT', message: 'Evento de webhook já processado anteriormente.' } })); }
+        res.statusCode = 503; return res.end(JSON.stringify({ ok: false, error: { code: 'WEBHOOK_STATE_UNAVAILABLE', message: 'Não foi possível registrar o evento.' } }));
       }
 
       res.statusCode = 200;
@@ -103,10 +149,14 @@ export function createIntegrationsGateway(options = {}) {
 
     // Rotas de Tarefas
     if (pathname.startsWith('/api/tasks')) {
+      const configured = MANIFEST.tasks.find((item) => item.id === body.blockId);
+      if (!configured) { res.statusCode = 404; return res.end(JSON.stringify({ ok: false, error: { code: 'INTEGRATION_NOT_CONFIGURED', message: 'Integração não configurada.' } })); }
+      if (configured.execution !== 'demo') { res.statusCode = 501; return res.end(JSON.stringify({ ok: false, error: { code: 'INTEGRATION_NOT_IMPLEMENTED', message: 'Integração real ainda não está disponível.' } })); }
+
       const taskName = body.taskName || 'tarefa';
       scheduledTasks.push({ taskName, triggeredAt: new Date().toISOString() });
       res.statusCode = 200;
-      return res.end(JSON.stringify({ ok: true, taskId: taskName }));
+      return res.end(JSON.stringify({ ok: true, demo: true, taskId: taskName }));
     }
 
     res.statusCode = 404;

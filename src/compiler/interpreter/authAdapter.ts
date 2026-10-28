@@ -23,8 +23,11 @@ export class GatewayAuthAdapter implements AuthAdapter {
     payload: Record<string, unknown>,
     context: ExecutionContext,
   ): Promise<unknown> {
-    if (payload.mode !== 'real') {
+    if (payload.execution !== 'real' && payload.mode !== 'real') {
       return this.mock.execute(action, payload, context);
+    }
+    if (payload.provider && payload.provider !== 'email') {
+      throw new Error('Este provedor de autenticação real ainda não está disponível.');
     }
 
     let email = String(payload.email || '');
@@ -42,9 +45,9 @@ export class GatewayAuthAdapter implements AuthAdapter {
       );
       if (passKey) password = String(context.inputs[passKey] ?? '');
     }
-    if (!token && action === 'session') {
+    if (!token && (action === 'session' || action === 'logout')) {
       const activeSession = context.variables['session'] as { token?: string } | undefined;
-      token = activeSession?.token || '';
+      token = activeSession?.token || String(context.store.__authToken || '');
     }
 
     const response = await fetch('/__flowforge/auth', {
@@ -74,12 +77,14 @@ export class GatewayAuthAdapter implements AuthAdapter {
     const result = await response.json();
     if (!response.ok || !result.ok) {
       delete context.store.__session;
+      delete context.store.__authToken;
       const err = new Error(result.error?.message || 'Falha na autenticação.');
       throw Object.assign(err, { code: result.error?.code || 'AUTH_ERROR' });
     }
 
     if (action === 'logout') {
       delete context.store.__session;
+      delete context.store.__authToken;
       delete context.variables['user'];
       delete context.outputs['user'];
       delete context.variables['session'];
@@ -93,6 +98,7 @@ export class GatewayAuthAdapter implements AuthAdapter {
       context.outputs['user'] = result.user;
     }
     if (result.session) {
+      if (result.session.token) context.store.__authToken = result.session.token;
       context.variables['session'] = result.session;
       context.outputs['session'] = result.session;
     }

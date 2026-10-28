@@ -104,10 +104,13 @@ export function emitProject(plan: ArtifactPlan, hasServer: boolean) {
   );
   plan.text(
     'apps/web/vite.config.ts',
-    `import { defineConfig } from 'vite';\nexport default defineConfig({ base: './', ${hasServer ? "server: { proxy: { '/__flowforge': { target: 'http://127.0.0.1:' + (process.env.FLOWFORGE_PORT || 8787), changeOrigin: false } } }" : ''} });\n`,
+    `import { defineConfig } from 'vite';\nexport default defineConfig({ base: './', ${hasServer ? "server: { proxy: { '/__flowforge': { target: 'http://127.0.0.1:' + (process.env.FLOWFORGE_PORT || 8787), changeOrigin: false }, '/api': { target: 'http://127.0.0.1:' + (process.env.FLOWFORGE_PORT || 8787), changeOrigin: false } } }" : ''} });\n`,
     'configuration',
   );
   if (hasServer) {
+    const hasDb =
+      plan.files.has('apps/api/src/database/manifest.mjs') ||
+      plan.files.has('packages/contracts/src/database.ts');
     plan.text(
       'apps/api/package.json',
       json({
@@ -116,7 +119,10 @@ export function emitProject(plan: ArtifactPlan, hasServer: boolean) {
         private: true,
         type: 'module',
         scripts: { build: 'node ../../scripts/check-api.mjs' },
-        dependencies: { '@flowforge/contracts': '1.0.0' },
+        dependencies: {
+          '@flowforge/contracts': '1.0.0',
+          ...(hasDb ? { pg: '^8.13.1' } : {}),
+        },
       }),
       'workspace',
     );

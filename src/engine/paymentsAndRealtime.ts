@@ -14,6 +14,7 @@ export interface PaymentConfig {
   successUrl?: string;
   cancelUrl?: string;
   secretEnv: string;
+  execution: 'real' | 'demo';
 }
 
 export type RealtimeProtocol = 'sse' | 'websocket';
@@ -52,6 +53,7 @@ export function parsePaymentBlock(node: Block): PaymentConfig {
     successUrl: c.successUrl,
     cancelUrl: c.cancelUrl,
     secretEnv,
+    execution: c.execution === 'demo' ? 'demo' : 'real',
   };
 }
 

@@ -30,6 +30,7 @@ RUN npm install
 # Copia código fonte
 COPY packages ./packages
 COPY apps ./apps
+COPY scripts ./scripts
 
 # Compila contratos e frontend
 RUN npm run build
@@ -46,7 +47,7 @@ ENV FLOWFORGE_HOST=0.0.0.0
 RUN apk add --no-cache dumb-init
 
 # Cria usuário não-root por segurança
-RUN addgroup --system --gid 1001 nodejs && \\
+RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 flowforge
 
 # Copia artefatos necessários para execução
@@ -79,10 +80,10 @@ CMD ["node", "apps/api/src/main.mjs"]
     restart: always
     environment:
       POSTGRES_DB: flowforge_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_USER: \${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD:-postgrespassword}
     ports:
-      - "5432:5432"
+      - "\${POSTGRES_PORT:-5432}:5432"
     volumes:
       - flowforge_pgdata:/var/lib/postgresql/data
 `
@@ -115,7 +116,7 @@ services:
     environment:
       - FLOWFORGE_ENV=\${FLOWFORGE_ENV:-production}
       - FLOWFORGE_PORT=8787
-      - FLOWFORGE_HOST=0.0.0.0${hasDb ? '\n      - FLOWFORGE_SECRET_DATABASE_URL=postgresql://postgres:postgrespassword@postgres:5432/flowforge_db' : ''}
+      - FLOWFORGE_HOST=0.0.0.0${hasDb ? '\n      - FLOWFORGE_SECRET_DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgrespassword}@postgres:5432/flowforge_db' : ''}
     env_file:
       - path: .env
         required: false${dbDepends}

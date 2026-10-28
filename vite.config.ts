@@ -15,15 +15,13 @@ export default defineConfig({
         const { createHttpGateway } = await loadHttpGateway();
         const gateway = createHttpGateway({ preview: true, env });
         const dbGateway = createDatabaseGateway({ env });
-        const authGateway = createAuthGateway();
+        const authGateway = createAuthGateway({ seedPlaygroundAccount: true });
         server.middlewares.use((req, res, next) => {
           const pathname = req.url?.split('?')[0] || '';
           if (['/__flowforge/http', '/__flowforge/secrets'].includes(pathname))
             void gateway(req, res);
-          else if (pathname === '/__flowforge/db')
-            void dbGateway(req, res);
-          else if (pathname.startsWith('/__flowforge/auth'))
-            void authGateway(req, res);
+          else if (pathname === '/__flowforge/db') void dbGateway(req, res);
+          else if (pathname.startsWith('/__flowforge/auth')) void authGateway(req, res);
           else next();
         });
       },

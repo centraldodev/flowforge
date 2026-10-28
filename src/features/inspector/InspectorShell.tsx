@@ -1,43 +1,40 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
+  Code,
+  Copy,
+  GitBranch,
+  Layers,
   PanelRightClose,
   PanelRightOpen,
-  GitBranch,
-  SlidersHorizontal,
-  KeyRound,
-  Globe,
-  Database,
-  ArrowRightLeft,
-  Hash,
-  FileText,
-  Copy,
   Trash2,
   X,
-  Tag,
-  Code2,
-  Monitor,
 } from 'lucide-react';
-import { PropertyField, type FieldDefinition } from '../../components/PropertyField';
-import { catalog, type Block, type Graph } from '../../engine';
+import type { Connection } from '@xyflow/react';
+import type { FieldDefinition } from '../../components/PropertyField';
+import { catalog, getEdgeGeneratedCode, type Block, type Graph } from '../../engine';
+import { BlockCodeEditor } from './BlockCodeEditor';
 import { BlockIdEditor } from './BlockIdEditor';
-import { HttpRequestTools } from './HttpRequestTools';
 
 type Props = {
   children: ReactNode;
-  fields: FieldDefinition[];
+  fields?: FieldDefinition[];
   chosen?: Block;
   graph?: Graph;
   nameField?: FieldDefinition;
   onRenameId?: (newId: string) => boolean | void;
-  connections: ReactNode;
+  connections?: ReactNode;
   onDuplicate: () => void;
   onDelete: () => void;
   onChangeConfig?: (config: Record<string, string>) => void;
+  onConnect?: (c: Connection & { data?: { callArg?: string } }) => void;
+  onRemoveEdge?: (id: string) => void;
+  onUpdateEdgeCallArg?: (edgeId: string, callArg: string) => void;
 };
 
 export function InspectorShell(p: Props) {
   const [expanded, setExpanded] = useState(false);
   const [active, setActive] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'code' | 'connections' | 'all'>('code');
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const root = useRef<HTMLElement>(null);
   const lastTrigger = useRef<HTMLButtonElement | null>(null);
@@ -46,15 +43,16 @@ export function InspectorShell(p: Props) {
     if (timer.current) clearTimeout(timer.current);
   }
 
-  function show(id: string, trigger?: HTMLButtonElement) {
+  function show(tab: 'code' | 'connections' | 'all', trigger?: HTMLButtonElement) {
     cancel();
     if (trigger) lastTrigger.current = trigger;
-    setActive(id);
+    setActive('flyout');
+    setActiveTab(tab);
   }
 
   function closeSoon() {
     cancel();
-    timer.current = setTimeout(() => setActive(null), 220);
+    timer.current = setTimeout(() => setActive(null), 250);
   }
 
   useEffect(() => () => cancel(), []);
@@ -82,28 +80,12 @@ export function InspectorShell(p: Props) {
     };
   }, [active]);
 
-  const field = p.fields.find((f) => f.id === active);
+  const def = p.chosen ? catalog[p.chosen.data.kind] : undefined;
 
-  const icon = (id: string) =>
-    id === 'identity' || id === 'label'
-      ? Tag
-      : id === 'code'
-        ? Code2
-        : id === 'screenId' || id === 'target'
-          ? Monitor
-          : id === 'provider'
-            ? KeyRound
-            : id === 'url'
-              ? Globe
-              : id === 'table'
-                ? Database
-                : id === 'operation' || id === 'mode'
-                  ? ArrowRightLeft
-                  : id === 'value' || id === 'minimum'
-                    ? Hash
-                    : id === 'text' || id === 'message'
-                      ? FileText
-                      : SlidersHorizontal;
+  const blockEdges = useMemo(() => {
+    if (!p.graph || !p.chosen) return [];
+    return p.graph.edges.filter((e) => e.source === p.chosen!.id || e.target === p.chosen!.id);
+  }, [p.graph, p.chosen]);
 
   return (
     <aside
@@ -125,7 +107,7 @@ export function InspectorShell(p: Props) {
             >
               <PanelRightClose size={18} />
             </button>
-            <span>Propriedades</span>
+            <span>Propriedades & Código</span>
           </div>
           <div className="inspector-body">{p.children}</div>
         </>
@@ -142,76 +124,40 @@ export function InspectorShell(p: Props) {
           >
             <PanelRightOpen size={18} />
           </button>
-          {p.chosen ? (
+
+          {p.chosen && def ? (
             <>
               <span className="inspector-rail-separator" />
 
-              {/* Botão de Identidade: ID e Título unificados */}
+              {/* Botão de Código Backend do Bloco */}
               <div
                 className="rail-item-wrapper"
                 onMouseEnter={(e) =>
-                  show('identity', e.currentTarget.querySelector('button') || undefined)
+                  show('code', e.currentTarget.querySelector('button') || undefined)
                 }
                 onMouseLeave={closeSoon}
               >
                 <button
-                  title={`Identidade do Bloco (${catalog[p.chosen.data.kind]?.name || p.chosen.id})`}
-                  aria-label={`Identidade do Bloco (${catalog[p.chosen.data.kind]?.name || p.chosen.id})`}
-                  aria-expanded={active === 'identity'}
+                  title={`Código Backend (${def.name || p.chosen.id})`}
+                  aria-label={`Código Backend (${def.name || p.chosen.id})`}
+                  aria-expanded={active === 'flyout' && activeTab === 'code'}
                   aria-haspopup="dialog"
-                  className={active === 'identity' ? 'active' : ''}
-                  onClick={(e) => show('identity', e.currentTarget)}
+                  className={active === 'flyout' && activeTab === 'code' ? 'active' : ''}
+                  onClick={(e) => show('code', e.currentTarget)}
                 >
                   <span
                     className="material-symbols-outlined"
                     style={{
                       fontSize: 20,
-                      color: catalog[p.chosen.data.kind]?.color || '#c4b1f2',
+                      color: def.color || '#38bdf8',
                     }}
                   >
-                    {catalog[p.chosen.data.kind]?.icon || 'widgets'}
+                    {def.icon || 'code'}
                   </span>
                 </button>
               </div>
 
-              {/* Demais propriedades de configuração */}
-              {['api', 'httpConnection'].includes(p.chosen.data.kind) && (
-                <button
-                  title="Testar e configurar HTTP"
-                  aria-label="Testar e configurar HTTP"
-                  onClick={(event) => show('http-tools', event.currentTarget)}
-                >
-                  <Globe size={19} />
-                </button>
-              )}
-              {p.fields
-                .filter((f) => f.id !== 'label')
-                .map((f) => {
-                  const Icon = icon(f.id);
-                  return (
-                    <div
-                      key={f.id}
-                      className="rail-item-wrapper"
-                      onMouseEnter={(e) =>
-                        show(f.id, e.currentTarget.querySelector('button') || undefined)
-                      }
-                      onMouseLeave={closeSoon}
-                    >
-                      <button
-                        title={f.label}
-                        aria-label={f.label}
-                        aria-expanded={active === f.id}
-                        aria-haspopup="dialog"
-                        className={active === f.id ? 'active' : ''}
-                        onClick={(e) => show(f.id, e.currentTarget)}
-                      >
-                        <Icon size={19} />
-                      </button>
-                    </div>
-                  );
-                })}
-
-              {/* Conexões e portas */}
+              {/* Botão de Conexões Feitas */}
               <div
                 className="connections-trigger"
                 onMouseEnter={(e) =>
@@ -220,14 +166,34 @@ export function InspectorShell(p: Props) {
                 onMouseLeave={closeSoon}
               >
                 <button
-                  title="Conexões (Portas)"
-                  aria-label="Conexões (Portas)"
-                  aria-expanded={active === 'connections'}
+                  title={`Conexões Feitas (${blockEdges.length})`}
+                  aria-label={`Conexões Feitas (${blockEdges.length})`}
+                  aria-expanded={active === 'flyout' && activeTab === 'connections'}
                   aria-haspopup="dialog"
-                  className={active === 'connections' ? 'active' : ''}
+                  className={active === 'flyout' && activeTab === 'connections' ? 'active' : ''}
                   onClick={(e) => show('connections', e.currentTarget)}
                 >
                   <GitBranch size={20} />
+                </button>
+              </div>
+
+              {/* Botão de Painel Completo */}
+              <div
+                className="rail-item-wrapper"
+                onMouseEnter={(e) =>
+                  show('all', e.currentTarget.querySelector('button') || undefined)
+                }
+                onMouseLeave={closeSoon}
+              >
+                <button
+                  title={`Painel Completo (${def.name})`}
+                  aria-label={`Painel Completo (${def.name})`}
+                  aria-expanded={active === 'flyout' && activeTab === 'all'}
+                  aria-haspopup="dialog"
+                  className={active === 'flyout' && activeTab === 'all' ? 'active' : ''}
+                  onClick={(e) => show('all', e.currentTarget)}
+                >
+                  <Layers size={19} />
                 </button>
               </div>
 
@@ -252,84 +218,225 @@ export function InspectorShell(p: Props) {
           )}
         </nav>
       )}
-      {!expanded && active && (
+
+      {/* Flyout Modal quando o menu direito está recolhido / oculto */}
+      {!expanded && active && p.chosen && def && (
         <div
           className="inspector-flyout"
           role="dialog"
-          aria-label={
-            active === 'identity'
-              ? 'Identidade do bloco'
-              : active === 'connections'
-                ? 'Conexões do bloco'
-                : active === 'http-tools'
-                  ? 'Testar e configurar HTTP'
-                  : field?.label || 'Propriedade'
-          }
+          aria-label={`Código e conexões de ${def.name}`}
           onMouseEnter={cancel}
           onMouseLeave={closeSoon}
         >
-          <div className="section-title">
-            <h2>
-              {active === 'identity'
-                ? 'Identidade do Bloco'
-                : active === 'connections'
-                  ? 'Conexões'
-                  : active === 'http-tools'
-                    ? 'Integração HTTP'
-                    : field?.label}
-            </h2>
+          {/* Cabeçalho do Flyout */}
+          <div className="inspector-flyout-header">
+            <div className="inspector-flyout-info">
+              <span
+                className="material-symbols-outlined"
+                style={{
+                  fontSize: 20,
+                  color: def.color || '#38bdf8',
+                }}
+              >
+                {def.icon || 'code'}
+              </span>
+              <div className="inspector-flyout-titles">
+                <div className="inspector-flyout-sub">
+                  <span>{def.category}</span>
+                  <span className="block-id-badge">#{p.chosen.id}</span>
+                </div>
+                <h3 className="inspector-flyout-title">{def.name}</h3>
+              </div>
+            </div>
+
             <button
-              title="Fechar painel flutuante"
-              aria-label="Fechar painel flutuante"
+              type="button"
+              className="inspector-flyout-close"
+              title="Fechar (Esc)"
+              aria-label="Fechar"
               onClick={() => setActive(null)}
             >
               <X size={16} />
             </button>
           </div>
 
-          {active === 'identity' ? (
-            <div className="inspector-identity-flyout">
-              {p.graph && p.onRenameId && p.chosen && (
-                <BlockIdEditor chosen={p.chosen} graph={p.graph} onRename={p.onRenameId} />
-              )}
-              {p.nameField && <PropertyField {...p.nameField} />}
-            </div>
-          ) : active === 'connections' ? (
-            p.connections
-          ) : active === 'http-tools' && p.chosen && p.graph && p.onChangeConfig ? (
-            <HttpRequestTools
-              key={p.chosen.id}
-              block={p.chosen}
-              graph={p.graph}
-              onChangeConfig={p.onChangeConfig}
-            />
-          ) : field ? (
-            field.options ? (
-              <div
-                className="inspector-options"
-                role="listbox"
-                aria-label={'Opções de ' + field.label}
-              >
-                {field.options.map((option) => (
-                  <button
-                    key={option.value}
-                    role="option"
-                    aria-selected={field.value === option.value}
-                    onClick={() => {
-                      field.onChange(option.value);
-                      setActive(null);
-                      lastTrigger.current?.focus();
-                    }}
-                  >
-                    <span>{option.label}</span>
-                    {field.value === option.value && <span>✓</span>}
+          {/* Abas Rápidas no Topo do Modal */}
+          <div className="inspector-flyout-tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'code'}
+              className={`inspector-flyout-tab-btn ${activeTab === 'code' ? 'active' : ''}`}
+              onClick={() => setActiveTab('code')}
+            >
+              <Code size={13} />
+              <span>Código Backend</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'connections'}
+              className={`inspector-flyout-tab-btn ${activeTab === 'connections' ? 'active' : ''}`}
+              onClick={() => setActiveTab('connections')}
+            >
+              <GitBranch size={13} />
+              <span>Conexões ({blockEdges.length})</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'all'}
+              className={`inspector-flyout-tab-btn ${activeTab === 'all' ? 'active' : ''}`}
+              onClick={() => setActiveTab('all')}
+            >
+              <Layers size={13} />
+              <span>Completo</span>
+            </button>
+          </div>
+
+          {/* Conteúdo Dinâmico conforme a Aba Selecionada */}
+          <div className="inspector-flyout-body">
+            {activeTab === 'all' ? (
+              // Modo Completo: renderiza o InspectorPanel
+              p.children
+            ) : activeTab === 'code' ? (
+              // Modo Código: Título, ID, Editor com valores editáveis e templates, e Ações
+              <>
+                {p.nameField && (
+                  <div className="block-label-bar">
+                    <span className="label-title">Título:</span>
+                    <input
+                      type="text"
+                      className="block-label-input"
+                      value={p.nameField.value}
+                      placeholder={def.name}
+                      onChange={(e) => p.nameField?.onChange(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {p.graph && p.onRenameId && (
+                  <BlockIdEditor chosen={p.chosen} graph={p.graph} onRename={p.onRenameId} />
+                )}
+
+                <div className="form-separator">CÓDIGO DO BLOCO (BACKEND)</div>
+
+                {p.graph && p.onChangeConfig && (
+                  <BlockCodeEditor
+                    block={p.chosen}
+                    graph={p.graph}
+                    onChangeConfig={p.onChangeConfig}
+                    onConnect={p.onConnect}
+                    onRemoveEdge={p.onRemoveEdge}
+                    onUpdateEdgeCallArg={p.onUpdateEdgeCallArg}
+                  />
+                )}
+
+                <div className="block-actions" style={{ marginTop: 14 }}>
+                  <button type="button" className="secondary" onClick={p.onDuplicate}>
+                    <Copy size={14} /> Duplicar
                   </button>
-                ))}
-              </div>
+                  <button
+                    type="button"
+                    className="danger"
+                    title="Excluir bloco"
+                    onClick={p.onDelete}
+                  >
+                    <Trash2 size={15} /> Excluir
+                  </button>
+                </div>
+              </>
             ) : (
-              <PropertyField key={field.id} {...field} />
-            )
-          ) : null}
+              // Modo Conexões Feitas: Lista de conexões ativas com código gerado e desconexão
+              <>
+                <div className="form-separator">CONEXÕES FEITAS</div>
+
+                <div className="inspector-active-connections">
+                  {blockEdges.length === 0 ? (
+                    <p className="subtle" style={{ margin: '6px 0', fontSize: 11 }}>
+                      Nenhuma conexão feita neste bloco ainda. Conecte pelo dropdown no código ou
+                      arraste o cabo no canvas.
+                    </p>
+                  ) : (
+                    <div className="connections-card-list">
+                      {blockEdges.map((e) => {
+                        const isSource = e.source === p.chosen!.id;
+                        const otherId = isSource ? e.target : e.source;
+                        const otherNode = p.graph?.nodes.find((n) => n.id === otherId);
+                        const otherLabel = otherNode?.data.label || otherId;
+                        const otherKind = otherNode?.data.kind;
+                        const otherDef = otherKind ? catalog[otherKind] : undefined;
+                        const edgeCode = p.graph ? getEdgeGeneratedCode(p.graph, p.chosen!, e) : '';
+                        const isNestedCondition = isSource && otherKind === 'condition';
+
+                        return (
+                          <div className="connection-block-card" key={e.id}>
+                            <div className="connection-card-header">
+                              <div className="connection-card-title">
+                                {otherDef && (
+                                  <span
+                                    className="material-symbols-outlined"
+                                    style={{ fontSize: 15, color: otherDef.color }}
+                                  >
+                                    {otherDef.icon}
+                                  </span>
+                                )}
+                                <span className="other-node-label">{otherLabel}</span>
+                                <span className="other-node-id">#{otherId}</span>
+                              </div>
+                              <button
+                                type="button"
+                                className="connection-remove-btn"
+                                title="Desconectar fio"
+                                onClick={() => p.onRemoveEdge?.(e.id)}
+                              >
+                                <X size={13} />
+                              </button>
+                            </div>
+
+                            <div className="connection-card-ports">
+                              <span className="port-badge">
+                                {isSource ? 'saída' : 'origem'}:{' '}
+                                <code>{e.sourceHandle || 'padrão'}</code>
+                              </span>
+                              <span className="port-divider">➔</span>
+                              <span className="port-badge">
+                                {isSource ? 'destino' : 'entrada'}:{' '}
+                                <code>{e.targetHandle || 'padrão'}</code>
+                              </span>
+                              {isNestedCondition && (
+                                <span className="nested-if-badge">If dentro de If</span>
+                              )}
+                            </div>
+
+                            <div className="connection-code-snippet">
+                              <pre className="connection-code-pre">
+                                <code>{edgeCode}</code>
+                              </pre>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="block-actions" style={{ marginTop: 14 }}>
+                  <button type="button" className="secondary" onClick={p.onDuplicate}>
+                    <Copy size={14} /> Duplicar
+                  </button>
+                  <button
+                    type="button"
+                    className="danger"
+                    title="Excluir bloco"
+                    onClick={p.onDelete}
+                  >
+                    <Trash2 size={15} /> Excluir
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </aside>

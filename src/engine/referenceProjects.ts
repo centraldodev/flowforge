@@ -315,6 +315,24 @@ export const customerOrdersProject: Graph = {
       label: 'Subfluxo Cálculo Total',
       config: {
         subflowId: 'sub_calcular_pedido',
+        subflowDefinition: JSON.stringify({
+          id: 'sub_calcular_pedido',
+          name: 'Calcular total informado',
+          parameters: [{ id: 'input', name: 'Valor', direction: 'input' }],
+          returns: [{ id: 'result', name: 'Total', direction: 'output' }],
+          nodes: [
+            {
+              id: 'valor_total',
+              position: { x: 0, y: 0 },
+              data: {
+                kind: 'math',
+                label: 'Valor informado',
+                config: { operation: 'mul', b: '1' },
+              },
+            },
+          ],
+          edges: [],
+        }),
       },
     }),
 

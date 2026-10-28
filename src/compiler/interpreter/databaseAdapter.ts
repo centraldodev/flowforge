@@ -29,7 +29,12 @@ export class GatewayDatabaseAdapter implements DatabaseAdapter {
 
     const response = await fetch('/__flowforge/db', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(context.store.__authToken
+          ? { Authorization: `Bearer ${String(context.store.__authToken)}` }
+          : {}),
+      },
       signal: context.signal,
       body: JSON.stringify({
         id: payload.blockId,

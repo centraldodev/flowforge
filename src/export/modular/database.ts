@@ -6,6 +6,8 @@ import {
   sanitizeIdentifier,
 } from '../../engine/database';
 import { ArtifactPlan, identity, json } from './artifacts';
+import { databaseGatewaySource } from './databaseGateway';
+import { buildAuthManifest } from '../../engine/auth';
 
 function toPascalCase(str: string): string {
   return str
@@ -14,7 +16,7 @@ function toPascalCase(str: string): string {
     .join('');
 }
 
-export function emitDatabase(plan: ArtifactPlan, graph: Graph): boolean {
+export function emitDatabase(plan: ArtifactPlan, graph: Graph, hasAuth = false): boolean {
   const manifest = buildDatabaseManifest(graph);
   if (!manifest.operations.length && !manifest.entities.length && !manifest.connections.length) {
     return false;
@@ -136,6 +138,7 @@ export async function runMigrations(pool) {
           'INSERT INTO _flowforge_migrations (version, name) VALUES ($1, $2);',
           [version, file]
         );
+        appliedVersions.add(version);
         newlyApplied.push(file);
       }
     }
@@ -159,10 +162,25 @@ export async function runMigrations(pool) {
     const safeTable = sanitizeIdentifier(table);
     const repoPath = `${root}modules/${safeTable}/repository.mjs`;
     repoDeps.push(repoPath);
+    const allowedFields = [
+      ...new Set([
+        'id',
+        'tenant_id',
+        ...manifest.entities
+          .filter((entity) => entity.name === table)
+          .flatMap((entity) => entity.fields.map((field) => field.name)),
+      ]),
+    ];
 
     const repoCode = `// Repositório de dados com queries parametrizadas para a tabela "${safeTable}"
+const allowedFields = new Set(${JSON.stringify(allowedFields)});
+function column(name) {
+  if (!allowedFields.has(name) || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new Error('Campo não declarado na entidade.');
+  return '"' + name + '"';
+}
 export class ${toPascalCase(safeTable)}Repository {
   constructor(pool) {
+    if (!pool) throw new Error('Conexão com banco de dados obrigatória.');
     this.pool = pool;
   }
 
@@ -177,7 +195,7 @@ export class ${toPascalCase(safeTable)}Repository {
     if (filter && typeof filter === 'object' && Object.keys(filter).length > 0) {
       for (const [k, v] of Object.entries(filter)) {
         params.push(v);
-        clauses.push(\`"\${k}" = $\${params.length}\`);
+        clauses.push(\`\${column(k)} = $\${params.length}\`);
       }
     }
     if (clauses.length > 0) {
@@ -185,7 +203,7 @@ export class ${toPascalCase(safeTable)}Repository {
     }
     if (orderBy) {
       const dir = (orderDirection || 'asc').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
-      sql += \` ORDER BY "\${orderBy}" \${dir}\`;
+      sql += \` ORDER BY \${column(orderBy)} \${dir}\`;
     }
     if (limit > 0) {
       params.push(limit);
@@ -214,7 +232,7 @@ export class ${toPascalCase(safeTable)}Repository {
     const payload = tenantId ? { ...data, tenant_id: tenantId } : data;
     const keys = Object.keys(payload).filter(Boolean);
     const placeholders = keys.map((_, i) => \`$\${i + 1}\`).join(', ');
-    const sql = \`INSERT INTO "${safeTable}" (\${keys.map((k) => \`"\${k}"\`).join(', ')}) VALUES (\${placeholders}) RETURNING *;\`;
+    const sql = \`INSERT INTO "${safeTable}" (\${keys.map(column).join(', ')}) VALUES (\${placeholders}) RETURNING *;\`;
     const params = keys.map((k) => payload[k]);
     const rows = this.pool ? (await this.pool.query(sql, params)).rows : [];
     return rows[0] || payload;
@@ -229,7 +247,7 @@ export class ${toPascalCase(safeTable)}Repository {
       params.push(tenantId);
       whereClause += \` AND "tenant_id" = $\${params.length}\`;
     }
-    const setClause = keys.map((k, i) => \`"\${k}" = $\${i + 1}\`).join(', ');
+    const setClause = keys.map((k, i) => \`\${column(k)} = $\${i + 1}\`).join(', ');
     const sql = \`UPDATE "${safeTable}" SET \${setClause} WHERE \${whereClause} RETURNING *;\`;
     const rows = this.pool ? (await this.pool.query(sql, params)).rows : [];
     return rows[0] || null;
@@ -254,174 +272,19 @@ export class ${toPascalCase(safeTable)}Repository {
   // 6. Manifesto de Banco e Gateway com Multi-Tenancy em apps/api/src/database/
   plan.text(
     `${root}database/manifest.mjs`,
-    `export default ${json(manifest)};\n`,
+    `export default ${json({ ...manifest, policies: buildAuthManifest(graph).policies })};\n`,
     'database-manifest',
     manifest.operations.map((op) => op.id),
   );
 
   const gatewayDeps = [`${root}database/manifest.mjs`, `${root}database/migrator.mjs`, ...repoDeps];
+  if (hasAuth) {
+    gatewayDeps.push(`${root}policies/index.mjs`, `${root}auth/gateway.mjs`);
+  }
+
   plan.text(
     `${root}database/gateway.mjs`,
-    `import manifest from './manifest.mjs';
-
-export function createDatabaseGateway(options = {}) {
-  const store = new Map();
-
-  return async (req, res) => {
-    if (req.method !== 'POST') {
-      res.statusCode = 405;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ ok: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Método não permitido.' } }));
-      return;
-    }
-
-    try {
-      const chunks = [];
-      for await (const chunk of req) chunks.push(Buffer.from(chunk));
-      const body = JSON.parse(Buffer.concat(chunks).toString('utf-8'));
-
-      const spec = manifest.operations.find((op) => op.id === body.id);
-      if (!spec) {
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ ok: false, error: { code: 'OPERATION_NOT_FOUND', message: 'Operação não configurada.' } }));
-        return;
-      }
-
-      const tenantId =
-        req.headers['x-tenant-id'] ||
-        body.tenantId ||
-        (body.context && body.context.tenantId) ||
-        null;
-
-      if (spec.multiTenancy === 'column' && !tenantId) {
-        res.statusCode = 400;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ ok: false, error: { code: 'TENANT_REQUIRED', message: 'Identificador do tenant (x-tenant-id) é obrigatório.' } }));
-        return;
-      }
-
-      const tableStore = store.get(spec.table) || new Map();
-      store.set(spec.table, tableStore);
-
-      const op = spec.operation;
-      const input = body.payload || {};
-      const tenantCol = spec.tenantColumn || 'tenant_id';
-
-      if (op === 'query') {
-        let rows = Array.from(tableStore.values());
-        if (spec.multiTenancy === 'column' && tenantId) {
-          rows = rows.filter((r) => String(r[tenantCol] ?? '') === String(tenantId));
-        }
-        if (input.filter && typeof input.filter === 'object') {
-          rows = rows.filter((r) => Object.entries(input.filter).every(([k, v]) => String(r[k] ?? '') === String(v ?? '')));
-        }
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ ok: true, data: rows, total: rows.length }));
-        return;
-      }
-
-      if (op === 'get') {
-        const id = String(input.id || spec.recordId || '');
-        const row = tableStore.get(id);
-        if (!row) {
-          res.statusCode = 404;
-          res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ ok: false, error: { code: 'NOT_FOUND', message: 'Registro não encontrado.' } }));
-          return;
-        }
-        if (spec.multiTenancy === 'column' && tenantId) {
-          if (row[tenantCol] && String(row[tenantCol]) !== String(tenantId)) {
-            res.statusCode = 403;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ ok: false, error: { code: 'TENANT_FORBIDDEN', message: 'Acesso negado: registro pertence a outro tenant.' } }));
-            return;
-          }
-        }
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ ok: true, data: row }));
-        return;
-      }
-
-      if (op === 'insert') {
-        const raw = input.data || {};
-        const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        const id = String(data.id || (tableStore.size + 1));
-        const record = { ...data, id, criado_em: new Date().toISOString() };
-        if (spec.multiTenancy === 'column' && tenantId) {
-          record[tenantCol] = tenantId;
-        }
-        tableStore.set(id, record);
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ ok: true, data: record }));
-        return;
-      }
-
-      if (op === 'update') {
-        const raw = input.data || {};
-        const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        const id = String(input.id || data.id || spec.recordId || '');
-        const existing = tableStore.get(id);
-        if (!existing) {
-          res.statusCode = 404;
-          res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ ok: false, error: { code: 'NOT_FOUND', message: 'Registro não encontrado.' } }));
-          return;
-        }
-        if (spec.multiTenancy === 'column' && tenantId) {
-          if (existing[tenantCol] && String(existing[tenantCol]) !== String(tenantId)) {
-            res.statusCode = 403;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ ok: false, error: { code: 'TENANT_FORBIDDEN', message: 'Acesso negado: registro pertence a outro tenant.' } }));
-            return;
-          }
-        }
-        const updated = { ...existing, ...data, id, atualizado_em: new Date().toISOString() };
-        tableStore.set(id, updated);
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ ok: true, data: updated }));
-        return;
-      }
-
-      if (op === 'delete') {
-        const id = String(input.id || spec.recordId || '');
-        const existing = tableStore.get(id);
-        if (!existing) {
-          res.statusCode = 404;
-          res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ ok: false, error: { code: 'NOT_FOUND', message: 'Registro não encontrado.' } }));
-          return;
-        }
-        if (spec.multiTenancy === 'column' && tenantId) {
-          if (existing[tenantCol] && String(existing[tenantCol]) !== String(tenantId)) {
-            res.statusCode = 403;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ ok: false, error: { code: 'TENANT_FORBIDDEN', message: 'Acesso negado: registro pertence a outro tenant.' } }));
-            return;
-          }
-        }
-        tableStore.delete(id);
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ ok: true, data: existing, deletedCount: 1 }));
-        return;
-      }
-
-      res.statusCode = 400;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ ok: false, error: { code: 'UNSUPPORTED_OP', message: 'Operação não suportada.' } }));
-    } catch (err) {
-      res.statusCode = 500;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ ok: false, error: { code: 'INTERNAL_ERROR', message: err.message } }));
-    }
-  };
-}
-`,
+    databaseGatewaySource(hasAuth),
     'database-gateway',
     [],
     gatewayDeps,

@@ -19,11 +19,34 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #2b2e3780;
+  border-bottom: 1px solid var(--color-border);
   z-index: 3;
-  background: #15171ce8;
+  background: var(--bg-panel);
   font-size: 11px;
-  color: #c9cbd7;
+  color: var(--color-text-secondary);
+}
+
+:root[data-theme='light'] .canvas-bar {
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+:root[data-theme='light'] .canvas-screen-tab {
+  background: #f0f2f7;
+  border-color: #dbe0ea;
+  color: #4b5563;
+}
+
+:root[data-theme='light'] .canvas-screen-tab:hover {
+  background: #e4e7ef;
+  color: #111827;
+}
+
+:root[data-theme='light'] .canvas-screen-tab.active {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #4f46e5;
 }
 
 .canvas-bar > div {
@@ -202,9 +225,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(17, 19, 24, 0.9);
+  background: var(--bg-panel);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--color-border);
   z-index: 2;
   overflow-x: auto;
   scrollbar-width: none;
@@ -222,7 +245,7 @@
 }
 
 .flow-filter-icon {
-  color: #818cf8;
+  color: var(--color-primary);
 }
 
 .flow-phases-label {
@@ -230,7 +253,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  color: #64748b;
+  color: var(--color-text-muted);
   white-space: nowrap;
 }
 
@@ -242,9 +265,9 @@
   height: 24px;
   padding: 0 8px 0 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #94a3b8;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
   font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
@@ -252,13 +275,13 @@
   font-family: inherit;
   outline: none;
   user-select: none;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
 .flow-phase-chip:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.18);
-  color: #e2e8f0;
+  background: var(--bg-card-hover);
+  border-color: var(--color-border-hover);
+  color: var(--color-text);
 }
 
 .flow-phase-chip.flow-phase-all {
@@ -523,7 +546,7 @@
   top: 92px;
   pointer-events: none;
   z-index: 2;
-  background: linear-gradient(90deg, #111318d9, transparent);
+  background: linear-gradient(90deg, var(--bg-root), transparent);
   padding: 0 20px 18px 0;
 }
 
@@ -770,28 +793,32 @@
 
 /* Bloco de Tela com Estilo de Aba */
 .block.block-screen-tab {
-  background: linear-gradient(180deg, #181b26 0%, #11141d 100%);
-  border: 1px solid rgba(129, 140, 248, 0.25);
-  border-top: 3px solid #818cf8;
+  background: var(--bg-card);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--color-primary);
   border-radius: 10px 10px 12px 12px;
-  box-shadow:
-    0 12px 28px -6px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(129, 140, 248, 0.1);
+  box-shadow: var(--shadow-node);
   min-width: 250px;
 }
 
 .block.block-screen-tab:hover {
-  border-color: rgba(129, 140, 248, 0.45);
-  box-shadow:
-    0 14px 32px -4px rgba(0, 0, 0, 0.7),
-    0 0 16px rgba(99, 102, 241, 0.2);
+  border-color: var(--color-primary);
+  box-shadow: 0 14px 32px -4px rgba(0, 0, 0, 0.2);
 }
 
 .block.block-screen-tab.selected {
-  border-color: #818cf8;
+  border-color: var(--color-primary);
   box-shadow:
-    0 0 0 2px rgba(129, 140, 248, 0.4),
-    0 14px 32px rgba(0, 0, 0, 0.7);
+    0 0 0 2px var(--color-primary-subtle),
+    var(--shadow-node);
+}
+
+:root[data-theme='light'] .block.block-screen-tab {
+  background: #ffffff;
+  border-color: #d1d5db;
+  border-top: 3px solid var(--color-primary);
+  color: #0f172a;
 }
 
 /* ==========================================================================
@@ -1017,10 +1044,10 @@
 .react-flow__controls {
   bottom: 54px;
   left: 16px;
-  border: 1px solid #393e4a;
+  border: 1px solid var(--color-border);
   border-radius: 7px;
   overflow: hidden;
-  box-shadow: 0 3px 12px #0003;
+  box-shadow: var(--shadow-sm);
 }
 
 .react-flow__controls.react-flow__panel {
@@ -1029,36 +1056,59 @@
 }
 
 .react-flow__controls-button {
-  background: #20242c;
-  border-color: #383c47;
-  color: #c8ccd8;
+  background: var(--bg-card);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
   width: 28px;
   height: 28px;
   border-radius: 0;
 }
 
 .react-flow__controls-button:hover {
-  background: #313642;
+  background: var(--bg-card-hover);
+  color: var(--color-text);
 }
 
 .react-flow__minimap {
   bottom: 50px !important;
   right: 18px !important;
-  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border: 1px solid var(--color-border) !important;
   border-radius: 10px !important;
   overflow: hidden;
-  background: #111319ed !important;
+  background: var(--bg-card) !important;
   backdrop-filter: blur(8px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+  box-shadow: var(--shadow-modal) !important;
   width: 220px !important;
   height: 140px !important;
 }
 
 .react-flow__minimap-mask {
-  fill: rgba(10, 12, 18, 0.68);
-  stroke: #818cf8 !important;
+  fill: var(--bg-overlay);
+  stroke: var(--color-primary) !important;
   stroke-width: 2px !important;
   stroke-linejoin: round;
+}
+
+:root[data-theme='light'] .react-flow__minimap {
+  background: #ffffff !important;
+  border-color: var(--color-border) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
+}
+
+:root[data-theme='light'] .react-flow__minimap-mask {
+  fill: rgba(241, 245, 249, 0.7);
+  stroke: var(--color-primary) !important;
+}
+
+:root[data-theme='light'] .react-flow__controls-button {
+  background: #ffffff;
+  border-color: var(--color-border);
+  color: #4b5563;
+}
+
+:root[data-theme='light'] .react-flow__controls-button:hover {
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 .react-flow__minimap-node {

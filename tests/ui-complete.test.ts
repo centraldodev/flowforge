@@ -315,3 +315,60 @@ test('Fase 4: exportação modular inclui contratos e suporte a tabelas e formul
   assert.ok(layoutRenderer.content.includes("case 'table':"));
   assert.ok(layoutRenderer.content.includes("case 'form':"));
 });
+
+test('Frontend Builder: Exportação modular inclui suporte a modo noturno quando darkModeEnabled', () => {
+  const planWithDark = new ArtifactPlan();
+  const graphWithDark: Graph = {
+    version: 1,
+    name: 'App Com Modo Noturno',
+    nodes: [
+      {
+        id: 'screen_1',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Início',
+          kind: 'screen',
+          config: { title: 'Início' },
+        },
+      },
+    ],
+    edges: [],
+    darkModeEnabled: true,
+  };
+
+  emitPages(planWithDark, graphWithDark);
+
+  const appFile = planWithDark.files.get('apps/web/src/app/App.tsx')!;
+  assert.ok(appFile.content.includes("localStorage.getItem('app_theme')"));
+  assert.ok(appFile.content.includes('theme-switch-bar'));
+
+  const htmlFile = planWithDark.files.get('apps/web/index.html')!;
+  assert.ok(htmlFile.content.includes("localStorage.getItem('app_theme')"));
+
+  const cssFile = planWithDark.files.get('apps/web/src/styles/global.css')!;
+  assert.ok(cssFile.content.includes('[data-theme="dark"]'));
+
+  // Quando desativado
+  const planWithoutDark = new ArtifactPlan();
+  const graphWithoutDark: Graph = {
+    version: 1,
+    name: 'App Padrão',
+    nodes: [
+      {
+        id: 'screen_1',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Início',
+          kind: 'screen',
+          config: { title: 'Início' },
+        },
+      },
+    ],
+    edges: [],
+    darkModeEnabled: false,
+  };
+
+  emitPages(planWithoutDark, graphWithoutDark);
+  const appFilePlain = planWithoutDark.files.get('apps/web/src/app/App.tsx')!;
+  assert.ok(!appFilePlain.content.includes('theme-switch-bar'));
+});

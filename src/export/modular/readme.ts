@@ -34,7 +34,9 @@ npm run dev
 \`\`\`
 Frontend e backend são iniciados em conjunto:
 - Frontend Vite: [http://127.0.0.1:5173](http://127.0.0.1:5173) (com proxy automático para o backend)
-- Backend Fastify/Node: [http://127.0.0.1:8787](http://127.0.0.1:8787)
+- Backend Node: [http://127.0.0.1:8787](http://127.0.0.1:8787)
+
+Se houver autenticação real, configure no ambiente a variável de segredo da conexão PostgreSQL selecionada no bloco de autenticação. O backend cria as tabelas de usuários e sessões no primeiro uso; o usuário do banco precisa de permissão para criá-las. As sessões persistem no banco, mas o token do navegador permanece em memória e é perdido ao recarregar a página.
 `
     : `### 1.2 Desenvolvimento Local
 \`\`\`bash
@@ -61,7 +63,7 @@ ${
   hasServer
     ? `## 2. Execução com Docker e Containers
 
-O projeto exportado já inclui \`Dockerfile\` multi-stage e \`docker-compose.yml\` prontos para produção.
+O projeto exportado inclui \`Dockerfile\` multi-stage e \`docker-compose.yml\` como ponto de partida para implantação. Revise as configurações e integrações antes de usar em produção.
 
 ### 2.1 Executar com Docker Compose (recomendado)
 \`\`\`bash
@@ -108,7 +110,7 @@ ${
     ? `│   └── api/                     # Backend Node.js independente
 │       ├── src/http/            # Transporte, validação e gateways
 │       ├── src/database/        # Repositórios e conexão PostgreSQL
-│       ├── src/auth/            # Gateway de autenticação e sessão JWT
+│       ├── src/auth/            # Gateway de autenticação e armazenamento de sessões
 │       ├── src/integrations/    # Operações privadas de storage, e-mail e webhooks
 │       └── src/runtime/         # Logger estruturado e diagnósticos operacionais
 `

@@ -108,19 +108,10 @@ export function analyzeEnvironment(
 
   // Requisitos de Autenticação
   if (hasAuth) {
-    requiredVariables.push({
-      name: 'FLOWFORGE_SECRET_JWT_SECRET',
-      category: 'auth',
-      required: true,
-      description: 'Chave secreta de alta entropia para assinatura de tokens JWT e sessões.',
-      example: 'c2VjdXJlX2p3dF9zZWNyZXRfa2V5XzIwMjZfZmxvd2Zvcmdl',
-      setupGuide:
-        'Gere uma string aleatória segura (ex: openssl rand -base64 32) e atribua a FLOWFORGE_SECRET_JWT_SECRET.',
-    });
-
     const hasGoogleAuth = graph.nodes.some(
       (n) =>
         n.data.kind === 'auth' &&
+        n.data.config?.execution === 'real' &&
         (n.data.config?.provider === 'google' || n.data.config?.enableGoogle === 'true'),
     );
     if (hasGoogleAuth) {

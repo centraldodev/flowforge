@@ -106,6 +106,12 @@ export function text_replace(a: unknown, search: unknown, replacement: unknown):
     .join(String(replacement ?? ''));
 }
 
+export function object_from_fields(...values: unknown[]): Record<string, unknown> {
+  const result: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+  for (let i = 0; i + 1 < values.length; i += 2) result[String(values[i])] = values[i + 1];
+  return result;
+}
+
 export function object_create(data: unknown): Record<string, unknown> {
   if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
     return { ...(data as Record<string, unknown>) };
@@ -150,5 +156,6 @@ export const BUILTIN_OPERATIONS: Record<string, (...args: unknown[]) => unknown>
   text_split,
   text_replace,
   object_create,
+  object_from_fields,
   array_create,
 };

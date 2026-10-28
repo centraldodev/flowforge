@@ -338,7 +338,9 @@ export function lowerInstruction(inst: InstructionIR, symbols: SymbolTable): JSS
             type: 'raw',
             code: `(() => {
   const _p = ${payloadCode};
-  return context.adapters[${safeLiteral(inst.adapter)}].execute(${safeLiteral(inst.action)}, _p, context)
+  const _ad = context.adapters && context.adapters[${safeLiteral(inst.adapter)}];
+  if (!_ad) throw new Error("Adaptador não encontrado: " + ${safeLiteral(inst.adapter)});
+  return _ad.execute(${safeLiteral(inst.action)}, _p, context)
     .then((_r) => {
       context.variables[${safeLiteral(targetVar)}] = _r;
       context.outputs[${safeLiteral(targetVar)}] = _r;
@@ -361,8 +363,8 @@ export function lowerInstruction(inst: InstructionIR, symbols: SymbolTable): JSS
       }
       const inputsCode = `{ ${inputProps.join(', ')} }`;
       const targetVar = inst.targetVar || inst.subflowId;
-      const defJson = inst.subflowDefinition
-        ? safeLiteral(JSON.stringify(inst.subflowDefinition))
+      const defCode = inst.subflowDefinition
+        ? `JSON.parse(${safeLiteral(JSON.stringify(inst.subflowDefinition))})`
         : 'undefined';
 
       return [
@@ -373,8 +375,9 @@ export function lowerInstruction(inst: InstructionIR, symbols: SymbolTable): JSS
             type: 'raw',
             code: `(() => {
   const _in = ${inputsCode};
-  const _def = ${defJson} ? JSON.parse(${defJson}) : undefined;
-  return (context.adapters.subflow ? context.adapters.subflow.execute(${safeLiteral(inst.subflowId)}, _in, context, _def) : Promise.resolve(_in))
+  const _def = ${defCode};
+  if (!context.adapters.subflow) throw new Error('Adaptador de subfluxo não disponível.');
+  return context.adapters.subflow.execute(${safeLiteral(inst.subflowId)}, _in, context, _def)
     .then((_r) => {
       context.variables[${safeLiteral(targetVar)}] = _r;
       context.outputs[${safeLiteral(targetVar)}] = _r;

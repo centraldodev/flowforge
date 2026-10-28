@@ -1,13 +1,5 @@
 import { useState } from 'react';
-import {
-  FilePlus2,
-  Plus,
-  ShoppingBag,
-  CalendarCheck,
-  ShieldCheck,
-  Sparkles,
-  Check,
-} from 'lucide-react';
+import { FilePlus2, Plus, ShoppingBag, ListChecks, Users, Sparkles, Check } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import type { ProjectTemplateId } from '../../app/useEditorActions';
 
@@ -41,37 +33,36 @@ const TEMPLATES: TemplateOption[] = [
     defaultName: 'Meu Novo Aplicativo',
   },
   {
-    id: 'customerOrders',
-    title: 'Gestor de Clientes e Pedidos',
-    subtitle: 'App de Referência 1',
-    description:
-      'Login real, CRUD em PostgreSQL, cálculo de itens, transações e consumo de API externa.',
-    icon: ShoppingBag,
+    id: 'tasks',
+    title: 'App de tarefas',
+    subtitle: 'Lista com cadastro e edição',
+    description: 'Cadastro, login e gerenciamento de tarefas com PostgreSQL configurável.',
+    icon: ListChecks,
     color: '#10b981',
-    tags: ['PostgreSQL', 'Auth', 'API', 'Transações'],
-    defaultName: 'Gestor de Clientes e Pedidos',
+    tags: ['PostgreSQL', 'Auth', 'CRUD'],
+    defaultName: 'Minhas Tarefas',
   },
   {
-    id: 'scheduling',
-    title: 'Agendamento sem Conflito',
-    subtitle: 'App de Referência 2',
+    id: 'store',
+    title: 'Loja virtual — catálogo',
+    subtitle: 'Cadastro de produtos',
     description:
-      'Regras visuais de negócios para validação de conflitos de horários e alertas automáticos.',
-    icon: CalendarCheck,
+      'Gerencie produtos com login e banco real. Checkout e pagamentos ainda não estão incluídos.',
+    icon: ShoppingBag,
     color: '#f59e0b',
-    tags: ['Regras de Negócio', 'Validação', 'Notificações'],
-    defaultName: 'Sistema de Agendamentos',
+    tags: ['Produtos', 'PostgreSQL', 'CRUD'],
+    defaultName: 'Catálogo de Produtos',
   },
   {
-    id: 'roleApproval',
-    title: 'Portal de Aprovação por Papéis',
-    subtitle: 'App de Referência 3',
+    id: 'social',
+    title: 'Rede social — mural',
+    subtitle: 'Publicações com login',
     description:
-      'Controle de acesso baseado em funções (RBAC), telas protegidas e políticas de segurança.',
-    icon: ShieldCheck,
+      'Crie e gerencie publicações. Perfis, curtidas e comentários ainda não estão incluídos.',
+    icon: Users,
     color: '#ec4899',
-    tags: ['RBAC', 'Políticas', 'Segurança'],
-    defaultName: 'Portal de Aprovações',
+    tags: ['Publicações', 'PostgreSQL', 'CRUD'],
+    defaultName: 'Mural de Publicações',
   },
 ];
 
@@ -93,18 +84,18 @@ export function NewProjectModal({ isOpen, onClose, onCreate }: Props) {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Novo projeto">
+    <Modal isOpen={isOpen} onClose={onClose} title="Novo projeto" className="new-project-modal">
       <span className="modal-icon">
-        <FilePlus2 size={25} />
+        <FilePlus2 size={24} />
       </span>
       <h2>Criar novo aplicativo</h2>
       <p>
-        Escolha começar em branco ou acelere seu desenvolvimento com um dos nossos apps de
-        referência canônicos testados de ponta a ponta.
+        Escolha um modelo e configure sua conexão PostgreSQL e credenciais antes de executar. Os
+        modelos usam dados compartilhados entre usuários autenticados.
       </p>
 
       <div className="template-selector-section">
-        <span className="eyebrow">MODELO OU APP DE REFERÊNCIA</span>
+        <span className="eyebrow">MODELOS DE APLICATIVO</span>
         <div className="template-grid">
           {TEMPLATES.map((tmpl) => {
             const Icon = tmpl.icon;

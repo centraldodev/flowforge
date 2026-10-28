@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { downloadGraph } from '../export';
 import { Toast } from '../components/Toast';
 import { FlowCanvas } from '../features/canvas/FlowCanvas';
+import { FrontendEditor } from '../features/frontend/FrontendEditor';
 import { Connections } from '../features/inspector/Connections';
 import { InspectorPanel } from '../features/inspector/InspectorPanel';
 import { InspectorShell } from '../features/inspector/InspectorShell';
@@ -21,6 +22,7 @@ import { Header } from './Header';
 import { useEditorActions } from './useEditorActions';
 
 type ModalType = 'preview' | 'export' | 'new' | 'settings' | 'code' | 'tests' | 'readiness' | null;
+export type AppTheme = 'light' | 'system' | 'dark';
 
 export function App() {
   const { graph, setGraph, commit, remember, undo, redo, canUndo, canRedo, beginDrag, endDrag } =
@@ -28,11 +30,38 @@ export function App() {
 
   const [modal, setModal] = useState<ModalType>(null);
   const [sidebar, setSidebar] = useState(false);
+  const [workspaceMode, setWorkspaceMode] = useState<'flow' | 'frontend'>('flow');
   const [isTimeTravelOpen, setIsTimeTravelOpen] = useState(false);
   const [activeFlowFilter, setActiveFlowFilter] = useState<string | null>(null);
   const [notice, setNotice] = useNotice();
   const fileInput = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLElement>(null);
+
+  const [appTheme, setAppTheme] = useState<AppTheme>(() => {
+    try {
+      return (localStorage.getItem('flowforge_app_theme') as AppTheme) || 'system';
+    } catch {
+      return 'system';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('flowforge_app_theme', appTheme);
+      const media = window.matchMedia('(prefers-color-scheme: dark)');
+      const applyTheme = () => {
+        const isDark = appTheme === 'dark' || (appTheme === 'system' && media.matches);
+        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+      };
+      applyTheme();
+      if (appTheme === 'system') {
+        media.addEventListener('change', applyTheme);
+        return () => media.removeEventListener('change', applyTheme);
+      }
+    } catch {
+      // Ignora erro em ambientes sem matchMedia
+    }
+  }, [appTheme]);
 
   const simulation = useSimulation(graph);
   usePersistence(graph, setNotice);
@@ -69,6 +98,8 @@ export function App() {
   return (
     <div className="app">
       <Header
+        workspaceMode={workspaceMode}
+        onWorkspaceMode={setWorkspaceMode}
         projectName={graph.name}
         onRenameProject={(name) => setGraph((g) => ({ ...g, name }))}
         onViewCode={() => setModal('code')}
@@ -90,72 +121,92 @@ export function App() {
       />
 
       <div className="workspace">
-        <Sidebar
-          expanded={sidebar}
-          onToggle={() => setSidebar((v) => !v)}
-          onNew={() => setModal('new')}
-          onOpen={() => fileInput.current?.click()}
-          onSave={() => downloadGraph(graph)}
-          onSettings={() => setModal('settings')}
-          onExample={actions.loadExample}
-          onAdd={actions.addBlockOfKind}
-          onExport={() => setModal('export')}
-        />
-
-        <FlowCanvas
-          containerRef={canvasRef}
-          graph={graph}
-          selected={editor.selected}
-          activeScreenId={editor.currentScreenId}
-          onSelectScreen={(screenId) => {
-            setActiveFlowFilter(null);
-            editor.setActiveScreenId(screenId);
-          }}
-          activeFlowFilter={activeFlowFilter}
-          onSelectFlowFilter={setActiveFlowFilter}
-          trace={simulation.trace}
-          errorCount={errors.length}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          onUndo={undo}
-          onRedo={redo}
-          onAddScreen={actions.addScreen}
-          onSelect={editor.setSelected}
-          onGraphChange={(updater, undoable) => {
-            if (undoable) remember();
-            setGraph(updater);
-          }}
-          onConnect={actions.connectBlocks}
-          onDragStart={beginDrag}
-          onDragStop={endDrag}
-          simulation={simulation}
-          isTimeTravelOpen={isTimeTravelOpen}
-          onCloseTimeTravel={() => setIsTimeTravelOpen(false)}
-        />
-
-        <InspectorShell
-          chosen={chosen}
-          graph={graph}
-          nameField={editor.nameField}
-          onRenameId={actions.renameChosenId}
-          fields={editor.fields}
-          connections={connections}
-          onDuplicate={actions.duplicateChosen}
-          onDelete={actions.deleteChosen}
-          onChangeConfig={actions.updateChosenConfig}
-        >
-          <InspectorPanel
-            chosen={chosen}
+        {workspaceMode === 'frontend' ? (
+          <FrontendEditor
             graph={graph}
-            nameField={editor.nameField}
-            configFields={editor.fields}
-            connections={connections}
-            onChangeConfig={actions.updateChosenConfig}
-            onRenameId={actions.renameChosenId}
-            onDuplicate={actions.duplicateChosen}
-            onDelete={actions.deleteChosen}
+            screenId={editor.currentScreenId}
+            onSelectScreen={editor.setActiveScreenId}
+            onAddScreen={actions.addScreen}
+            commit={commit}
+            undo={undo}
+            redo={redo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onOpenSettings={() => setModal('settings')}
           />
-        </InspectorShell>
+        ) : (
+          <>
+            <Sidebar
+              expanded={sidebar}
+              onToggle={() => setSidebar((v) => !v)}
+              onNew={() => setModal('new')}
+              onOpen={() => fileInput.current?.click()}
+              onSave={() => downloadGraph(graph)}
+              onSettings={() => setModal('settings')}
+              onAdd={actions.addBlockOfKind}
+              onExport={() => setModal('export')}
+            />
+
+            <FlowCanvas
+              containerRef={canvasRef}
+              graph={graph}
+              selected={editor.selected}
+              activeScreenId={editor.currentScreenId}
+              onSelectScreen={(screenId) => {
+                setActiveFlowFilter(null);
+                editor.setActiveScreenId(screenId);
+              }}
+              activeFlowFilter={activeFlowFilter}
+              onSelectFlowFilter={setActiveFlowFilter}
+              trace={simulation.trace}
+              errorCount={errors.length}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              onUndo={undo}
+              onRedo={redo}
+              onAddScreen={actions.addScreen}
+              onSelect={editor.setSelected}
+              onGraphChange={(updater, undoable) => {
+                if (undoable) remember();
+                setGraph(updater);
+              }}
+              onConnect={actions.connectBlocks}
+              onDragStart={beginDrag}
+              onDragStop={endDrag}
+              simulation={simulation}
+              isTimeTravelOpen={isTimeTravelOpen}
+              onCloseTimeTravel={() => setIsTimeTravelOpen(false)}
+            />
+
+            <InspectorShell
+              chosen={chosen}
+              graph={graph}
+              nameField={editor.nameField}
+              onRenameId={actions.renameChosenId}
+              fields={editor.fields}
+              connections={connections}
+              onDuplicate={actions.duplicateChosen}
+              onDelete={actions.deleteChosen}
+              onChangeConfig={actions.updateChosenConfig}
+            >
+              <InspectorPanel
+                chosen={chosen}
+                graph={graph}
+                nameField={editor.nameField}
+                configFields={editor.fields}
+                connections={connections}
+                onChangeConfig={actions.updateChosenConfig}
+                onDeleteConfigKey={actions.deleteChosenConfigKey}
+                onRenameId={actions.renameChosenId}
+                onDuplicate={actions.duplicateChosen}
+                onDelete={actions.deleteChosen}
+                onConnect={actions.connectBlocks}
+                onRemoveEdge={editor.connectionHandlers.onRemoveEdge}
+                onUpdateEdgeCallArg={editor.connectionHandlers.onUpdateEdgeCallArg}
+              />
+            </InspectorShell>
+          </>
+        )}
       </div>
 
       <input
@@ -192,6 +243,10 @@ export function App() {
         onClose={closeModal}
         graph={graph}
         onEnvironmentChange={(httpEnvironment) => commit((g) => ({ ...g, httpEnvironment }))}
+        currentScreenId={editor.currentScreenId}
+        onCommit={commit}
+        appTheme={appTheme}
+        onAppThemeChange={setAppTheme}
       />
 
       <PreviewModal
