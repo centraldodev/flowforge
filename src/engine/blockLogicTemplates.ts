@@ -4,7 +4,7 @@
 // incluindo recomendações inteligentes e validação de compatibilidade.
 
 import { catalog } from './catalog';
-import { getPortDefinition, isExecInput, isExecOutput } from './ports';
+import { getPortDefinition, isExecOutput } from './ports';
 import type { Block, Graph, Kind } from './types';
 
 export type LogicCategory =

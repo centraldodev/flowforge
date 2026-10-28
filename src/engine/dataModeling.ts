@@ -513,7 +513,7 @@ export function applyDataModelToGraph(
   };
 
   let nodes = [...graph.nodes];
-  let edges = [...graph.edges];
+  const edges = [...graph.edges];
 
   // 1. Garante nó de conexão de banco configurada com o dialeto (postgres ou sqlite)
   let connNode = nodes.find((n) => n.data.kind === 'postgresConnection');
