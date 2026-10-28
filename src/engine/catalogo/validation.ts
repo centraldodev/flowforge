@@ -10,7 +10,16 @@ export type LogicDefinition = {
 
 // O catálogo fornece dados; somente operações explicitamente implementadas podem ser selecionadas.
 const supported: Record<LogicKind, Record<string, string>> = {
-  condition: { truthy: 'truthy', equals: 'eq', gt: 'gt' },
+  condition: {
+    truthy: 'truthy',
+    equals: 'eq',
+    not_equals: 'neq',
+    gt: 'gt',
+    gte: 'gte',
+    lt: 'lt',
+    lte: 'lte',
+    contains: 'contains',
+  },
   validator: {
     required: 'validate_required',
     email: 'validate_email',
@@ -18,6 +27,9 @@ const supported: Record<LogicKind, Record<string, string>> = {
     maxLength: 'validate_maxLength',
     numeric: 'validate_numeric',
     cpf: 'validate_cpf',
+    cnpj: 'validate_cnpj',
+    phone: 'validate_phone',
+    matchField: 'validate_matchField',
     regex: 'validate_regex',
   },
 };

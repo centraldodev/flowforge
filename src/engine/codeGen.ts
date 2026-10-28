@@ -1,3 +1,4 @@
+import { getLogicTemplateById } from './blockLogicTemplates';
 import codeCatalog from './codeCatalog.json';
 import { isExecInput } from './ports';
 import type { Block, Graph, Kind, Link } from './types';
@@ -128,8 +129,6 @@ export function getEdgeGeneratedCode(graph: Graph, block: Block, edge: Link): st
 export function generateBlockCode(graph: Graph, block: Block): string {
   const kind = block.data.kind;
   const entry = catalog[kind];
-  if (!entry) return `// Bloco ${block.id}\nfunction ${toSafeFunctionName(block.id)}() {}\n`;
-
   const fnName = toSafeFunctionName(block.id);
   const config = block.data.config;
   const label = block.data.label || block.id;
@@ -161,6 +160,19 @@ export function generateBlockCode(graph: Graph, block: Block): string {
     }
     return `${comment}return ${targetFn}(${arg});`;
   };
+
+  if (!entry) {
+    const activeLogic = getLogicTemplateById(config.logicTemplateId);
+    const snippet = activeLogic
+      ? activeLogic.buildCodeSnippet(config, block.id)
+      : `// Lógica do bloco ${safeCommentLabel} (${kind})`;
+    const nextCall =
+      getCallForHandle('then', 'result') ||
+      getCallForHandle('next', 'result') ||
+      getCallForHandle('onSuccess', 'result') ||
+      (outEdges[0] ? `return ${toSafeFunctionName(outEdges[0].target)}(result);` : 'return result;');
+    return `function ${fnName}(value = "") {\n  if (typeof __step === 'function') __step('${fnName}');\n  // ${safeCommentLabel}\n  const result = (() => {\n    ${snippet.split('\n').join('\n    ')}\n  })();\n  ${nextCall}\n}`;
+  }
 
   let code = entry.template;
   code = code.replace(/\{\{id\}\}/g, fnName);
@@ -246,7 +258,13 @@ export function generateBlockCode(graph: Graph, block: Block): string {
       let returnCall = paramNames.length > 0 ? `return ${paramsArg};` : 'return value;';
 
       let customLogic = '';
-      if (config.code) {
+      if (config.logicTemplateId) {
+        const tmpl = getLogicTemplateById(config.logicTemplateId);
+        if (tmpl && tmpl.compatibleKinds.includes(kind)) {
+          customLogic = tmpl.buildCodeSnippet(config, block.id);
+        }
+      }
+      if (!customLogic && config.code) {
         if (!config.code.startsWith('function ') && !config.code.startsWith('async function ')) {
           customLogic = config.code;
         } else if (config.code.includes('(() => {')) {

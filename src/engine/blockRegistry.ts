@@ -21,9 +21,6 @@ export type BlockContract = {
 // Campos que a interface oferece, mas que não têm implementação no compilador atual.
 const unsupported: Partial<Record<Kind, string[]>> = {
   auth: ['clientId', 'mockToken'],
-  error: ['type'],
-  switch: ['cases', 'defaultCase'],
-  validator: ['message'],
 };
 
 function property(kind: Kind, field: FieldSpec): BlockProperty {

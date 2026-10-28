@@ -37,6 +37,20 @@ export function validate_cpf(value: unknown): boolean {
   return cleanCpf.length === 11 && !/^(\d)\1{10}$/.test(cleanCpf);
 }
 
+export function validate_cnpj(value: unknown): boolean {
+  const cleanCnpj = String(value ?? '').replace(/\D/g, '');
+  return cleanCnpj.length === 14 && !/^(\d)\1{13}$/.test(cleanCnpj);
+}
+
+export function validate_phone(value: unknown): boolean {
+  const cleanPhone = String(value ?? '').replace(/\D/g, '');
+  return cleanPhone.length >= 10 && cleanPhone.length <= 13;
+}
+
+export function validate_matchField(value: unknown, param: unknown): boolean {
+  return String(value ?? '') === String(param ?? '');
+}
+
 export function validate_regex(value: unknown, pattern: unknown): boolean {
   try {
     const reg = new RegExp(String(pattern || '.*'));
@@ -140,6 +154,9 @@ export const BUILTIN_OPERATIONS: Record<string, (...args: unknown[]) => unknown>
   validate_maxLength,
   validate_numeric,
   validate_cpf,
+  validate_cnpj,
+  validate_phone,
+  validate_matchField,
   validate_regex,
   math_add,
   math_sub,

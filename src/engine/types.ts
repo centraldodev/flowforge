@@ -32,7 +32,9 @@ export type Kind =
   | 'webhook'
   | 'task'
   | 'payment'
-  | 'realtime';
+  | 'realtime'
+  | 'loop'
+  | 'form';
 
 export type PortMode = 'control' | 'data' | 'error' | 'resource';
 export type PortCardinality = 'one' | 'many';

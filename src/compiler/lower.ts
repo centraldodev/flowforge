@@ -139,19 +139,24 @@ export function lowerBlock(
         config.operator || (config.compare ? 'equals' : 'truthy'),
         selectedLogicVersion(config),
       );
-      if (op === 'gt') {
+      const leftExpr: ExprIR = resolveInputExpr(graph, block.id, 'left', {
+        kind: 'read_var',
+        name: 'value',
+        valueType: { kind: 'any' },
+      });
+      if (op === 'gt' || op === 'gte' || op === 'lt' || op === 'lte') {
         condExpr = {
           kind: 'binary_op',
-          op: 'gt',
-          left: { kind: 'read_var', name: 'value', valueType: { kind: 'any' } },
+          op,
+          left: leftExpr,
           right: toLiteralExpr(Number(config.compare ?? config.value ?? 0)),
           valueType: { kind: 'boolean' },
         };
-      } else if (op === 'eq') {
+      } else if (op === 'eq' || op === 'neq' || op === 'contains') {
         condExpr = {
           kind: 'binary_op',
-          op: 'eq',
-          left: { kind: 'read_var', name: 'value', valueType: { kind: 'any' } },
+          op,
+          left: leftExpr,
           right: toLiteralExpr(config.compare ?? config.value ?? config.target ?? ''),
           valueType: { kind: 'boolean' },
         };
@@ -159,7 +164,7 @@ export function lowerBlock(
         condExpr = {
           kind: 'binary_op',
           op: 'neq',
-          left: { kind: 'read_var', name: 'value', valueType: { kind: 'any' } },
+          left: leftExpr,
           right: { kind: 'literal', value: '', valueType: { kind: 'string' } },
           valueType: { kind: 'boolean' },
         };
@@ -225,22 +230,30 @@ export function lowerBlock(
       const case3Targets = findTargetBlocks(graph, block.id, 'case3');
       const defTargets = findTargetBlocks(graph, block.id, 'default');
 
+      const parsedCases = (config.cases || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const case1Val = config.case1 || parsedCases[0] || '';
+      const case2Val = config.case2 || parsedCases[1] || '';
+      const case3Val = config.case3 || parsedCases[2] || '';
+
       const cases: { value: string; branch: InstructionIR[] }[] = [];
-      if (case1Targets.length > 0 && config.case1) {
+      if (case1Targets.length > 0 && case1Val) {
         cases.push({
-          value: config.case1,
+          value: case1Val,
           branch: case1Targets.flatMap((t) => descend(t)),
         });
       }
-      if (case2Targets.length > 0 && config.case2) {
+      if (case2Targets.length > 0 && case2Val) {
         cases.push({
-          value: config.case2,
+          value: case2Val,
           branch: case2Targets.flatMap((t) => descend(t)),
         });
       }
-      if (case3Targets.length > 0 && config.case3) {
+      if (case3Targets.length > 0 && case3Val) {
         cases.push({
-          value: config.case3,
+          value: case3Val,
           branch: case3Targets.flatMap((t) => descend(t)),
         });
       }
@@ -1184,6 +1197,113 @@ export function lowerBlock(
       for (const t of targets) {
         instructions.push(...descend(t));
       }
+      break;
+    }
+
+    case 'loop': {
+      const eachTargets = findTargetBlocks(graph, block.id, 'each');
+      const completeTargets = [
+        ...findTargetBlocks(graph, block.id, 'onComplete'),
+        ...findTargetBlocks(graph, block.id, 'then'),
+        ...findTargetBlocks(graph, block.id, 'next'),
+      ].filter((node, i, all) => all.findIndex((other) => other.id === node.id) === i);
+
+      const listExpr = resolveInputExpr(
+        graph,
+        block.id,
+        'items',
+        config.sourceKey
+          ? { kind: 'read_state', key: config.sourceKey, valueType: { kind: 'any' } }
+          : { kind: 'read_var', name: 'value', valueType: { kind: 'any' } },
+      );
+
+      instructions.push({
+        kind: 'assign_var',
+        name: config.itemVar || 'item',
+        value: listExpr,
+      });
+      instructions.push({
+        kind: 'assign_var',
+        name: block.id,
+        value: listExpr,
+      });
+
+      for (const t of eachTargets) {
+        instructions.push(...descend(t));
+      }
+      for (const t of completeTargets) {
+        instructions.push(...descend(t));
+      }
+      break;
+    }
+
+    case 'form': {
+      const validTargets = [
+        ...findTargetBlocks(graph, block.id, 'valid'),
+        ...findTargetBlocks(graph, block.id, 'onClick'),
+        ...findTargetBlocks(graph, block.id, 'then'),
+      ].filter((node, i, all) => all.findIndex((other) => other.id === node.id) === i);
+      const invalidTargets = [
+        ...findTargetBlocks(graph, block.id, 'invalid'),
+        ...findTargetBlocks(graph, block.id, 'onError'),
+      ].filter((node, i, all) => all.findIndex((other) => other.id === node.id) === i);
+
+      const fields = (config.fields || 'nome, email')
+        .split(',')
+        .map((f) => f.trim())
+        .filter((f) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(f));
+
+      instructions.push({
+        kind: 'call_operation',
+        operation: 'object_from_fields',
+        args: fields.flatMap((field) => [
+          toLiteralExpr(field),
+          { kind: 'read_input', inputId: field, valueType: { kind: 'string' } },
+        ]),
+        targetVar: block.id,
+      });
+      instructions.push({
+        kind: 'assign_var',
+        name: 'data',
+        value: { kind: 'read_var', name: block.id, valueType: { kind: 'object' } },
+      });
+
+      const validBranch: InstructionIR[] = [];
+      for (const t of validTargets) {
+        validBranch.push(...descend(t));
+      }
+      const invalidBranch: InstructionIR[] = [];
+      for (const t of invalidTargets) {
+        invalidBranch.push(...descend(t));
+      }
+
+      const requiredFields = (config.requiredFields || config.fields || '')
+        .split(',')
+        .map((f) => f.trim())
+        .filter((f) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(f));
+
+      const condExpr: ExprIR =
+        requiredFields.length > 0
+          ? {
+              kind: 'call_operation',
+              operation: 'validate_required',
+              args: [
+                {
+                  kind: 'read_input',
+                  inputId: requiredFields[0],
+                  valueType: { kind: 'string' },
+                },
+              ],
+              valueType: { kind: 'boolean' },
+            }
+          : toLiteralExpr(true);
+
+      instructions.push({
+        kind: 'conditional',
+        condition: condExpr,
+        thenBranch: validBranch,
+        elseBranch: invalidBranch.length > 0 ? invalidBranch : undefined,
+      });
       break;
     }
   }

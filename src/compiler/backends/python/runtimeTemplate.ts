@@ -316,6 +316,13 @@ BUILTIN_OPERATIONS = {
     "validate_cpf": lambda v, *a: (
         lambda clean: len(clean) == 11 and clean != clean[0] * 11
     )(re.sub(r"\\D", "", str(v or ""))),
+    "validate_cnpj": lambda v, *a: (
+        lambda clean: len(clean) == 14 and clean != clean[0] * 14
+    )(re.sub(r"\\D", "", str(v or ""))),
+    "validate_phone": lambda v, *a: (
+        lambda clean: 10 <= len(clean) <= 13
+    )(re.sub(r"\\D", "", str(v or ""))),
+    "validate_matchField": lambda v, p="", *a: str(v or "") == str(p or ""),
     "validate_regex": lambda v, p=".*", *a: bool(re.search(str(p or ".*"), str(v or ""))),
     "math_add": lambda a, b=0, *x: (float(a or 0) + float(b or 0)),
     "math_sub": lambda a, b=0, *x: (float(a or 0) - float(b or 0)),

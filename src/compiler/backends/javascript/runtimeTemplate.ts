@@ -278,6 +278,17 @@ const BUILTIN_OPERATIONS = {
     const clean = String(v ?? "").replace(/\\D/g, "");
     return clean.length === 11 && !/^(\\d)\\1{10}$/.test(clean);
   },
+  validate_cnpj(v) {
+    const clean = String(v ?? "").replace(/\\D/g, "");
+    return clean.length === 14 && !/^(\\d)\\1{13}$/.test(clean);
+  },
+  validate_phone(v) {
+    const clean = String(v ?? "").replace(/\\D/g, "");
+    return clean.length >= 10 && clean.length <= 13;
+  },
+  validate_matchField(v, p) {
+    return String(v ?? "") === String(p ?? "");
+  },
   validate_regex(v, p) {
     try {
       return new RegExp(String(p || ".*")).test(String(v ?? ""));

@@ -15,6 +15,8 @@ import {
 import {
   Boxes,
   Cable,
+  Check,
+  ChevronDown,
   Filter,
   LayoutGrid,
   MousePointer2,
@@ -34,6 +36,7 @@ import {
 } from '../../engine';
 import {
   addFlowToGraph,
+  createAndBindTargetBlock,
   organizeGraphByFlow,
   preventBlockCollision,
   pruneEdges,
@@ -89,15 +92,42 @@ export function FlowCanvas(p: Props) {
       ? p.activeScreenId
       : screens[0]?.id || '';
 
-  const debugOptions = p.simulation
-    ? {
-        breakpoints: p.simulation.debuggerState.breakpoints,
-        currentBlockId: p.simulation.debuggerState.currentBlockId,
-        status: p.simulation.debuggerState.status,
-        onToggleBreakpoint: p.simulation.toggleBreakpoint,
-        activeFrame: p.simulation.activeFrame,
-      }
-    : undefined;
+  const debugOptions = useMemo(
+    () => ({
+      breakpoints: p.simulation?.debuggerState.breakpoints,
+      currentBlockId: p.simulation?.debuggerState.currentBlockId,
+      status: p.simulation?.debuggerState.status,
+      onToggleBreakpoint: p.simulation?.toggleBreakpoint,
+      activeFrame: p.simulation?.activeFrame,
+      onQuickCreateFromPort: (
+        sourceBlockId: string,
+        sourceHandle: string,
+        targetKind: import('../../engine').Kind,
+        slotKey?: string,
+        defaultConfig?: Record<string, string>,
+      ) => {
+        p.onGraphChange((g) => {
+          const res = createAndBindTargetBlock(g, sourceBlockId, targetKind, {
+            sourceHandle,
+            slotKey,
+            defaultConfig,
+          });
+          setTimeout(() => {
+            p.onSelect(res.createdBlock.id);
+            window.dispatchEvent(new CustomEvent('flowforge:open-block-properties'));
+          }, 20);
+          return res.graph;
+        }, true);
+      },
+      onOpenBlockProperties: (blockId: string) => {
+        p.onSelect(blockId);
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('flowforge:open-block-properties'));
+        }, 20);
+      },
+    }),
+    [p.simulation, p.onGraphChange, p.onSelect],
+  );
 
   // Informações da linha/conexão em evidência para destacar os blocos de origem e destino
   const selectedEdgeInfo = useMemo(() => {
@@ -196,15 +226,35 @@ export function FlowCanvas(p: Props) {
     setActiveFlowFilter(null);
   }
 
-  // Cancela o destaque de conexão ao pressionar tecla Escape
+  // Cancela o destaque de conexão ou fecha dropdowns ao pressionar tecla Escape
+  const [openDropdown, setOpenDropdown] = useState<'screens' | 'flows' | null>(null);
+  const screensMenuRef = useRef<HTMLDivElement>(null);
+  const flowsMenuRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setSelectedEdgeId(null);
+        setOpenDropdown(null);
+      }
+    };
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (
+        screensMenuRef.current &&
+        !screensMenuRef.current.contains(target) &&
+        flowsMenuRef.current &&
+        !flowsMenuRef.current.contains(target)
+      ) {
+        setOpenDropdown(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
   }, []);
 
   // Rastreia o início do arrasto de conexão para permitir soltar na aba da tela
@@ -212,6 +262,13 @@ export function FlowCanvas(p: Props) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isAddingFlow, setIsAddingFlow] = useState(false);
   const [newFlowName, setNewFlowName] = useState('');
+
+  const activeScreenObj = screens.find((s) => s.id === activeScreenId);
+  const activeScreenLabel = activeScreenObj
+    ? activeScreenObj.data.label || activeScreenObj.id
+    : 'Nenhuma tela';
+  const isScreensMenuOpen = openDropdown === 'screens' || isConnecting;
+  const isFlowsMenuOpen = openDropdown === 'flows' && !isConnecting;
 
   function handleConnectToScreen(targetScreenId: string) {
     if (!connectingRef.current?.nodeId || !connectingRef.current?.handleId) return;
@@ -230,6 +287,7 @@ export function FlowCanvas(p: Props) {
 
     connectingRef.current = null;
     setIsConnecting(false);
+    setOpenDropdown(null);
   }
 
   function handleSelectScreen(screenId: string) {
@@ -237,6 +295,7 @@ export function FlowCanvas(p: Props) {
     setActiveFlowFilter(null);
     p.onSelectScreen(screenId);
     p.onSelect(screenId);
+    setOpenDropdown(null);
   }
 
   const handleNodesChange = (changes: NodeChange<FlowNode>[]) =>
@@ -258,58 +317,298 @@ export function FlowCanvas(p: Props) {
 
   return (
     <main className="canvas-area" ref={p.containerRef}>
-      <div className="canvas-bar">
+      <div className="canvas-bar" role="toolbar" aria-label="Barra de telas e fluxos">
         <div className="canvas-bar-left">
-          <span className="canvas-dot" /> Telas
-          {screens.length > 0 && (
-            <>
-              <span className="divider">/</span>
-              <div className="canvas-screen-tabs" role="tablist" aria-label="Abas de telas">
-                {screens.map((screen) => {
-                  const isActive = screen.id === activeScreenId;
-                  const isOther = screen.id !== activeScreenId;
-                  return (
-                    <button
-                      key={screen.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={isActive}
-                      data-screen-tab-id={screen.id}
-                      className={`canvas-screen-tab ${isActive ? 'active' : ''} ${
-                        isConnecting && isOther ? 'droppable-target' : ''
-                      }`}
-                      onClick={() => handleSelectScreen(screen.id)}
-                      onMouseUp={() => handleConnectToScreen(screen.id)}
-                      title={
-                        isConnecting && isOther
-                          ? `Solte para conectar ${connectingRef.current?.handleId || ''} em ${screen.data.label}`
-                          : `Focar na tela: ${screen.data.label || screen.id}`
-                      }
-                    >
-                      <span className="canvas-screen-tab-label">
-                        {screen.data.label || screen.id}
-                      </span>
-                      {isActive && <span className="canvas-screen-tab-glow" />}
-                      {isConnecting && isOther && (
-                        <span className="screen-tab-drop-hint">conectar ↵</span>
-                      )}
-                    </button>
-                  );
-                })}
-                <button
-                  type="button"
-                  className="canvas-screen-tab-add"
-                  title="Adicionar nova tela"
-                  aria-label="Adicionar nova tela"
-                  onClick={p.onAddScreen}
-                >
-                  <Plus size={12} />
-                  <span>Nova tela</span>
-                </button>
+          {/* Dropdown de Telas */}
+          <div className="canvas-dropdown-group" ref={screensMenuRef}>
+            <span className="canvas-dot" />
+            <span className="canvas-dropdown-label">Tela:</span>
+            <button
+              type="button"
+              className={`canvas-dropdown-trigger ${isScreensMenuOpen ? 'is-open' : ''}`}
+              aria-expanded={isScreensMenuOpen}
+              aria-haspopup="listbox"
+              onClick={() => setOpenDropdown((curr) => (curr === 'screens' ? null : 'screens'))}
+              title={`Tela ativa: ${activeScreenLabel} (${screens.length} ${screens.length === 1 ? 'tela' : 'telas'})`}
+            >
+              <span className="canvas-dropdown-value">{activeScreenLabel}</span>
+              <span className="canvas-dropdown-badge">{screens.length}</span>
+              <ChevronDown size={13} className="canvas-dropdown-chevron" />
+            </button>
+
+            <button
+              type="button"
+              className="canvas-bar-quick-add"
+              title="Adicionar nova tela"
+              aria-label="Adicionar nova tela"
+              onClick={p.onAddScreen}
+            >
+              <Plus size={12} />
+              <span>Nova tela</span>
+            </button>
+
+            {isScreensMenuOpen && (
+              <div className="canvas-dropdown-menu" role="listbox" aria-label="Telas criadas">
+                <div className="canvas-dropdown-header">
+                  <span>Telas do Projeto ({screens.length})</span>
+                  {isConnecting && (
+                    <span className="canvas-dropdown-connect-hint">Solte na tela para conectar</span>
+                  )}
+                </div>
+                <div className="canvas-dropdown-list">
+                  {screens.map((screen) => {
+                    const isActive = screen.id === activeScreenId;
+                    const isOther = screen.id !== activeScreenId;
+                    return (
+                      <button
+                        key={screen.id}
+                        type="button"
+                        role="option"
+                        aria-selected={isActive}
+                        data-screen-tab-id={screen.id}
+                        className={`canvas-dropdown-item ${isActive ? 'active' : ''} ${
+                          isConnecting && isOther ? 'droppable-target' : ''
+                        }`}
+                        onClick={() => handleSelectScreen(screen.id)}
+                        onMouseUp={() => handleConnectToScreen(screen.id)}
+                        title={
+                          isConnecting && isOther
+                            ? `Solte para conectar ${connectingRef.current?.handleId || ''} em ${screen.data.label}`
+                            : `Focar na tela: ${screen.data.label || screen.id}`
+                        }
+                      >
+                        <span className="canvas-dropdown-item-dot" />
+                        <span className="canvas-dropdown-item-label">
+                          {screen.data.label || screen.id}
+                        </span>
+                        {isActive && <Check size={13} className="canvas-dropdown-item-check" />}
+                        {isConnecting && isOther && (
+                          <span className="screen-tab-drop-hint">conectar ↵</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="canvas-dropdown-footer">
+                  <button
+                    type="button"
+                    className="canvas-dropdown-action-btn"
+                    onClick={() => {
+                      p.onAddScreen();
+                      setOpenDropdown(null);
+                    }}
+                  >
+                    <Plus size={12} />
+                    <span>Criar Nova Tela</span>
+                  </button>
+                </div>
               </div>
-            </>
-          )}
+            )}
+          </div>
+
+          <span className="canvas-bar-divider" />
+
+          {/* Dropdown de Fluxos */}
+          <div className="canvas-dropdown-group" ref={flowsMenuRef}>
+            <Filter size={12} className="flow-filter-icon" />
+            <span className="canvas-dropdown-label">Fluxo:</span>
+            <button
+              type="button"
+              className={`canvas-dropdown-trigger ${isFlowsMenuOpen ? 'is-open' : ''} ${
+                effectiveFilter ? 'has-active-filter' : ''
+              }`}
+              style={
+                activeFlowObj
+                  ? ({ '--phase-color': activeFlowObj.color } as CSSProperties)
+                  : undefined
+              }
+              aria-expanded={isFlowsMenuOpen}
+              aria-haspopup="listbox"
+              onClick={() => setOpenDropdown((curr) => (curr === 'flows' ? null : 'flows'))}
+              title={
+                activeFlowObj
+                  ? `Filtrado por: ${activeFlowObj.name} (${flowNodes.length} blocos)`
+                  : `Todos os fluxos (${rawFlowNodes.length} blocos)`
+              }
+            >
+              {activeFlowObj && (
+                <span
+                  className="canvas-dropdown-flow-dot"
+                  style={{ background: activeFlowObj.color }}
+                />
+              )}
+              <span className="canvas-dropdown-value">
+                {activeFlowObj ? activeFlowObj.name : 'Todos os fluxos'}
+              </span>
+              <span className="canvas-dropdown-badge">
+                {effectiveFilter ? flowNodes.length : rawFlowNodes.length}
+              </span>
+              <ChevronDown size={13} className="canvas-dropdown-chevron" />
+            </button>
+
+            {effectiveFilter && (
+              <button
+                type="button"
+                className="canvas-bar-clear-filter"
+                title="Limpar filtro e exibir todos os fluxos"
+                aria-label="Limpar filtro de fluxo"
+                onClick={handleClearFlowFilter}
+              >
+                <X size={11} />
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="canvas-bar-quick-add"
+              title="Adicionar novo fluxo ao projeto"
+              onClick={() => {
+                setOpenDropdown('flows');
+                setIsAddingFlow(true);
+              }}
+            >
+              <Plus size={12} />
+              <span>Novo fluxo</span>
+            </button>
+
+            <button
+              type="button"
+              className="flow-phase-organize-btn"
+              title="Organizar fluxo automaticamente em colunas por fases"
+              aria-label="Organizar fluxo"
+              onClick={() => p.onGraphChange((g) => organizeGraphByFlow(g, activeScreenId), true)}
+            >
+              <LayoutGrid size={13} />
+            </button>
+
+            {isFlowsMenuOpen && (
+              <div className="canvas-dropdown-menu flows-dropdown-menu" role="listbox" aria-label="Fluxos criados">
+                <div className="canvas-dropdown-header">
+                  <span>Fluxos do Projeto ({flows.length})</span>
+                </div>
+                <div className="canvas-dropdown-list">
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={!effectiveFilter}
+                    className={`canvas-dropdown-item ${!effectiveFilter ? 'active' : ''}`}
+                    onClick={() => {
+                      handleClearFlowFilter();
+                      setOpenDropdown(null);
+                    }}
+                  >
+                    <span
+                      className="canvas-dropdown-flow-dot"
+                      style={{ background: '#38bdf8' }}
+                    />
+                    <span className="canvas-dropdown-item-label">Todos os fluxos</span>
+                    <span className="canvas-dropdown-item-count">{rawFlowNodes.length}</span>
+                    {!effectiveFilter && <Check size={13} className="canvas-dropdown-item-check" />}
+                  </button>
+
+                  {flows.map((flow, idx) => {
+                    const isFilterActive = effectiveFilter === flow.id;
+                    const count = flowCounts[flow.id] ?? 0;
+                    return (
+                      <div
+                        key={flow.id}
+                        className={`canvas-dropdown-item-row ${isFilterActive ? 'active' : ''}`}
+                        style={{ '--phase-color': flow.color } as CSSProperties}
+                      >
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={isFilterActive}
+                          className={`canvas-dropdown-item ${isFilterActive ? 'active' : ''}`}
+                          onClick={() => {
+                            handleToggleFlowFilter(flow.id);
+                            setOpenDropdown(null);
+                          }}
+                          title={`Filtrar pelo fluxo ${idx + 1}: ${flow.name} (${count} ${count === 1 ? 'bloco' : 'blocos'})`}
+                        >
+                          <span
+                            className="canvas-dropdown-flow-num"
+                            style={{ color: flow.color }}
+                          >
+                            {idx + 1}
+                          </span>
+                          <span className="canvas-dropdown-item-label">{flow.name}</span>
+                          <span className="canvas-dropdown-item-count">{count}</span>
+                          {isFilterActive && (
+                            <Check size={13} className="canvas-dropdown-item-check" />
+                          )}
+                        </button>
+                        {flows.length > 1 && (
+                          <button
+                            type="button"
+                            className="canvas-dropdown-item-remove"
+                            title={`Remover fluxo "${flow.name}"`}
+                            aria-label={`Remover fluxo "${flow.name}"`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (activeFlowFilter === flow.id) setActiveFlowFilter(null);
+                              p.onGraphChange((g) => removeFlowFromGraph(g, flow.id), true);
+                            }}
+                          >
+                            <X size={11} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="canvas-dropdown-footer">
+                  {isAddingFlow ? (
+                    <form
+                      className="flow-phase-add-form"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (newFlowName.trim()) {
+                          p.onGraphChange((g) => addFlowToGraph(g, newFlowName.trim()), true);
+                          setNewFlowName('');
+                          setIsAddingFlow(false);
+                        }
+                      }}
+                    >
+                      <input
+                        type="text"
+                        className="flow-phase-input"
+                        placeholder="Nome do novo fluxo..."
+                        value={newFlowName}
+                        onChange={(e) => setNewFlowName(e.target.value)}
+                        autoFocus
+                      />
+                      <button type="submit" className="flow-phase-add-confirm">
+                        Criar
+                      </button>
+                      <button
+                        type="button"
+                        className="flow-phase-add-cancel"
+                        onClick={() => {
+                          setNewFlowName('');
+                          setIsAddingFlow(false);
+                        }}
+                      >
+                        <X size={12} />
+                      </button>
+                    </form>
+                  ) : (
+                    <button
+                      type="button"
+                      className="canvas-dropdown-action-btn"
+                      onClick={() => setIsAddingFlow(true)}
+                    >
+                      <Plus size={12} />
+                      <span>Criar Novo Fluxo</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+
         <div className="canvas-tools">
           <span
             className="canvas-grid-badge"
@@ -327,125 +626,6 @@ export function FlowCanvas(p: Props) {
             ↪
           </button>
         </div>
-      </div>
-
-      <div
-        className="canvas-flow-phases-bar"
-        aria-label="Filtro de fluxos do projeto"
-        role="toolbar"
-      >
-        <div className="flow-phases-label-group">
-          <Filter size={12} className="flow-filter-icon" />
-          <span className="flow-phases-label">Fluxos:</span>
-        </div>
-
-        <button
-          type="button"
-          className={`flow-phase-chip flow-phase-all ${!effectiveFilter ? 'active-filter' : ''}`}
-          onClick={handleClearFlowFilter}
-          title="Exibir todos os blocos e fluxos desta tela"
-        >
-          <span className="phase-title">Todos</span>
-          <span className="phase-count">{rawFlowNodes.length}</span>
-        </button>
-
-        {flows.map((flow, idx) => {
-          const isFilterActive = effectiveFilter === flow.id;
-          const count = flowCounts[flow.id] ?? 0;
-          return (
-            <button
-              key={flow.id}
-              type="button"
-              className={`flow-phase-chip ${isFilterActive ? 'active-filter' : ''}`}
-              style={{ '--phase-color': flow.color } as CSSProperties}
-              title={`Filtrar pelo fluxo ${idx + 1}: ${flow.name} (${count} ${count === 1 ? 'bloco' : 'blocos'}) · Clique para ${isFilterActive ? 'exibir todos' : 'isolar este fluxo'}`}
-              onClick={() => handleToggleFlowFilter(flow.id)}
-            >
-              <span className="phase-num">{idx + 1}</span>
-              <span className="phase-title">{flow.name}</span>
-              <span className="phase-count">{count}</span>
-              {flows.length > 1 && (
-                <span
-                  role="button"
-                  tabIndex={0}
-                  className="flow-phase-remove"
-                  title={`Remover fluxo "${flow.name}"`}
-                  aria-label={`Remover fluxo "${flow.name}"`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (activeFlowFilter === flow.id) setActiveFlowFilter(null);
-                    p.onGraphChange((g) => removeFlowFromGraph(g, flow.id), true);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.stopPropagation();
-                      if (activeFlowFilter === flow.id) setActiveFlowFilter(null);
-                      p.onGraphChange((g) => removeFlowFromGraph(g, flow.id), true);
-                    }
-                  }}
-                >
-                  <X size={10} />
-                </span>
-              )}
-            </button>
-          );
-        })}
-
-        {isAddingFlow ? (
-          <form
-            className="flow-phase-add-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (newFlowName.trim()) {
-                p.onGraphChange((g) => addFlowToGraph(g, newFlowName.trim()), true);
-                setNewFlowName('');
-                setIsAddingFlow(false);
-              }
-            }}
-          >
-            <input
-              type="text"
-              className="flow-phase-input"
-              placeholder="Nome do novo fluxo..."
-              value={newFlowName}
-              onChange={(e) => setNewFlowName(e.target.value)}
-              autoFocus
-            />
-            <button type="submit" className="flow-phase-add-confirm">
-              Adicionar
-            </button>
-            <button
-              type="button"
-              className="flow-phase-add-cancel"
-              onClick={() => {
-                setNewFlowName('');
-                setIsAddingFlow(false);
-              }}
-            >
-              Cancelar
-            </button>
-          </form>
-        ) : (
-          <button
-            type="button"
-            className="flow-phase-add-btn"
-            onClick={() => setIsAddingFlow(true)}
-            title="Adicionar novo fluxo ao projeto"
-          >
-            <Plus size={11} />
-            <span>Novo Fluxo</span>
-          </button>
-        )}
-
-        <button
-          type="button"
-          className="flow-phase-organize-btn"
-          title="Organizar fluxo automaticamente em colunas por fases"
-          aria-label="Organizar fluxo"
-          onClick={() => p.onGraphChange((g) => organizeGraphByFlow(g, activeScreenId), true)}
-        >
-          <LayoutGrid size={13} />
-        </button>
       </div>
 
       {effectiveFilter && activeFlowObj && flowNodes.length > 0 && (

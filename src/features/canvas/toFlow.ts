@@ -1,5 +1,15 @@
 import type { Edge } from '@xyflow/react';
-import { isExecOutput, screenRoutes, type Block, type Graph, type Trace } from '../../engine';
+import {
+  analyzeBlockIntentAndDiagnostics,
+  inferBlockLogicTemplate,
+  isExecOutput,
+  screenRoutes,
+  type Block,
+  type Graph,
+  type Kind,
+  type LogicRecommendation,
+  type Trace,
+} from '../../engine';
 import type { FlowNode } from './BlockNode';
 import type { DebugFrame } from '../../compiler';
 import { resolveBlockFlow, type FlowStage } from './constants';
@@ -16,7 +26,130 @@ export type DebugNodeOptions = {
   status?: string;
   onToggleBreakpoint?: (id: string) => void;
   activeFrame?: DebugFrame | null;
+  onQuickCreateFromPort?: (
+    sourceBlockId: string,
+    sourceHandle: string,
+    targetKind: Kind,
+    slotKey?: string,
+    defaultConfig?: Record<string, string>,
+  ) => void;
+  onOpenBlockProperties?: (blockId: string) => void;
 };
+
+/** Gera uma prévia curta de 1 linha da regra/código do bloco para exibir direto no card do canvas */
+function buildCompactSummaryLine(block: Block): {
+  logicName: string;
+  codePreview: string;
+} {
+  const tmpl = inferBlockLogicTemplate(block);
+  const c = block.data.config;
+  const k = block.data.kind;
+
+  if (k === 'validator') {
+    const rule = c.rule || 'required';
+    const param = c.param ? `, ${c.param}` : '';
+    return {
+      logicName: tmpl?.name || 'Validador',
+      codePreview: `validate(${rule}${param})`,
+    };
+  }
+  if (k === 'condition' || k === 'compare') {
+    const opMap: Record<string, string> = {
+      equals: '===',
+      not_equals: '!==',
+      gt: '>',
+      lt: '<',
+      gte: '>=',
+      lte: '<=',
+      truthy: '!!',
+    };
+    const op = opMap[c.operator || 'equals'] || '===';
+    return {
+      logicName: tmpl?.name || 'Condição',
+      codePreview:
+        c.operator === 'truthy' ? `if (Boolean(value))` : `if (value ${op} '${c.compare || ''}')`,
+    };
+  }
+  if (k === 'database') {
+    const op = (c.operation || 'query').toUpperCase();
+    return {
+      logicName: tmpl?.name || 'Banco de Dados',
+      codePreview: `${op} ➔ ${c.table || 'usuarios'}`,
+    };
+  }
+  if (k === 'auth') {
+    const prov = c.provider === 'google' ? 'Google OAuth' : c.mode === 'register' ? 'registerUser()' : 'authenticate()';
+    return {
+      logicName: tmpl?.name || 'Autenticação',
+      codePreview: prov,
+    };
+  }
+  if (k === 'api') {
+    return {
+      logicName: tmpl?.name || 'Requisição API',
+      codePreview: `${c.method || 'GET'} ${c.url || '/api'}`,
+    };
+  }
+  if (k === 'input') {
+    return {
+      logicName: tmpl?.name || 'Campo',
+      codePreview: `type="${c.field || 'text'}"${c.placeholder ? ` · "${c.placeholder}"` : ''}`,
+    };
+  }
+  if (k === 'button') {
+    return {
+      logicName: tmpl?.name || 'Clique',
+      codePreview: c.logicTargetId
+        ? `onClick ➔ ${c.logicTargetId}()`
+        : c.target
+          ? `navigateTo('${c.target}')`
+          : c.buttonText
+            ? `[${c.buttonText}] · onClick`
+            : `onClick()`,
+    };
+  }
+  if (k === 'form') {
+    return {
+      logicName: tmpl?.name || 'Formulário',
+      codePreview: `form({ ${c.fields || 'nome, email, senha'} })`,
+    };
+  }
+  if (k === 'loop') {
+    return {
+      logicName: tmpl?.name || 'Loop',
+      codePreview: `for (${c.itemVar || 'item'} of ${c.sourceKey || 'itens'})`,
+    };
+  }
+  if (k === 'notify') {
+    return {
+      logicName: tmpl?.name || 'Alerta',
+      codePreview: `notify('${c.type || 'success'}', "${(c.message || 'Sucesso').slice(0, 22)}")`,
+    };
+  }
+  if (k === 'state') {
+    return {
+      logicName: tmpl?.name || 'Variável Global',
+      codePreview: `${c.operation || 'set'}Var('${c.key || 'chave'}')`,
+    };
+  }
+  if (tmpl) {
+    const firstLine =
+      tmpl
+        .buildCodeSnippet(c, block.id)
+        .split('\n')
+        .find((l) => l.trim() && !l.trim().startsWith('//')) ||
+      tmpl.buildCodeSnippet(c, block.id).split('\n')[0] ||
+      '';
+    return {
+      logicName: tmpl.name,
+      codePreview: firstLine.replace(/^return\s+/, '').trim(),
+    };
+  }
+  return {
+    logicName: '',
+    codePreview: '',
+  };
+}
 
 /**
  * Retorna os nós visíveis para a aba de tela ativa.
@@ -59,6 +192,39 @@ export function toFlowNodes(
         ? ('target' as const)
         : null;
 
+    const { logicName, codePreview } = buildCompactSummaryLine(n);
+    const intent = analyzeBlockIntentAndDiagnostics(g, n);
+    const hasError = intent.diagnostics.some((d) => d.severity === 'error');
+    const hasWarning = intent.diagnostics.some((d) => d.severity === 'warning');
+    const connectedOutHandles = g.edges
+      .filter((e) => e.source === n.id)
+      .map((e) => e.sourceHandle || 'default');
+    const connectedInHandles = g.edges
+      .filter((e) => e.target === n.id)
+      .map((e) => e.targetHandle || 'default');
+
+    // Verifica se há slots obrigatórios pendentes de conexão/valor
+    const missingRequiredSlot = intent.activeTemplate?.variables.find(
+      (v) =>
+        v.required &&
+        !n.data.config[v.key] &&
+        (!v.edgeBinding || !connectedOutHandles.includes(v.edgeBinding.sourceHandle || '')),
+    );
+
+    const statusKind: 'ready' | 'incomplete' | 'error' = hasError
+      ? 'error'
+      : hasWarning || missingRequiredSlot
+        ? 'incomplete'
+        : 'ready';
+
+    const statusTooltip = hasError
+      ? intent.diagnostics[0]?.message || 'Erro de configuração'
+      : missingRequiredSlot
+        ? `Falta definir: ${missingRequiredSlot.label.replace(/:$/, '')}`
+        : hasWarning
+          ? intent.diagnostics[0]?.message || 'Atenção na configuração'
+          : 'Bloco configurado e pronto';
+
     return {
       ...n.data,
       flows: g.flows,
@@ -69,6 +235,15 @@ export function toFlowNodes(
       connectionRole,
       isConnectionDimmed,
       debugPayload,
+      logicSummary: logicName,
+      codePreview,
+      statusKind,
+      statusTooltip,
+      connectedOutHandles,
+      connectedInHandles,
+      recommendations: intent.recommendations as LogicRecommendation[],
+      onQuickCreateFromPort: debugOptions?.onQuickCreateFromPort,
+      onOpenBlockProperties: debugOptions?.onOpenBlockProperties,
     };
   };
 

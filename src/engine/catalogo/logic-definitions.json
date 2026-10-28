@@ -8,8 +8,13 @@
       "defaultOperation": "truthy",
       "options": [
         { "value": "truthy", "label": "É verdadeiro / tem valor", "operation": "truthy" },
-        { "value": "equals", "label": "É igual a", "operation": "eq" },
-        { "value": "gt", "label": "É maior que", "operation": "gt" }
+        { "value": "equals", "label": "É igual a (==)", "operation": "eq" },
+        { "value": "not_equals", "label": "É diferente de (!=)", "operation": "neq" },
+        { "value": "gt", "label": "É maior que (>)", "operation": "gt" },
+        { "value": "gte", "label": "É maior ou igual (>=)", "operation": "gte" },
+        { "value": "lt", "label": "É menor que (<)", "operation": "lt" },
+        { "value": "lte", "label": "É menor ou igual (<=)", "operation": "lte" },
+        { "value": "contains", "label": "Texto contém", "operation": "contains" }
       ]
     },
     {
@@ -36,6 +41,9 @@
         },
         { "value": "numeric", "label": "Numérico", "operation": "validate_numeric" },
         { "value": "cpf", "label": "CPF (11 dígitos)", "operation": "validate_cpf" },
+        { "value": "cnpj", "label": "CNPJ (14 dígitos)", "operation": "validate_cnpj" },
+        { "value": "phone", "label": "Telefone / Celular (BR)", "operation": "validate_phone" },
+        { "value": "matchField", "label": "Igual a outro valor (Confirmar Senha)", "operation": "validate_matchField" },
         { "value": "regex", "label": "Expressão Regular (Regex)", "operation": "validate_regex" }
       ]
     }

@@ -2,11 +2,13 @@
 import { useMemo, useState, type RefObject } from 'react';
 import { useReactFlow, type Connection } from '@xyflow/react';
 import {
+  catalog,
   parseGraph,
   validate,
   type CustomPort,
   type Graph,
   type Kind,
+  type LogicRecommendation,
   type ScreenRoute,
 } from '../engine';
 import type { FieldDefinition } from '../components/PropertyField';
@@ -16,8 +18,10 @@ import { appTemplates, type ProjectTemplateId } from '../engine/appTemplates';
 import {
   addBlock,
   addPortToBlock,
+  applyLogicRecommendation,
   connect,
   connectionError,
+  createAndBindTargetBlock,
   createBlock,
   duplicateBlock,
   emptyGraph,
@@ -243,6 +247,29 @@ export function useEditorActions({
     commit((g) => deleteBlockConfigKey(g, chosen.id, key));
   }
 
+  function createAndBindForChosen(
+    targetKind: Kind,
+    options: {
+      slotKey?: string;
+      sourceHandle?: string;
+      targetHandle?: string;
+      defaultConfig?: Record<string, string>;
+      defaultArg?: string;
+    },
+  ) {
+    if (!chosen) return;
+    commit((g) => createAndBindTargetBlock(g, chosen.id, targetKind, options).graph);
+    notify(
+      `Bloco de ${catalog[targetKind]?.name || targetKind} criado e vinculado automaticamente!`,
+    );
+  }
+
+  function applyRecommendationForChosen(rec: LogicRecommendation) {
+    if (!chosen) return;
+    commit((g) => applyLogicRecommendation(g, chosen.id, rec).graph);
+    notify(`Recomendação aplicada: ${rec.title}`);
+  }
+
   return {
     selected,
     setSelected,
@@ -262,6 +289,8 @@ export function useEditorActions({
       renameChosenId,
       updateChosenConfig,
       deleteChosenConfigKey,
+      createAndBindForChosen,
+      applyRecommendationForChosen,
       updateEdgeCallArg: (edgeId: string, callArg: string) =>
         commit((g) => updateEdgeCallArg(g, edgeId, callArg)),
       preparePreview,

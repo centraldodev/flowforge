@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Code, Edit3, Sparkles } from 'lucide-react';
 import type { Connection } from '@xyflow/react';
-import { catalog, type Block, type Graph } from '../../engine';
+import { BLOCK_LOGIC_TEMPLATES, catalog, type Block, type Graph } from '../../engine';
 
 type Props = {
   block: Block;
@@ -97,151 +97,25 @@ export function BlockCodeEditor({
     }
   };
 
-  // Templates pré-prontos baseados no tipo do bloco
+  // Templates pré-prontos baseados no tipo do bloco (inclui todos os 30 tipos do catálogo de lógicas)
   const templates: CodeTemplate[] = useMemo(() => {
-    switch (kind) {
-      case 'condition':
-        return [
-          {
-            id: 'equals',
-            name: 'Igualdade (===)',
-            description: 'Compara se o valor é igual a outro',
-            apply: () => ({
-              operator: 'equals',
-              compare: 'valor2',
-              trueValue: 'valor3',
-              falseValue: '"Texto que o usuario quiser"',
-            }),
-          },
-          {
-            id: 'greater',
-            name: 'Maior que (>)',
-            description: 'Compara valor numérico maior que',
-            apply: () => ({
-              operator: 'gt',
-              compare: '10',
-              trueValue: 'true',
-              falseValue: 'false',
-            }),
-          },
-          {
-            id: 'truthy',
-            name: 'Preenchido (Boolean)',
-            description: 'Verifica se tem conteúdo ou é verdadeiro',
-            apply: () => ({
-              operator: 'truthy',
-              compare: '',
-              trueValue: 'valor',
-              falseValue: '"Campo não preenchido"',
-            }),
-          },
-          {
-            id: 'not_equals',
-            name: 'Diferente (!==)',
-            description: 'Verifica se o valor é diferente de',
-            apply: () => ({
-              operator: 'not_equals',
-              compare: '""',
-              trueValue: 'valor',
-              falseValue: 'null',
-            }),
-          },
-        ];
-      case 'function':
-        return [
-          {
-            id: 'return_val',
-            name: 'Retorno Simples',
-            description: 'Retorna o dado recebido',
-            apply: () => ({ code: 'return value;' }),
-          },
-          {
-            id: 'calculate',
-            name: 'Cálculo Numérico',
-            description: 'Multiplica o valor por 2',
-            apply: () => ({ code: 'return Number(value) * 2;' }),
-          },
-          {
-            id: 'format_text',
-            name: 'Formatar Texto',
-            description: 'Limpa espaços e converte em maiúsculas',
-            apply: () => ({ code: 'return String(value).trim().toUpperCase();' }),
-          },
-          {
-            id: 'payload_obj',
-            name: 'Montar JSON',
-            description: 'Retorna um objeto estruturado',
-            apply: () => ({ code: 'return { id: Date.now(), data: value };' }),
-          },
-        ];
-      case 'auth':
-        return [
-          {
-            id: 'email_login',
-            name: 'Login por E-mail',
-            description: 'Autenticação com e-mail e senha',
-            apply: () => ({ provider: 'email', mode: 'login' }),
-          },
-          {
-            id: 'email_register',
-            name: 'Criar Conta',
-            description: 'Cadastro de novo usuário',
-            apply: () => ({ provider: 'email', mode: 'register' }),
-          },
-          {
-            id: 'google_oauth',
-            name: 'Login com Google',
-            description: 'Autenticação via conta Google',
-            apply: () => ({ provider: 'google', mode: 'login' }),
-          },
-        ];
-      case 'validator':
-        return [
-          {
-            id: 'required',
-            name: 'Obrigatório',
-            description: 'Não permite campo vazio',
-            apply: () => ({ rule: 'required', param: '', message: 'Campo obrigatório' }),
-          },
-          {
-            id: 'email',
-            name: 'Formato de E-mail',
-            description: 'Valida e-mail válido',
-            apply: () => ({ rule: 'email', param: '', message: 'E-mail inválido' }),
-          },
-          {
-            id: 'min_length',
-            name: 'Tamanho Mínimo (6)',
-            description: 'Mínimo de 6 caracteres',
-            apply: () => ({ rule: 'min_length', param: '6', message: 'Mínimo de 6 caracteres' }),
-          },
-        ];
-      case 'notify':
-        return [
-          {
-            id: 'success',
-            name: 'Toast Sucesso',
-            description: 'Mensagem verde de sucesso',
-            apply: () => ({
-              type: 'success',
-              message: 'Operação realizada com sucesso!',
-              duration: '3000',
-            }),
-          },
-          {
-            id: 'error_toast',
-            name: 'Toast Erro',
-            description: 'Mensagem vermelha de erro',
-            apply: () => ({
-              type: 'error',
-              message: 'Ocorreu um erro no processamento',
-              duration: '4000',
-            }),
-          },
-        ];
-      default:
-        return [];
+    const fromCatalog: CodeTemplate[] = BLOCK_LOGIC_TEMPLATES.filter((t) =>
+      t.compatibleKinds.includes(kind),
+    ).map((t) => ({
+      id: t.id,
+      name: t.name,
+      description: `${t.category} — ${t.description}`,
+      apply: () => ({
+        ...t.configPatch,
+        logicTemplateId: t.id,
+      }),
+    }));
+
+    if (fromCatalog.length > 0) {
+      return fromCatalog;
     }
+
+    return [];
   }, [kind]);
 
   const handleApplyTemplate = (tmpl: CodeTemplate) => {

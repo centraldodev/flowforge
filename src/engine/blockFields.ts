@@ -29,11 +29,57 @@ const FLOW_ID: FieldSpec = { key: 'flowId', label: 'Vincular ao Fluxo', options:
 const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
   screen: [{ key: 'title', label: 'Título da tela' }],
   input: [
-    { key: 'field', label: 'Tipo do campo', options: same('text', 'email', 'password', 'number') },
-    { key: 'placeholder', label: 'Texto de ajuda' },
+    {
+      key: 'field',
+      label: 'Tipo do campo',
+      options: same('text', 'email', 'password', 'number', 'tel', 'date', 'select', 'checkbox'),
+    },
+    { key: 'placeholder', label: 'Texto de ajuda (Placeholder)' },
     { key: 'value', label: 'Valor inicial' },
+    {
+      key: 'required',
+      label: 'Obrigatório',
+      options: [
+        { value: 'false', label: 'Opcional' },
+        { value: 'true', label: 'Obrigatório' },
+      ],
+    },
+    {
+      key: 'mask',
+      label: 'Máscara de formatação',
+      options: [
+        { value: 'none', label: 'Sem máscara' },
+        { value: 'cpf', label: 'CPF (000.000.000-00)' },
+        { value: 'cnpj', label: 'CNPJ (00.000.000/0000-00)' },
+        { value: 'phone', label: 'Telefone ((00) 00000-0000)' },
+        { value: 'cep', label: 'CEP (00000-000)' },
+        { value: 'currency', label: 'Moeda (R$ 0,00)' },
+      ],
+    },
   ],
-  button: [],
+  button: [
+    { key: 'buttonText', label: 'Texto do botão' },
+    {
+      key: 'variant',
+      label: 'Estilo visual',
+      options: [
+        { value: 'primary', label: 'Primário (Destaque)' },
+        { value: 'secondary', label: 'Secundário' },
+        { value: 'danger', label: 'Perigo / Excluir' },
+      ],
+    },
+    { key: 'loadingText', label: 'Texto durante carregamento' },
+  ],
+  form: [
+    { key: 'fields', label: 'Campos do formulário (separados por vírgula)' },
+    { key: 'requiredFields', label: 'Campos obrigatórios (separados por vírgula)' },
+    { key: 'submitLabel', label: 'Texto do botão de envio' },
+  ],
+  loop: [
+    { key: 'sourceKey', label: 'Lista de origem (variável no store ou entrada)' },
+    { key: 'itemVar', label: 'Nome da variável de cada item (ex: item)' },
+    { key: 'maxItems', label: 'Limite máximo de iterações' },
+  ],
   function: [],
   condition: [
     {
@@ -359,11 +405,31 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
       ],
     },
     { key: 'table', label: 'Nome da tabela' },
-    { key: 'filterField', label: 'Campo do filtro (Query)' },
-    { key: 'filterValue', label: 'Valor do filtro (Query)' },
-    { key: 'limit', label: 'Limite / Page size (Query)' },
-    { key: 'offset', label: 'Deslocamento / Offset (Query)' },
-    { key: 'orderBy', label: 'Ordenar por (Query)' },
+    {
+      key: 'filterField',
+      label: 'Campo do filtro (Query)',
+      visible: (c) => !c.operation || c.operation === 'query',
+    },
+    {
+      key: 'filterValue',
+      label: 'Valor do filtro (Query)',
+      visible: (c) => !c.operation || c.operation === 'query',
+    },
+    {
+      key: 'limit',
+      label: 'Limite / Page size (Query)',
+      visible: (c) => !c.operation || c.operation === 'query',
+    },
+    {
+      key: 'offset',
+      label: 'Deslocamento / Offset (Query)',
+      visible: (c) => !c.operation || c.operation === 'query',
+    },
+    {
+      key: 'orderBy',
+      label: 'Ordenar por (Query)',
+      visible: (c) => !c.operation || c.operation === 'query',
+    },
     {
       key: 'orderDirection',
       label: 'Direção da ordenação',
@@ -371,8 +437,19 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
         { value: 'asc', label: 'Crescente (ASC)' },
         { value: 'desc', label: 'Decrescente (DESC)' },
       ],
+      visible: (c) => !c.operation || c.operation === 'query',
     },
-    { key: 'recordId', label: 'ID do registro (Get/Update/Delete)' },
+    {
+      key: 'recordId',
+      label: 'ID do registro (Get/Update/Delete)',
+      visible: (c) => ['get', 'update', 'delete'].includes(c.operation || ''),
+    },
+    {
+      key: 'data',
+      label: 'Dados do registro (JSON para Insert/Update)',
+      area: true,
+      visible: (c) => ['insert', 'update'].includes(c.operation || ''),
+    },
     {
       key: 'mock',
       label: 'Registros iniciais (array JSON)',

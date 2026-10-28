@@ -19,3 +19,4 @@ export * from './referenceProjects';
 export * from './paymentsAndRealtime';
 export * from './testScenarios';
 export * from './productionReadiness';
+export * from './blockLogicTemplates';

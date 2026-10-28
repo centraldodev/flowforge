@@ -1,19 +1,29 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  Code,
   Copy,
   GitBranch,
-  Layers,
   PanelRightClose,
   PanelRightOpen,
+  SlidersHorizontal,
   Trash2,
   X,
 } from 'lucide-react';
 import type { Connection } from '@xyflow/react';
-import type { FieldDefinition } from '../../components/PropertyField';
-import { catalog, getEdgeGeneratedCode, type Block, type Graph } from '../../engine';
-import { BlockCodeEditor } from './BlockCodeEditor';
+import { PropertyField, type FieldDefinition } from '../../components/PropertyField';
+import {
+  catalog,
+  inferBlockLogicTemplate,
+  type Block,
+  type Graph,
+  type Kind,
+  type LogicRecommendation,
+} from '../../engine';
 import { BlockIdEditor } from './BlockIdEditor';
+import { BlockLogicBuilder } from './BlockLogicBuilder';
+import { DatabaseManager } from './DatabaseManager';
+import { EdgeList } from './EdgeList';
+import { HttpRequestTools } from './HttpRequestTools';
+import { LogicCatalogEditor } from './LogicCatalogEditor';
 
 type Props = {
   children: ReactNode;
@@ -29,12 +39,23 @@ type Props = {
   onConnect?: (c: Connection & { data?: { callArg?: string } }) => void;
   onRemoveEdge?: (id: string) => void;
   onUpdateEdgeCallArg?: (edgeId: string, callArg: string) => void;
+  onCreateAndBindBlock?: (
+    targetKind: Kind,
+    options: {
+      slotKey?: string;
+      sourceHandle?: string;
+      targetHandle?: string;
+      defaultConfig?: Record<string, string>;
+      defaultArg?: string;
+    },
+  ) => void;
+  onApplyRecommendation?: (rec: LogicRecommendation) => void;
 };
 
 export function InspectorShell(p: Props) {
   const [expanded, setExpanded] = useState(false);
   const [active, setActive] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'code' | 'connections' | 'all'>('code');
+  const [activeTab, setActiveTab] = useState<'properties' | 'connections'>('properties');
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const root = useRef<HTMLElement>(null);
   const lastTrigger = useRef<HTMLButtonElement | null>(null);
@@ -43,7 +64,7 @@ export function InspectorShell(p: Props) {
     if (timer.current) clearTimeout(timer.current);
   }
 
-  function show(tab: 'code' | 'connections' | 'all', trigger?: HTMLButtonElement) {
+  function show(tab: 'properties' | 'connections', trigger?: HTMLButtonElement) {
     cancel();
     if (trigger) lastTrigger.current = trigger;
     setActive('flyout');
@@ -59,6 +80,19 @@ export function InspectorShell(p: Props) {
   useEffect(() => {
     setActive(null);
   }, [p.chosen?.id]);
+
+  // Permite abrir o modal de propriedades diretamente ao dar duplo clique ou clicar no botão do bloco no canvas
+  useEffect(() => {
+    const handleOpenRequest = () => {
+      cancel();
+      setActive('flyout');
+      setActiveTab('properties');
+    };
+    window.addEventListener('flowforge:open-block-properties', handleOpenRequest);
+    return () => {
+      window.removeEventListener('flowforge:open-block-properties', handleOpenRequest);
+    };
+  }, []);
 
   useEffect(() => {
     if (!active) return;
@@ -87,6 +121,26 @@ export function InspectorShell(p: Props) {
     return p.graph.edges.filter((e) => e.source === p.chosen!.id || e.target === p.chosen!.id);
   }, [p.graph, p.chosen]);
 
+  const activeSlotKeys = useMemo(() => {
+    if (!p.chosen) return new Set<string>();
+    const tmpl = inferBlockLogicTemplate(p.chosen);
+    return new Set(tmpl ? tmpl.variables.map((v) => v.key) : []);
+  }, [p.chosen]);
+
+  const { contextFields, paramFields } = useMemo(() => {
+    const context: FieldDefinition[] = [];
+    const params: FieldDefinition[] = [];
+    for (const f of p.fields || []) {
+      if (f.id === 'code') continue;
+      if (f.id === 'screenId' || f.id === 'flowId') {
+        context.push(f);
+      } else if (!activeSlotKeys.has(f.id)) {
+        params.push(f);
+      }
+    }
+    return { contextFields: context, paramFields: params };
+  }, [p.fields, activeSlotKeys]);
+
   return (
     <aside
       ref={root}
@@ -107,7 +161,7 @@ export function InspectorShell(p: Props) {
             >
               <PanelRightClose size={18} />
             </button>
-            <span>Propriedades & Código</span>
+            <span>Propriedades</span>
           </div>
           <div className="inspector-body">{p.children}</div>
         </>
@@ -129,35 +183,27 @@ export function InspectorShell(p: Props) {
             <>
               <span className="inspector-rail-separator" />
 
-              {/* Botão de Código Backend do Bloco */}
+              {/* 1. Modal de Propriedades do Bloco */}
               <div
                 className="rail-item-wrapper"
                 onMouseEnter={(e) =>
-                  show('code', e.currentTarget.querySelector('button') || undefined)
+                  show('properties', e.currentTarget.querySelector('button') || undefined)
                 }
                 onMouseLeave={closeSoon}
               >
                 <button
-                  title={`Código Backend (${def.name || p.chosen.id})`}
-                  aria-label={`Código Backend (${def.name || p.chosen.id})`}
-                  aria-expanded={active === 'flyout' && activeTab === 'code'}
+                  title={`Propriedades (${def.name || p.chosen.id})`}
+                  aria-label={`Propriedades (${def.name || p.chosen.id})`}
+                  aria-expanded={active === 'flyout' && activeTab === 'properties'}
                   aria-haspopup="dialog"
-                  className={active === 'flyout' && activeTab === 'code' ? 'active' : ''}
-                  onClick={(e) => show('code', e.currentTarget)}
+                  className={active === 'flyout' && activeTab === 'properties' ? 'active' : ''}
+                  onClick={(e) => show('properties', e.currentTarget)}
                 >
-                  <span
-                    className="material-symbols-outlined"
-                    style={{
-                      fontSize: 20,
-                      color: def.color || '#38bdf8',
-                    }}
-                  >
-                    {def.icon || 'code'}
-                  </span>
+                  <SlidersHorizontal size={19} />
                 </button>
               </div>
 
-              {/* Botão de Conexões Feitas */}
+              {/* 2. Modal Separado de Conexões Feitas */}
               <div
                 className="connections-trigger"
                 onMouseEnter={(e) =>
@@ -174,26 +220,6 @@ export function InspectorShell(p: Props) {
                   onClick={(e) => show('connections', e.currentTarget)}
                 >
                   <GitBranch size={20} />
-                </button>
-              </div>
-
-              {/* Botão de Painel Completo */}
-              <div
-                className="rail-item-wrapper"
-                onMouseEnter={(e) =>
-                  show('all', e.currentTarget.querySelector('button') || undefined)
-                }
-                onMouseLeave={closeSoon}
-              >
-                <button
-                  title={`Painel Completo (${def.name})`}
-                  aria-label={`Painel Completo (${def.name})`}
-                  aria-expanded={active === 'flyout' && activeTab === 'all'}
-                  aria-haspopup="dialog"
-                  className={active === 'flyout' && activeTab === 'all' ? 'active' : ''}
-                  onClick={(e) => show('all', e.currentTarget)}
-                >
-                  <Layers size={19} />
                 </button>
               </div>
 
@@ -219,12 +245,16 @@ export function InspectorShell(p: Props) {
         </nav>
       )}
 
-      {/* Flyout Modal quando o menu direito está recolhido / oculto */}
+      {/* Flyout Modal (Propriedades OU Conexões Feitas em modal separado) */}
       {!expanded && active && p.chosen && def && (
         <div
           className="inspector-flyout"
           role="dialog"
-          aria-label={`Código e conexões de ${def.name}`}
+          aria-label={
+            activeTab === 'connections'
+              ? `Conexões feitas de ${def.name}`
+              : `Propriedades de ${def.name}`
+          }
           onMouseEnter={cancel}
           onMouseLeave={closeSoon}
         >
@@ -238,14 +268,18 @@ export function InspectorShell(p: Props) {
                   color: def.color || '#38bdf8',
                 }}
               >
-                {def.icon || 'code'}
+                {activeTab === 'connections' ? 'account_tree' : def.icon || 'tune'}
               </span>
               <div className="inspector-flyout-titles">
                 <div className="inspector-flyout-sub">
-                  <span>{def.category}</span>
+                  <span>
+                    {activeTab === 'connections'
+                      ? `Conexões Feitas (${blockEdges.length})`
+                      : def.category}
+                  </span>
                   <span className="block-id-badge">#{p.chosen.id}</span>
                 </div>
-                <h3 className="inspector-flyout-title">{def.name}</h3>
+                <h3 className="inspector-flyout-title">{p.chosen.data.label || def.name}</h3>
               </div>
             </div>
 
@@ -260,181 +294,119 @@ export function InspectorShell(p: Props) {
             </button>
           </div>
 
-          {/* Abas Rápidas no Topo do Modal */}
-          <div className="inspector-flyout-tabs" role="tablist">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'code'}
-              className={`inspector-flyout-tab-btn ${activeTab === 'code' ? 'active' : ''}`}
-              onClick={() => setActiveTab('code')}
-            >
-              <Code size={13} />
-              <span>Código Backend</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'connections'}
-              className={`inspector-flyout-tab-btn ${activeTab === 'connections' ? 'active' : ''}`}
-              onClick={() => setActiveTab('connections')}
-            >
-              <GitBranch size={13} />
-              <span>Conexões ({blockEdges.length})</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'all'}
-              className={`inspector-flyout-tab-btn ${activeTab === 'all' ? 'active' : ''}`}
-              onClick={() => setActiveTab('all')}
-            >
-              <Layers size={13} />
-              <span>Completo</span>
-            </button>
-          </div>
-
-          {/* Conteúdo Dinâmico conforme a Aba Selecionada */}
+          {/* Conteúdo do Modal (Propriedades ou Lista de Conexões Feitas) */}
           <div className="inspector-flyout-body">
-            {activeTab === 'all' ? (
-              // Modo Completo: renderiza o InspectorPanel
-              p.children
-            ) : activeTab === 'code' ? (
-              // Modo Código: Título, ID, Editor com valores editáveis e templates, e Ações
-              <>
-                {p.nameField && (
-                  <div className="block-label-bar">
-                    <span className="label-title">Título:</span>
-                    <input
-                      type="text"
-                      className="block-label-input"
-                      value={p.nameField.value}
-                      placeholder={def.name}
-                      onChange={(e) => p.nameField?.onChange(e.target.value)}
-                    />
+            {activeTab === 'properties' ? (
+              // Modal exclusivo de Propriedades do Bloco
+              <div className="inspector-card">
+                <div className="inspector-card-body">
+                  <div className="inspector-identity-grid">
+                    {p.nameField && (
+                      <label className="inspector-field">
+                        <span className="inspector-field-label">Título do Bloco</span>
+                        <input
+                          type="text"
+                          className="inspector-input"
+                          value={p.nameField.value}
+                          placeholder={def.name}
+                          onChange={(e) => p.nameField?.onChange(e.target.value)}
+                        />
+                      </label>
+                    )}
+
+                    {p.graph && p.onRenameId && (
+                      <BlockIdEditor chosen={p.chosen} graph={p.graph} onRename={p.onRenameId} />
+                    )}
                   </div>
-                )}
 
-                {p.graph && p.onRenameId && (
-                  <BlockIdEditor chosen={p.chosen} graph={p.graph} onRename={p.onRenameId} />
-                )}
-
-                <div className="form-separator">CÓDIGO DO BLOCO (BACKEND)</div>
-
-                {p.graph && p.onChangeConfig && (
-                  <BlockCodeEditor
-                    block={p.chosen}
-                    graph={p.graph}
-                    onChangeConfig={p.onChangeConfig}
-                    onConnect={p.onConnect}
-                    onRemoveEdge={p.onRemoveEdge}
-                    onUpdateEdgeCallArg={p.onUpdateEdgeCallArg}
-                  />
-                )}
-
-                <div className="block-actions" style={{ marginTop: 14 }}>
-                  <button type="button" className="secondary" onClick={p.onDuplicate}>
-                    <Copy size={14} /> Duplicar
-                  </button>
-                  <button
-                    type="button"
-                    className="danger"
-                    title="Excluir bloco"
-                    onClick={p.onDelete}
-                  >
-                    <Trash2 size={15} /> Excluir
-                  </button>
-                </div>
-              </>
-            ) : (
-              // Modo Conexões Feitas: Lista de conexões ativas com código gerado e desconexão
-              <>
-                <div className="form-separator">CONEXÕES FEITAS</div>
-
-                <div className="inspector-active-connections">
-                  {blockEdges.length === 0 ? (
-                    <p className="subtle" style={{ margin: '6px 0', fontSize: 11 }}>
-                      Nenhuma conexão feita neste bloco ainda. Conecte pelo dropdown no código ou
-                      arraste o cabo no canvas.
-                    </p>
-                  ) : (
-                    <div className="connections-card-list">
-                      {blockEdges.map((e) => {
-                        const isSource = e.source === p.chosen!.id;
-                        const otherId = isSource ? e.target : e.source;
-                        const otherNode = p.graph?.nodes.find((n) => n.id === otherId);
-                        const otherLabel = otherNode?.data.label || otherId;
-                        const otherKind = otherNode?.data.kind;
-                        const otherDef = otherKind ? catalog[otherKind] : undefined;
-                        const edgeCode = p.graph ? getEdgeGeneratedCode(p.graph, p.chosen!, e) : '';
-                        const isNestedCondition = isSource && otherKind === 'condition';
-
-                        return (
-                          <div className="connection-block-card" key={e.id}>
-                            <div className="connection-card-header">
-                              <div className="connection-card-title">
-                                {otherDef && (
-                                  <span
-                                    className="material-symbols-outlined"
-                                    style={{ fontSize: 15, color: otherDef.color }}
-                                  >
-                                    {otherDef.icon}
-                                  </span>
-                                )}
-                                <span className="other-node-label">{otherLabel}</span>
-                                <span className="other-node-id">#{otherId}</span>
-                              </div>
-                              <button
-                                type="button"
-                                className="connection-remove-btn"
-                                title="Desconectar fio"
-                                onClick={() => p.onRemoveEdge?.(e.id)}
-                              >
-                                <X size={13} />
-                              </button>
-                            </div>
-
-                            <div className="connection-card-ports">
-                              <span className="port-badge">
-                                {isSource ? 'saída' : 'origem'}:{' '}
-                                <code>{e.sourceHandle || 'padrão'}</code>
-                              </span>
-                              <span className="port-divider">➔</span>
-                              <span className="port-badge">
-                                {isSource ? 'destino' : 'entrada'}:{' '}
-                                <code>{e.targetHandle || 'padrão'}</code>
-                              </span>
-                              {isNestedCondition && (
-                                <span className="nested-if-badge">If dentro de If</span>
-                              )}
-                            </div>
-
-                            <div className="connection-code-snippet">
-                              <pre className="connection-code-pre">
-                                <code>{edgeCode}</code>
-                              </pre>
-                            </div>
-                          </div>
-                        );
-                      })}
+                  {contextFields.length > 0 && (
+                    <div className="inspector-fields-grid cols-2">
+                      {contextFields.map((field) => (
+                        <PropertyField key={field.id} {...field} />
+                      ))}
                     </div>
                   )}
-                </div>
 
-                <div className="block-actions" style={{ marginTop: 14 }}>
-                  <button type="button" className="secondary" onClick={p.onDuplicate}>
-                    <Copy size={14} /> Duplicar
-                  </button>
-                  <button
-                    type="button"
-                    className="danger"
-                    title="Excluir bloco"
-                    onClick={p.onDelete}
-                  >
-                    <Trash2 size={15} /> Excluir
-                  </button>
+                  {p.graph && p.onChangeConfig && (
+                    <>
+                      <div className="inspector-subdivider">Lógica & Código</div>
+                      <BlockLogicBuilder
+                        block={p.chosen}
+                        graph={p.graph}
+                        onChangeConfig={p.onChangeConfig}
+                        onCreateAndBindBlock={p.onCreateAndBindBlock}
+                        onApplyRecommendation={p.onApplyRecommendation}
+                      />
+                    </>
+                  )}
+
+                  {paramFields.length > 0 && (
+                    <details className="inspector-more-options">
+                      <summary className="inspector-more-summary">
+                        Mais opções ({paramFields.length})
+                      </summary>
+                      <div className="inspector-fields-grid" style={{ marginTop: 8 }}>
+                        {paramFields.map((field) => {
+                          const isWide =
+                            field.area ||
+                            field.entries ||
+                            field.label.length > 28 ||
+                            field.value.length > 32;
+                          return (
+                            <div
+                              key={field.id}
+                              className={`inspector-field-cell ${isWide ? 'span-full' : ''}`}
+                            >
+                              <PropertyField {...field} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  )}
+
+                  {p.onChangeConfig &&
+                    (p.chosen.data.kind === 'condition' || p.chosen.data.kind === 'validator') && (
+                      <div className="inspector-tool-subbox">
+                        <LogicCatalogEditor block={p.chosen} onChange={p.onChangeConfig} />
+                      </div>
+                    )}
+
+                  {p.graph &&
+                    p.onChangeConfig &&
+                    (p.chosen.data.kind === 'database' || p.chosen.data.kind === 'auth') &&
+                    p.chosen.data.config.mode !== 'real' &&
+                    p.chosen.data.config.execution !== 'real' && (
+                      <DatabaseManager block={p.chosen} onChange={p.onChangeConfig} />
+                    )}
+
+                  {p.graph &&
+                    p.onChangeConfig &&
+                    (p.chosen.data.kind === 'api' || p.chosen.data.kind === 'httpConnection') && (
+                      <HttpRequestTools
+                        block={p.chosen}
+                        graph={p.graph}
+                        onChangeConfig={p.onChangeConfig}
+                      />
+                    )}
                 </div>
-              </>
+              </div>
+            ) : (
+              // Modal separado da Lista de Conexões Feitas (apenas visualização de onde sai e onde chega)
+              <div className="inspector-card">
+                <div className="inspector-card-body">
+                  {p.connections ? (
+                    p.connections
+                  ) : p.graph ? (
+                    <EdgeList
+                      graph={p.graph}
+                      block={p.chosen}
+                      edges={blockEdges}
+                      onRemoveEdge={p.onRemoveEdge}
+                    />
+                  ) : null}
+                </div>
+              </div>
             )}
           </div>
         </div>

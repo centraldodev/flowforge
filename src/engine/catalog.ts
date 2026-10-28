@@ -21,7 +21,7 @@ export const catalog: Record<Kind, BlockDefinition> = {
     description: 'Dispara um fluxo de ações',
     icon: 'smart_button',
     color: INTERFACE,
-    defaults: { screenId: '' },
+    defaults: { screenId: '', buttonText: 'Confirmar', variant: 'primary', loadingText: 'Aguarde...' },
   },
   input: {
     name: 'Campo de entrada',
@@ -29,7 +29,39 @@ export const catalog: Record<Kind, BlockDefinition> = {
     description: 'Texto, e-mail, senha ou número',
     icon: 'edit_note',
     color: INTERFACE,
-    defaults: { field: 'text', placeholder: 'Digite aqui', screenId: '', value: '' },
+    defaults: {
+      field: 'text',
+      placeholder: 'Digite aqui',
+      screenId: '',
+      value: '',
+      required: 'false',
+      mask: 'none',
+    },
+  },
+  form: {
+    name: 'Formulário Completo',
+    category: 'Lógica',
+    description: 'Agrupa e valida múltiplos campos (ex: Nome, E-mail, Senha) em um único bloco',
+    icon: 'dynamic_form',
+    color: INTERFACE,
+    defaults: {
+      screenId: '',
+      fields: 'nome, email, senha',
+      requiredFields: 'nome, email, senha',
+      submitLabel: 'Enviar Formulário',
+    },
+  },
+  loop: {
+    name: 'Repetição / Loop',
+    category: 'Lógica',
+    description: 'Percorre cada item de uma lista (forEach / map) e executa uma ação',
+    icon: 'repeat',
+    color: LOGIC,
+    defaults: {
+      sourceKey: 'itens',
+      itemVar: 'item',
+      maxItems: '50',
+    },
   },
   function: {
     name: 'Função',
@@ -434,10 +466,12 @@ export const categories = ['Lógica', 'Dados'] as const;
 
 /** Tipos visíveis na biblioteca de blocos da barra lateral (blocos de interface agora pertencem exclusivamente à área de Interfaces). */
 export const visibleKinds: Kind[] = [
+  'form',
   'function',
   'condition',
   'validator',
   'switch',
+  'loop',
   'delay',
   'notify',
   'state',
@@ -449,7 +483,6 @@ export const visibleKinds: Kind[] = [
   'constant',
   'math',
   'text',
-  'compare',
   'boolean',
   'object',
   'array',

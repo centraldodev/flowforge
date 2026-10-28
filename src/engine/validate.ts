@@ -1,3 +1,4 @@
+import { analyzeBlockIntentAndDiagnostics } from './blockLogicTemplates';
 import { catalog, interfaceKinds } from './catalog';
 import { httpConfigurationIssues } from './http';
 import { validateConnection } from './ports';
@@ -73,6 +74,12 @@ export function validate(g: Graph): string[] {
       continue;
     }
     validateBlock(g, n, errors);
+    const analysis = analyzeBlockIntentAndDiagnostics(g, n);
+    for (const diag of analysis.diagnostics) {
+      if (diag.severity === 'error') {
+        errors.push(`${n.data.label}: ${diag.message}`);
+      }
+    }
   }
 
   for (const e of g.edges) {

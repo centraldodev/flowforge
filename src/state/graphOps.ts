@@ -4,6 +4,8 @@ import {
   catalog,
   ensureBlockPorts,
   generateBlockCode,
+  getLogicTemplateById,
+  inferBlockLogicTemplate,
   isExecInput,
   isExecOutput,
   normalizeCustomPort,
@@ -15,6 +17,7 @@ import {
   type FlowStage,
   type Graph,
   type Kind,
+  type LogicRecommendation,
   type ScreenRoute,
 } from '../engine';
 import { getGraphFlows, GRID_SNAP_SIZE } from '../features/canvas/constants';
@@ -54,10 +57,77 @@ export const updateConfig = (g: Graph, id: string, config: Record<string, string
     ...n,
     data: { ...n.data, config: { ...n.data.config, ...config } },
   }));
-  if (!('code' in config)) {
-    return syncGraphCode(updated, [id]);
+
+  // Sincroniza conexões (arestas) geradas pelas propriedades da função/lógica escolhida pelo usuário
+  const updatedNode = updated.nodes.find((n) => n.id === id);
+  let nextEdges = [...updated.edges];
+  const touchedIds = new Set<string>([id]);
+
+  if (updatedNode) {
+    const activeTmpl =
+      getLogicTemplateById(updatedNode.data.config.logicTemplateId) ||
+      inferBlockLogicTemplate(updatedNode);
+
+    if (activeTmpl) {
+      for (const slot of activeTmpl.variables) {
+        if (slot.key in config && slot.edgeBinding && slot.edgeBinding.direction === 'outgoing') {
+          const targetId = (config[slot.key] || '').trim();
+          const sourceHandle = slot.edgeBinding.sourceHandle || 'next';
+          // Remove conexão anterior desta porta controlada pelo slot
+          nextEdges = nextEdges.filter(
+            (e) => !(e.source === id && (e.sourceHandle || 'next') === sourceHandle),
+          );
+
+          if (targetId && targetId !== id) {
+            const targetNode = updated.nodes.find((n) => n.id === targetId);
+            if (targetNode) {
+              const targetPorts = ensureBlockPorts(targetNode);
+              let resolvedTargetHandle = slot.edgeBinding.targetHandle || '';
+              if (
+                !resolvedTargetHandle ||
+                !targetPorts.some(
+                  (p) => p.id === resolvedTargetHandle && p.direction === 'input',
+                )
+              ) {
+                const preferred = targetPorts.find(
+                  (p) =>
+                    p.direction === 'input' &&
+                    (p.id === 'execute' ||
+                      p.id === 'trigger' ||
+                      p.id === 'onEnter' ||
+                      p.id === 'exec' ||
+                      p.id === 'listener' ||
+                      p.mode === 'control'),
+                );
+                resolvedTargetHandle =
+                  preferred?.id ||
+                  targetPorts.find((p) => p.direction === 'input')?.id ||
+                  'execute';
+              }
+
+              nextEdges.push({
+                id: `prop-${id}-${sourceHandle}-${targetId}`,
+                source: id,
+                sourceHandle,
+                target: targetId,
+                targetHandle: resolvedTargetHandle,
+                data: slot.edgeBinding.defaultArg
+                  ? { callArg: slot.edgeBinding.defaultArg }
+                  : undefined,
+              });
+              touchedIds.add(targetId);
+            }
+          }
+        }
+      }
+    }
   }
-  return updated;
+
+  const graphWithEdges: Graph = { ...updated, edges: nextEdges };
+  if (!('code' in config)) {
+    return syncGraphCode(graphWithEdges, [...touchedIds]);
+  }
+  return graphWithEdges;
 };
 
 export const deleteBlockConfigKey = (g: Graph, id: string, key: string): Graph => {
@@ -721,6 +791,120 @@ export function updateEdgeCallArg(g: Graph, edgeId: string, callArg: string): Gr
     return e;
   });
   return syncGraphCode({ ...g, edges: nextEdges }, [edge.source, edge.target]);
+}
+
+/**
+ * Cria um novo bloco a partir de uma propriedade/recomendação de outro bloco,
+ * posicionando-o ao lado sem colisão, preenchendo a propriedade correspondente
+ * e conectando os dois blocos automaticamente.
+ */
+export function createAndBindTargetBlock(
+  g: Graph,
+  sourceBlockId: string,
+  targetKind: Kind,
+  options: {
+    slotKey?: string;
+    sourceHandle?: string;
+    targetHandle?: string;
+    defaultConfig?: Record<string, string>;
+    defaultArg?: string;
+  } = {},
+): { graph: Graph; createdBlock: Block } {
+  const sourceBlock = g.nodes.find((n) => n.id === sourceBlockId);
+  if (!sourceBlock) {
+    throw new Error(`Bloco de origem "${sourceBlockId}" não encontrado.`);
+  }
+
+  const screenId =
+    sourceBlock.data.kind === 'screen'
+      ? sourceBlock.id
+      : sourceBlock.data.config.screenId || screensOf(g)[0]?.id || '';
+
+  const basePos = {
+    x: sourceBlock.position.x + MIN_BLOCK_DISTANCE_X,
+    y: sourceBlock.position.y,
+  };
+  const freePos = findFreePosition(g, basePos, screenId);
+
+  const newBlock = createBlock(targetKind, freePos, screenId, g);
+  if (targetKind !== 'screen' && sourceBlock.data.config.flowId) {
+    newBlock.data.config.flowId = sourceBlock.data.config.flowId;
+  }
+  if (options.defaultConfig) {
+    newBlock.data.config = {
+      ...newBlock.data.config,
+      ...options.defaultConfig,
+    };
+  }
+
+  let nextGraph = addBlock(g, newBlock);
+
+  if (options.slotKey) {
+    nextGraph = updateConfig(nextGraph, sourceBlockId, {
+      [options.slotKey]: newBlock.id,
+    });
+  } else if (options.sourceHandle) {
+    const targetPorts = ensureBlockPorts(newBlock);
+    let resolvedTargetHandle = options.targetHandle || '';
+    if (
+      !resolvedTargetHandle ||
+      !targetPorts.some((p) => p.id === resolvedTargetHandle && p.direction === 'input')
+    ) {
+      const preferred = targetPorts.find(
+        (p) =>
+          p.direction === 'input' &&
+          (p.id === 'execute' ||
+            p.id === 'trigger' ||
+            p.id === 'onEnter' ||
+            p.id === 'exec' ||
+            p.id === 'listener' ||
+            p.mode === 'control'),
+      );
+      resolvedTargetHandle =
+        preferred?.id || targetPorts.find((p) => p.direction === 'input')?.id || 'execute';
+    }
+
+    const filteredEdges = nextGraph.edges.filter(
+      (e) =>
+        !(e.source === sourceBlockId && (e.sourceHandle || 'next') === options.sourceHandle),
+    );
+    nextGraph = syncGraphCode(
+      {
+        ...nextGraph,
+        edges: [
+          ...filteredEdges,
+          {
+            id: `rec-${sourceBlockId}-${options.sourceHandle}-${newBlock.id}`,
+            source: sourceBlockId,
+            sourceHandle: options.sourceHandle,
+            target: newBlock.id,
+            targetHandle: resolvedTargetHandle,
+            data: options.defaultArg ? { callArg: options.defaultArg } : undefined,
+          },
+        ],
+      },
+      [sourceBlockId, newBlock.id],
+    );
+  } else {
+    nextGraph = syncGraphCode(nextGraph, [sourceBlockId, newBlock.id]);
+  }
+
+  return { graph: nextGraph, createdBlock: newBlock };
+}
+
+/** Aplica uma recomendação inteligente em 1 clique (reutiliza bloco compatível existente ou cria um novo). */
+export function applyLogicRecommendation(
+  g: Graph,
+  sourceBlockId: string,
+  rec: LogicRecommendation,
+): { graph: Graph; targetBlockId: string } {
+  const { graph, createdBlock } = createAndBindTargetBlock(g, sourceBlockId, rec.targetKind, {
+    slotKey: rec.slotKey,
+    sourceHandle: rec.sourceHandle,
+    targetHandle: rec.targetHandle,
+    defaultConfig: rec.defaultConfig,
+  });
+  return { graph, targetBlockId: createdBlock.id };
 }
 
 export const screensOf = (g: Graph) => g.nodes.filter((n) => n.data.kind === 'screen');

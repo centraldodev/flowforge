@@ -188,6 +188,11 @@ export function App() {
               onDuplicate={actions.duplicateChosen}
               onDelete={actions.deleteChosen}
               onChangeConfig={actions.updateChosenConfig}
+              onConnect={actions.connectBlocks}
+              onRemoveEdge={editor.connectionHandlers.onRemoveEdge}
+              onUpdateEdgeCallArg={editor.connectionHandlers.onUpdateEdgeCallArg}
+              onCreateAndBindBlock={actions.createAndBindForChosen}
+              onApplyRecommendation={actions.applyRecommendationForChosen}
             >
               <InspectorPanel
                 chosen={chosen}
@@ -203,6 +208,8 @@ export function App() {
                 onConnect={actions.connectBlocks}
                 onRemoveEdge={editor.connectionHandlers.onRemoveEdge}
                 onUpdateEdgeCallArg={editor.connectionHandlers.onUpdateEdgeCallArg}
+                onCreateAndBindBlock={actions.createAndBindForChosen}
+                onApplyRecommendation={actions.applyRecommendationForChosen}
               />
             </InspectorShell>
           </>
