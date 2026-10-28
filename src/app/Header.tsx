@@ -3,6 +3,7 @@ import {
   ChevronRight,
   Clock,
   Code2,
+  Database,
   FlaskConical,
   LayoutDashboard,
   Pause,
@@ -16,8 +17,8 @@ import {
 import type { DebuggerStatus } from '../compiler/interpreter/debuggerTypes';
 
 type Props = {
-  workspaceMode: 'flow' | 'frontend';
-  onWorkspaceMode: (mode: 'flow' | 'frontend') => void;
+  workspaceMode: 'flow' | 'frontend' | 'datamodel';
+  onWorkspaceMode: (mode: 'flow' | 'frontend' | 'datamodel') => void;
   projectName: string;
   onRenameProject: (name: string) => void;
   onSimulate: () => void;
@@ -105,6 +106,15 @@ export function Header({
           >
             <LayoutDashboard size={14} />
             <span>Interface</span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={workspaceMode === 'datamodel'}
+            className={workspaceMode === 'datamodel' ? 'active' : ''}
+            onClick={() => onWorkspaceMode('datamodel')}
+          >
+            <Database size={14} />
+            <span>Modelagem de Dados</span>
           </button>
         </div>
         {/* Controles de Depuração Visual */}

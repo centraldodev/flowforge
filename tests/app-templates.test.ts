@@ -20,9 +20,47 @@ for (const [name, graph] of Object.entries(appTemplates)) {
         .filter((node) => node.data.kind === 'database')
         .every((node) => node.data.config.mode === 'real'),
     );
+    assert.ok(
+      graph.nodes.some((node) => node.data.kind === 'form'),
+      'Deve conter bloco de formulário completo',
+    );
+    assert.ok(
+      graph.nodes.some((node) => node.data.kind === 'loop'),
+      'Deve conter bloco de repetição / loop',
+    );
+    assert.ok(
+      graph.nodes
+        .filter((node) => node.data.kind === 'button')
+        .every(
+          (node) =>
+            Boolean(node.data.config.buttonText) &&
+            Boolean(node.data.config.variant) &&
+            Boolean(node.data.config.logicTemplateId),
+        ),
+      'Botões devem usar as novas propriedades (buttonText, variant, logicTemplateId)',
+    );
+    assert.ok(
+      graph.nodes
+        .filter((node) => node.data.kind === 'input')
+        .every(
+          (node) =>
+            Boolean(node.data.config.required) &&
+            Boolean(node.data.config.mask) &&
+            Boolean(node.data.config.logicTemplateId),
+        ),
+      'Inputs devem usar as novas propriedades (required, mask, logicTemplateId)',
+    );
+    assert.ok(
+      graph.dataModel &&
+        graph.dataModel.entities.length >= 3 &&
+        graph.dataModel.relationships.length >= 2,
+      'Modelo deve incluir Modelagem de Dados Conceitual e Lógica completa de exemplo',
+    );
     const plan = createTypeScriptPlan(graph);
     assert.ok(plan.files.has('apps/api/src/auth/store.mjs'));
     assert.ok(plan.files.has('apps/api/src/database/gateway.mjs'));
+    assert.ok(plan.files.has('apps/api/src/database/schema/schema.postgres.sql'));
+    assert.ok(plan.files.has('apps/api/src/database/schema/schema.sqlite.sql'));
     const object = graph.nodes.find((node) => node.id === 'montar_registro')!;
     const instruction = lowerBlock(object, graph)[0];
     assert.equal(instruction.kind, 'call_operation');

@@ -352,7 +352,9 @@ export function FlowCanvas(p: Props) {
                 <div className="canvas-dropdown-header">
                   <span>Telas do Projeto ({screens.length})</span>
                   {isConnecting && (
-                    <span className="canvas-dropdown-connect-hint">Solte na tela para conectar</span>
+                    <span className="canvas-dropdown-connect-hint">
+                      Solte na tela para conectar
+                    </span>
                   )}
                 </div>
                 <div className="canvas-dropdown-list">
@@ -482,7 +484,11 @@ export function FlowCanvas(p: Props) {
             </button>
 
             {isFlowsMenuOpen && (
-              <div className="canvas-dropdown-menu flows-dropdown-menu" role="listbox" aria-label="Fluxos criados">
+              <div
+                className="canvas-dropdown-menu flows-dropdown-menu"
+                role="listbox"
+                aria-label="Fluxos criados"
+              >
                 <div className="canvas-dropdown-header">
                   <span>Fluxos do Projeto ({flows.length})</span>
                 </div>
@@ -497,10 +503,7 @@ export function FlowCanvas(p: Props) {
                       setOpenDropdown(null);
                     }}
                   >
-                    <span
-                      className="canvas-dropdown-flow-dot"
-                      style={{ background: '#38bdf8' }}
-                    />
+                    <span className="canvas-dropdown-flow-dot" style={{ background: '#38bdf8' }} />
                     <span className="canvas-dropdown-item-label">Todos os fluxos</span>
                     <span className="canvas-dropdown-item-count">{rawFlowNodes.length}</span>
                     {!effectiveFilter && <Check size={13} className="canvas-dropdown-item-check" />}
@@ -526,10 +529,7 @@ export function FlowCanvas(p: Props) {
                           }}
                           title={`Filtrar pelo fluxo ${idx + 1}: ${flow.name} (${count} ${count === 1 ? 'bloco' : 'blocos'})`}
                         >
-                          <span
-                            className="canvas-dropdown-flow-num"
-                            style={{ color: flow.color }}
-                          >
+                          <span className="canvas-dropdown-flow-num" style={{ color: flow.color }}>
                             {idx + 1}
                           </span>
                           <span className="canvas-dropdown-item-label">{flow.name}</span>

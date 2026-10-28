@@ -368,7 +368,10 @@ export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
 
                   {/* Porta de Saída + Botão "+" de Conexão Rápida */}
                   {outPort ? (
-                    <div className={`port out tone-${outPort.tone}`} title={`Saída: ${outPort.label}`}>
+                    <div
+                      className={`port out tone-${outPort.tone}`}
+                      title={`Saída: ${outPort.label}`}
+                    >
                       <span className="port-label">
                         <span className={`port-name tone-${outPort.tone}`}>{outPort.label}</span>
                         {outPort.value && (
@@ -396,10 +399,7 @@ export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
                           </button>
 
                           {isMenuOpen && (
-                            <div
-                              className="port-quick-menu"
-                              onClick={(e) => e.stopPropagation()}
-                            >
+                            <div className="port-quick-menu" onClick={(e) => e.stopPropagation()}>
                               <div className="port-quick-menu-title">
                                 Conectar em <strong>{outPort.label}</strong>:
                               </div>

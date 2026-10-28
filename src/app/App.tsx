@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { downloadGraph } from '../export';
 import { Toast } from '../components/Toast';
 import { FlowCanvas } from '../features/canvas/FlowCanvas';
+import { DataModelEditor } from '../features/datamodel/DataModelEditor';
 import { FrontendEditor } from '../features/frontend/FrontendEditor';
 import { Connections } from '../features/inspector/Connections';
 import { InspectorPanel } from '../features/inspector/InspectorPanel';
@@ -30,7 +31,7 @@ export function App() {
 
   const [modal, setModal] = useState<ModalType>(null);
   const [sidebar, setSidebar] = useState(false);
-  const [workspaceMode, setWorkspaceMode] = useState<'flow' | 'frontend'>('flow');
+  const [workspaceMode, setWorkspaceMode] = useState<'flow' | 'frontend' | 'datamodel'>('flow');
   const [isTimeTravelOpen, setIsTimeTravelOpen] = useState(false);
   const [activeFlowFilter, setActiveFlowFilter] = useState<string | null>(null);
   const [notice, setNotice] = useNotice();
@@ -133,6 +134,17 @@ export function App() {
             canUndo={canUndo}
             canRedo={canRedo}
             onOpenSettings={() => setModal('settings')}
+          />
+        ) : workspaceMode === 'datamodel' ? (
+          <DataModelEditor
+            graph={graph}
+            commit={commit}
+            notify={setNotice}
+            simulation={simulation}
+            undo={undo}
+            redo={redo}
+            canUndo={canUndo}
+            canRedo={canRedo}
           />
         ) : (
           <>

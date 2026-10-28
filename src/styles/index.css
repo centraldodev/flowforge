@@ -22,3 +22,6 @@
 
 /* 7. Editor Visual de Frontend (Interface Builder) */
 @import './frontend.css';
+
+/* 8. Editor de Modelagem de Dados (Conceitual, Lógico, SQL e CRUD) */
+@import './datamodel.css';

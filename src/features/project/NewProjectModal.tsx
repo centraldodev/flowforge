@@ -35,33 +35,34 @@ const TEMPLATES: TemplateOption[] = [
   {
     id: 'tasks',
     title: 'App de tarefas',
-    subtitle: 'Lista com cadastro e edição',
-    description: 'Cadastro, login e gerenciamento de tarefas com PostgreSQL configurável.',
+    subtitle: 'Lista com formulário, loop e CRUD',
+    description:
+      'Cadastro, login, formulário unificado, iteração de itens e gerenciamento de tarefas com PostgreSQL configurável.',
     icon: ListChecks,
     color: '#10b981',
-    tags: ['PostgreSQL', 'Auth', 'CRUD'],
+    tags: ['Formulário', 'Loop', 'PostgreSQL', 'CRUD'],
     defaultName: 'Minhas Tarefas',
   },
   {
     id: 'store',
     title: 'Loja virtual — catálogo',
-    subtitle: 'Cadastro de produtos',
+    subtitle: 'Cadastro e validação de produtos',
     description:
-      'Gerencie produtos com login e banco real. Checkout e pagamentos ainda não estão incluídos.',
+      'Gerencie produtos com login, formulário completo, máscaras de moeda e banco real PostgreSQL.',
     icon: ShoppingBag,
     color: '#f59e0b',
-    tags: ['Produtos', 'PostgreSQL', 'CRUD'],
+    tags: ['Produtos', 'Formulário', 'Loop', 'PostgreSQL'],
     defaultName: 'Catálogo de Produtos',
   },
   {
     id: 'social',
     title: 'Rede social — mural',
-    subtitle: 'Publicações com login',
+    subtitle: 'Publicações com login e feed',
     description:
-      'Crie e gerencie publicações. Perfis, curtidas e comentários ainda não estão incluídos.',
+      'Crie e gerencie publicações com formulário validado, loop de feed e banco PostgreSQL.',
     icon: Users,
     color: '#ec4899',
-    tags: ['Publicações', 'PostgreSQL', 'CRUD'],
+    tags: ['Publicações', 'Formulário', 'Loop', 'PostgreSQL'],
     defaultName: 'Mural de Publicações',
   },
 ];

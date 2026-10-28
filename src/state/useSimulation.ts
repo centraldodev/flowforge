@@ -81,6 +81,15 @@ export function useSimulation(graph: Graph) {
 
         const program = compilation.value;
 
+        // Pré-popula tabelas modeladas na aba de Modelagem de Dados se ainda não existirem no store
+        if (graph.dataModel?.seededData) {
+          for (const [tblName, rows] of Object.entries(graph.dataModel.seededData)) {
+            if (!store.current[tblName] && Array.isArray(rows)) {
+              store.current[tblName] = rows.map((r) => ({ ...r }));
+            }
+          }
+        }
+
         const context = createExecutionContext({
           inputs: values,
           store: store.current,
@@ -196,6 +205,8 @@ export function useSimulation(graph: Graph) {
     setValue: (id: string, value: string) => setValues((v) => ({ ...v, [id]: value })),
     setValues,
     store: activeFrame ? (activeFrame.store as Store) : storeState,
+    rawStoreRef: store,
+    syncStoreState: () => setStoreState({ ...store.current }),
     messages,
     execute,
     reset,

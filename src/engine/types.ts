@@ -117,6 +117,7 @@ export type Graph = {
   flows?: FlowStage[];
   tests?: import('./testScenarios').TestScenario[];
   entities?: import('./database').EntityDefinition[];
+  dataModel?: import('./dataModeling').DataModelDesign;
   auth?: import('./auth').IdentityProviderConfig;
   databasePolicy?: { multitenancy?: unknown };
 };

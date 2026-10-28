@@ -29,13 +29,7 @@ export const LOGIC_CATEGORIES: LogicCategory[] = [
 ];
 
 export type LogicVariableType =
-  | 'block_ref'
-  | 'input_ref'
-  | 'screen_ref'
-  | 'select'
-  | 'text'
-  | 'number'
-  | 'json';
+  'block_ref' | 'input_ref' | 'screen_ref' | 'select' | 'text' | 'number' | 'json';
 
 export type LogicVariableSlot = {
   /** Chave salva em block.data.config (ex: 'callValidatorId', 'rule', 'table', 'targetScreenId') */
@@ -146,8 +140,7 @@ export const BLOCK_LOGIC_TEMPLATES: BlockLogicTemplate[] = [
         slotKey: 'logicTargetId',
       },
     ],
-    buildCodeSnippet: (v) =>
-      `return ${safeFn(v.logicTargetId, 'validarFormulario')}();`,
+    buildCodeSnippet: (v) => `return ${safeFn(v.logicTargetId, 'validarFormulario')}();`,
   },
   {
     id: 'btn_navigate_screen',
@@ -180,8 +173,7 @@ export const BLOCK_LOGIC_TEMPLATES: BlockLogicTemplate[] = [
         slotKey: 'target',
       },
     ],
-    buildCodeSnippet: (v) =>
-      `return navigateTo('${v.target || 'home'}');`,
+    buildCodeSnippet: (v) => `return navigateTo('${v.target || 'home'}');`,
   },
   {
     id: 'input_typed_field',
@@ -1516,8 +1508,7 @@ export const BLOCK_LOGIC_TEMPLATES: BlockLogicTemplate[] = [
         slotKey: 'dbConsumerId',
       },
     ],
-    buildCodeSnippet: (v) =>
-      `// PostgreSQL conectado: "${v.database || 'flowforge'}"`,
+    buildCodeSnippet: (v) => `// PostgreSQL conectado: "${v.database || 'flowforge'}"`,
   },
   {
     id: 'entity_table_schema',
@@ -1805,8 +1796,7 @@ export const BLOCK_LOGIC_TEMPLATES: BlockLogicTemplate[] = [
         slotKey: 'webhookTargetId',
       },
     ],
-    buildCodeSnippet: (v) =>
-      `return ${safeFn(v.webhookTargetId, 'processarWebhook')}(payload);`,
+    buildCodeSnippet: (v) => `return ${safeFn(v.webhookTargetId, 'processarWebhook')}(payload);`,
   },
   {
     id: 'task_cron_job',
@@ -2220,10 +2210,7 @@ export type BlockIntentAnalysis = {
  * 2. Detectar erros ou incompatibilidades entre a lógica escolhida, o tipo do bloco e as conexões
  * 3. Recomendar os próximos blocos ou conexões ideais
  */
-export function analyzeBlockIntentAndDiagnostics(
-  graph: Graph,
-  block: Block,
-): BlockIntentAnalysis {
+export function analyzeBlockIntentAndDiagnostics(graph: Graph, block: Block): BlockIntentAnalysis {
   const kind = block.data.kind;
   const config = block.data.config;
   const outEdges = graph.edges.filter((e) => e.source === block.id);
@@ -2453,4 +2440,3 @@ export function analyzeBlockIntentAndDiagnostics(
     recommendations,
   };
 }
-

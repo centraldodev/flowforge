@@ -79,8 +79,9 @@ export function analyzeEnvironment(
   });
 
   // Requisitos de Banco de Dados
-  if (hasDb) {
+  if (hasDb && dbManifest.dialect !== 'sqlite') {
     for (const conn of dbManifest.connections) {
+      if (conn.engine === 'sqlite') continue;
       if (conn.development?.secretEnv) {
         requiredVariables.push({
           name: conn.development.secretEnv,

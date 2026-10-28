@@ -21,7 +21,12 @@ export const catalog: Record<Kind, BlockDefinition> = {
     description: 'Dispara um fluxo de ações',
     icon: 'smart_button',
     color: INTERFACE,
-    defaults: { screenId: '', buttonText: 'Confirmar', variant: 'primary', loadingText: 'Aguarde...' },
+    defaults: {
+      screenId: '',
+      buttonText: 'Confirmar',
+      variant: 'primary',
+      loadingText: 'Aguarde...',
+    },
   },
   input: {
     name: 'Campo de entrada',

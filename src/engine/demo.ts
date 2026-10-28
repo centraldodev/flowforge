@@ -41,6 +41,7 @@ const rawDemo: Graph = {
       config: {
         title: 'Acesse sua Conta',
         flowId: 'screen',
+        logicTemplateId: 'screen_lifecycle_init',
       },
       ports: [{ id: 'onEnter', name: 'onEnter', direction: 'input', type: 'Event' }],
     }),
@@ -54,7 +55,11 @@ const rawDemo: Graph = {
         placeholder: 'demo@exemplo.com',
         screenId: 'login',
         value: 'demo@exemplo.com',
+        required: 'true',
+        mask: 'none',
         flowId: 'inputs',
+        logicTemplateId: 'input_typed_field',
+        logicConsumerId: 'validar_login',
       },
       ports: [
         { id: 'value', name: 'value', direction: 'output', type: 'string' },
@@ -69,7 +74,11 @@ const rawDemo: Graph = {
         placeholder: '123456',
         screenId: 'login',
         value: '123456',
+        required: 'true',
+        mask: 'none',
         flowId: 'inputs',
+        logicTemplateId: 'input_typed_field',
+        logicConsumerId: 'validar_login',
       },
       ports: [
         { id: 'value', name: 'value', direction: 'output', type: 'string' },
@@ -79,7 +88,15 @@ const rawDemo: Graph = {
     block('btn_entrar', 460, 380, {
       kind: 'button',
       label: 'Entrar com E-mail',
-      config: { screenId: 'login', flowId: 'inputs' },
+      config: {
+        screenId: 'login',
+        flowId: 'inputs',
+        buttonText: 'Entrar com E-mail',
+        variant: 'primary',
+        loadingText: 'Autenticando...',
+        logicTemplateId: 'btn_validate_and_auth',
+        logicTargetId: 'validar_login',
+      },
       ports: [
         { id: 'disabled', name: 'disabled', direction: 'input', type: 'boolean' },
         { id: 'onClick', name: 'onClick', direction: 'output', type: 'Event' },
@@ -88,7 +105,15 @@ const rawDemo: Graph = {
     block('btn_google', 460, 520, {
       kind: 'button',
       label: 'Entrar com Google',
-      config: { screenId: 'login', flowId: 'inputs' },
+      config: {
+        screenId: 'login',
+        flowId: 'inputs',
+        buttonText: 'Entrar com Google',
+        variant: 'secondary',
+        loadingText: 'Conectando Google...',
+        logicTemplateId: 'btn_validate_and_auth',
+        logicTargetId: 'auth_google',
+      },
       ports: [
         { id: 'disabled', name: 'disabled', direction: 'input', type: 'boolean' },
         { id: 'onClick', name: 'onClick', direction: 'output', type: 'Event' },
@@ -97,7 +122,15 @@ const rawDemo: Graph = {
     block('btn_cadastrar', 460, 660, {
       kind: 'button',
       label: 'Criar Nova Conta',
-      config: { screenId: 'login', flowId: 'inputs' },
+      config: {
+        screenId: 'login',
+        flowId: 'inputs',
+        buttonText: 'Criar Nova Conta',
+        variant: 'secondary',
+        loadingText: 'Criando conta...',
+        logicTemplateId: 'btn_validate_and_auth',
+        logicTargetId: 'cadastrar_usuario',
+      },
       ports: [
         { id: 'disabled', name: 'disabled', direction: 'input', type: 'boolean' },
         { id: 'onClick', name: 'onClick', direction: 'output', type: 'Event' },
@@ -108,7 +141,14 @@ const rawDemo: Graph = {
     block('validar_login', 880, 60, {
       kind: 'function',
       label: 'Validação de Login',
-      config: { screenId: 'login', flowId: 'validation' },
+      config: {
+        screenId: 'login',
+        flowId: 'validation',
+        logicTemplateId: 'fn_call_validator_and_auth',
+        sourceInputId: 'email',
+        callValidatorId: 'checar_dados',
+        nextAuthOrDbId: 'checar_dados',
+      },
       ports: [
         { id: 'listenerClick', name: 'listenerClick', direction: 'input', type: 'Event' },
         { id: 'email', name: 'email', direction: 'input', type: 'string' },
@@ -123,6 +163,9 @@ const rawDemo: Graph = {
         operator: 'truthy',
         screenId: 'login',
         flowId: 'validation',
+        logicTemplateId: 'cond_if_else_branch',
+        trueTargetId: 'auth_login',
+        falseTargetId: 'show_error',
       },
       ports: [
         { id: 'listener', name: 'listener', direction: 'input', type: 'Event' },
@@ -139,6 +182,8 @@ const rawDemo: Graph = {
         operation: 'insert',
         table: 'usuarios',
         flowId: 'database',
+        logicTemplateId: 'db_insert_record',
+        dbSuccessTargetId: 'home',
         mock: JSON.stringify(
           [
             {
@@ -180,6 +225,9 @@ const rawDemo: Graph = {
         mode: 'login',
         screenId: 'login',
         flowId: 'auth',
+        logicTemplateId: 'auth_email_password_login',
+        onSuccessTargetId: 'home',
+        onErrorTargetId: 'show_error',
       },
       ports: [
         { id: 'trigger', name: 'trigger', direction: 'input', type: 'Event' },
@@ -201,6 +249,9 @@ const rawDemo: Graph = {
         googleName: 'Google Teste',
         screenId: 'login',
         flowId: 'auth',
+        logicTemplateId: 'auth_google_oauth',
+        dbTargetId: 'banco_usuarios',
+        onErrorTargetId: 'show_error',
       },
       ports: [
         { id: 'trigger', name: 'trigger', direction: 'input', type: 'Event' },
@@ -218,6 +269,9 @@ const rawDemo: Graph = {
         mode: 'register',
         screenId: 'login',
         flowId: 'auth',
+        logicTemplateId: 'auth_email_password_login',
+        onSuccessTargetId: 'home',
+        onErrorTargetId: 'show_error',
       },
       ports: [
         { id: 'trigger', name: 'trigger', direction: 'input', type: 'Event' },
@@ -236,6 +290,7 @@ const rawDemo: Graph = {
       config: {
         title: 'Dashboard do Usuário',
         flowId: 'destination',
+        logicTemplateId: 'screen_lifecycle_init',
       },
       ports: [
         { id: 'onEnter', name: 'onEnter', direction: 'input', type: 'Event' },
@@ -250,6 +305,8 @@ const rawDemo: Graph = {
         type: 'toast',
         screenId: 'login',
         flowId: 'destination',
+        logicTemplateId: 'error_catch_and_retry',
+        retryTargetId: 'validar_login',
       },
       ports: [
         { id: 'execute', name: 'execute', direction: 'input', type: 'Event' },
@@ -268,13 +325,21 @@ const rawDemo: Graph = {
         screenId: 'home',
         value: 'Painel Principal do Usuário',
         flowId: 'inputs',
+        logicTemplateId: 'input_typed_field',
       },
       ports: [{ id: 'value', name: 'value', direction: 'output', type: 'string' }],
     }),
     block('btn_logout', 460, 300, {
       kind: 'button',
       label: 'Sair da Conta',
-      config: { screenId: 'home', flowId: 'inputs' },
+      config: {
+        screenId: 'home',
+        flowId: 'inputs',
+        buttonText: 'Sair da Conta',
+        variant: 'danger',
+        logicTemplateId: 'btn_navigate_screen',
+        target: 'login',
+      },
       ports: [{ id: 'onClick', name: 'onClick', direction: 'output', type: 'Event' }],
     }),
   ],
@@ -420,6 +485,68 @@ const rawDemo: Graph = {
       targetHandle: 'onEnter',
     },
   ],
+  dataModel: {
+    dialect: 'sqlite',
+    sqliteFilePath: './data/demo_auth.sqlite',
+    entities: [
+      {
+        id: 'ent_usuarios_demo',
+        name: 'usuarios',
+        label: 'Usuários',
+        x: 100,
+        y: 100,
+        attributes: [
+          { id: 'du_1', name: 'id', type: 'string', isPrimaryKey: true, isRequired: true },
+          { id: 'du_2', name: 'nome', type: 'string', isRequired: true },
+          { id: 'du_3', name: 'email', type: 'string', isRequired: true, isUnique: true },
+          { id: 'du_4', name: 'senha', type: 'string', isRequired: true },
+          { id: 'du_5', name: 'provider', type: 'string', defaultValue: 'email' },
+        ],
+      },
+      {
+        id: 'ent_sessoes_demo',
+        name: 'sessoes',
+        label: 'Sessões de Acesso',
+        x: 500,
+        y: 100,
+        attributes: [
+          { id: 'ds_1', name: 'id', type: 'string', isPrimaryKey: true, isRequired: true },
+          { id: 'ds_2', name: 'token', type: 'string', isRequired: true, isUnique: true },
+          { id: 'ds_3', name: 'criado_em', type: 'date', isRequired: true },
+        ],
+      },
+    ],
+    relationships: [
+      {
+        id: 'rel_usuario_sessao',
+        name: 'autentica',
+        x: 300,
+        y: 130,
+        sourceEntityId: 'ent_usuarios_demo',
+        targetEntityId: 'ent_sessoes_demo',
+        sourceCardinality: '1,1',
+        targetCardinality: '0,N',
+      },
+    ],
+    seededData: {
+      usuarios: [
+        {
+          id: '1',
+          nome: 'Usuário Demo',
+          email: 'demo@exemplo.com',
+          senha: '123456',
+          provider: 'email',
+        },
+        {
+          id: '2',
+          nome: 'Admin Teste',
+          email: 'admin@flowforge.dev',
+          senha: 'admin123',
+          provider: 'email',
+        },
+      ],
+    },
+  },
 };
 
 /** Grafo de demonstração completo com códigos gerados e sincronizados atomicamente. */

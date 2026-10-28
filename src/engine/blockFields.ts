@@ -267,14 +267,28 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
     { key: 'timeoutMs', label: 'Tempo limite (ms)' },
   ],
   postgresConnection: [
-    { key: 'host', label: 'Host (Desenvolvimento)' },
-    { key: 'port', label: 'Porta (Desenvolvimento)' },
+    {
+      key: 'engine',
+      label: 'Motor do Banco de Dados',
+      options: [
+        { value: 'postgres', label: 'PostgreSQL (Servidor)' },
+        { value: 'sqlite', label: 'SQLite (Arquivo Local / Embarcado)' },
+      ],
+    },
+    {
+      key: 'sqlitePath',
+      label: 'Caminho do Arquivo SQLite (ex.: ./data/flowforge.sqlite)',
+      visible: (c) => c.engine === 'sqlite',
+    },
+    { key: 'host', label: 'Host (Desenvolvimento)', visible: (c) => c.engine !== 'sqlite' },
+    { key: 'port', label: 'Porta (Desenvolvimento)', visible: (c) => c.engine !== 'sqlite' },
     { key: 'database', label: 'Nome do Banco (Desenvolvimento)' },
-    { key: 'schema', label: 'Esquema (Desenvolvimento)' },
-    { key: 'user', label: 'Usuário (Desenvolvimento)' },
+    { key: 'schema', label: 'Esquema (Desenvolvimento)', visible: (c) => c.engine !== 'sqlite' },
+    { key: 'user', label: 'Usuário (Desenvolvimento)', visible: (c) => c.engine !== 'sqlite' },
     {
       key: 'secretEnv',
       label: 'Segredo de Senha (ex.: FLOWFORGE_SECRET_DB_PASSWORD)',
+      visible: (c) => c.engine !== 'sqlite',
     },
     {
       key: 'ssl',
@@ -284,16 +298,26 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
         { value: 'require', label: 'Obrigatório (require)' },
         { value: 'prefer', label: 'Preferencial (prefer)' },
       ],
+      visible: (c) => c.engine !== 'sqlite',
     },
     { key: 'timeoutMs', label: 'Tempo limite (ms)' },
-    { key: 'productionHost', label: 'Host (Produção)' },
-    { key: 'productionPort', label: 'Porta (Produção)' },
-    { key: 'productionDatabase', label: 'Nome do Banco (Produção)' },
-    { key: 'productionSchema', label: 'Esquema (Produção)' },
-    { key: 'productionUser', label: 'Usuário (Produção)' },
+    { key: 'productionHost', label: 'Host (Produção)', visible: (c) => c.engine !== 'sqlite' },
+    { key: 'productionPort', label: 'Porta (Produção)', visible: (c) => c.engine !== 'sqlite' },
+    {
+      key: 'productionDatabase',
+      label: 'Nome do Banco (Produção)',
+      visible: (c) => c.engine !== 'sqlite',
+    },
+    {
+      key: 'productionSchema',
+      label: 'Esquema (Produção)',
+      visible: (c) => c.engine !== 'sqlite',
+    },
+    { key: 'productionUser', label: 'Usuário (Produção)', visible: (c) => c.engine !== 'sqlite' },
     {
       key: 'productionSecretEnv',
       label: 'Segredo de Senha (Produção)',
+      visible: (c) => c.engine !== 'sqlite',
     },
     {
       key: 'productionSsl',
@@ -303,6 +327,7 @@ const specificFields: Partial<Record<Kind, FieldSpec[]>> = {
         { value: 'require', label: 'Obrigatório (require)' },
         { value: 'prefer', label: 'Preferencial (prefer)' },
       ],
+      visible: (c) => c.engine !== 'sqlite',
     },
     {
       key: 'multiTenancy',

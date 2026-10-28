@@ -3,8 +3,10 @@ import {
   buildDatabaseManifest,
   buildDatabaseMigrations,
   generatePostgresDDL,
+  generateSqliteDDL,
   sanitizeIdentifier,
 } from '../../engine/database';
+import { generateDataModelSQL } from '../../engine/dataModeling';
 import { ArtifactPlan, identity, json } from './artifacts';
 import { databaseGatewaySource } from './databaseGateway';
 import { buildAuthManifest } from '../../engine/auth';
@@ -86,11 +88,25 @@ export interface DatabaseQueryOptions {
   }
 
   // 3. DDLs e Migrações Versionadas em apps/api/src/database/migrations/
+  const isSqlite = manifest.dialect === 'sqlite';
   for (const entity of manifest.entities) {
-    const ddl = generatePostgresDDL(entity);
+    const ddl = isSqlite ? generateSqliteDDL(entity) : generatePostgresDDL(entity);
     plan.text(`${root}database/schema/${identity(entity.id)}.sql`, ddl + '\n', 'database-schema', [
       entity.id,
     ]);
+  }
+
+  if (graph.dataModel && graph.dataModel.entities.length > 0) {
+    plan.text(
+      `${root}database/schema/schema.postgres.sql`,
+      generateDataModelSQL(graph.dataModel, 'postgres') + '\n',
+      'database-schema',
+    );
+    plan.text(
+      `${root}database/schema/schema.sqlite.sql`,
+      generateDataModelSQL(graph.dataModel, 'sqlite') + '\n',
+      'database-schema',
+    );
   }
 
   const migrations = buildDatabaseMigrations(manifest);
@@ -98,10 +114,12 @@ export interface DatabaseQueryOptions {
     plan.text(`${root}database/migrations/${m.filename}`, m.sql + '\n', 'database-migration');
   }
 
-  const allInitSql = manifest.entities.map((e) => generatePostgresDDL(e)).join('\n\n');
+  const allInitSql = manifest.entities
+    .map((e) => (isSqlite ? generateSqliteDDL(e) : generatePostgresDDL(e)))
+    .join('\n\n');
   plan.text(
     `${root}database/migrations/001_init.sql`,
-    `-- Migração inicial unificada\n\n${allInitSql}\n`,
+    `-- Migração inicial unificada (${isSqlite ? 'SQLite' : 'PostgreSQL'})\n\n${allInitSql}\n`,
     'database-migration',
   );
 

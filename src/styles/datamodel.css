@@ -1,0 +1,834 @@
+/* ==========================================================================
+   8. Editor de Modelagem de Dados (Conceitual DER brModelo, Lógico, SQL e CRUD)
+   ========================================================================== */
+
+.datamodel-workspace {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+.datamodel-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.datamodel-tabs {
+  display: inline-flex;
+  gap: 4px;
+  background: rgba(15, 23, 42, 0.55);
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+
+.datamodel-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.datamodel-tab:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.datamodel-tab.active {
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+}
+
+.datamodel-dialect-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.dialect-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0 4px;
+}
+
+.dialect-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.dialect-btn.active {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.38);
+}
+
+.datamodel-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sync-backend-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+}
+
+.datamodel-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Paleta Esquerda DER (Estilo brModelo) */
+.datamodel-palette {
+  width: 250px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.palette-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.palette-btn {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+  background: rgba(30, 41, 59, 0.55);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.palette-btn:hover {
+  border-color: var(--accent);
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.palette-btn strong {
+  display: block;
+  font-size: 13px;
+}
+
+.palette-btn small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.palette-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 6px 0;
+}
+
+.brmodelo-tips {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.brmodelo-tips strong {
+  color: var(--ink);
+}
+
+/* Canvas DER Conceitual */
+.datamodel-canvas {
+  position: relative;
+  flex: 1;
+  overflow: auto;
+  background-color: var(--bg);
+  background-image: radial-gradient(rgba(148, 163, 184, 0.16) 1px, transparent 1px);
+  background-size: 20px 20px;
+  user-select: none;
+}
+
+.datamodel-svg-layer {
+  position: absolute;
+  inset: 0;
+  width: 2400px;
+  height: 1800px;
+  pointer-events: none;
+}
+
+.der-connector-line {
+  stroke: #64748b;
+  stroke-width: 2px;
+}
+
+.der-cardinality-bg {
+  fill: #0f172a;
+  stroke: #475569;
+  stroke-width: 1px;
+}
+
+.der-cardinality-text {
+  fill: #e2e8f0;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Nó de Entidade Conceitual (Retângulo + Pinos brModelo) */
+.der-entity-node {
+  position: absolute;
+  width: 220px;
+  cursor: grab;
+  z-index: 2;
+}
+
+.der-entity-node:active {
+  cursor: grabbing;
+}
+
+.der-entity-box {
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  border: 2px solid #38bdf8;
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: center;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.der-entity-node.selected .der-entity-box {
+  border-color: #818cf8;
+  box-shadow:
+    0 0 0 3px rgba(129, 140, 248, 0.35),
+    0 10px 24px rgba(0, 0, 0, 0.45);
+}
+
+.der-entity-kind {
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #38bdf8;
+  margin-bottom: 2px;
+}
+
+.der-entity-box strong {
+  display: block;
+  font-size: 14px;
+  color: #f8fafc;
+}
+
+.der-entity-box small {
+  font-size: 11px;
+  color: #94a3b8;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.der-attributes-list {
+  margin-top: 4px;
+  padding-left: 16px;
+  border-left: 2px solid #475569;
+  margin-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.der-attribute-pin {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  background: rgba(15, 23, 42, 0.85);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.der-pin-stem {
+  width: 8px;
+  height: 2px;
+  background: #64748b;
+  margin-left: -14px;
+}
+
+.der-pin-circle {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.der-pin-circle.pk {
+  background: #fbbf24;
+  border-color: #fbbf24;
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.65);
+}
+
+.der-attr-name {
+  color: #f1f5f9;
+  font-weight: 500;
+  flex: 1;
+}
+
+.der-attr-name em {
+  font-style: normal;
+  font-size: 10px;
+  color: #fbbf24;
+  font-weight: 700;
+}
+
+.der-attr-type {
+  font-size: 10.5px;
+  color: #94a3b8;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Nó de Relacionamento (Losango brModelo) */
+.der-relationship-node {
+  position: absolute;
+  width: 140px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  z-index: 3;
+}
+
+.der-diamond-shape {
+  width: 116px;
+  height: 56px;
+  background: #1e1b4b;
+  border: 2px solid #a855f7;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 12px;
+}
+
+.der-relationship-node.selected .der-diamond-shape {
+  background: #312e81;
+  border-color: #f472b6;
+}
+
+.der-diamond-shape span {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #f3e8ff;
+}
+
+/* Inspetor Lateral Direito da Modelagem */
+.datamodel-inspector {
+  width: 330px;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  padding: 16px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.dm-inspector-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dm-inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.dm-inspector-header h3 {
+  margin: 2px 0 0;
+  font-size: 15px;
+}
+
+.dm-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.dm-attributes-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dm-attr-card {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dm-attr-row {
+  display: grid;
+  grid-template-columns: 1fr 115px 26px;
+  gap: 6px;
+  align-items: center;
+}
+
+.dm-attr-row input,
+.dm-attr-row select {
+  padding: 5px 7px;
+  font-size: 12px;
+}
+
+.dm-attr-flags {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.dm-attr-flags label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.dm-rel-summary-box {
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.dm-rel-summary-box p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.dm-inspector-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--muted);
+  padding: 20px;
+  gap: 8px;
+}
+
+/* ABA 2: Visualização do Modelo Lógico */
+.datamodel-logical-view {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.logical-header-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 16px 20px;
+  border-radius: 12px;
+}
+
+.logical-header-banner h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.logical-header-banner p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.logical-tables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.logical-table-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.logical-table-card.associative {
+  border-color: rgba(168, 85, 247, 0.5);
+}
+
+.logical-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: rgba(30, 41, 59, 0.65);
+  border-bottom: 1px solid var(--line);
+}
+
+.logical-table-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 14px;
+}
+
+.logical-badge {
+  font-size: 10.5px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: rgba(56, 189, 248, 0.14);
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.logical-columns-list {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.logical-col-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.45);
+  font-size: 12.5px;
+}
+
+.logical-col-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.col-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.col-badge.pk {
+  background: rgba(251, 191, 36, 0.18);
+  color: #fbbf24;
+}
+
+.col-badge.fk {
+  background: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+}
+
+.logical-col-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.nn-tag {
+  color: #f87171;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.logical-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  background: rgba(15, 23, 42, 0.3);
+}
+
+/* ABA 3: Visualização de Script SQL */
+.datamodel-sql-view {
+  flex: 1;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+}
+
+.sql-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 16px 20px;
+  border-radius: 12px;
+}
+
+.sql-view-header h3 {
+  margin: 0 0 4px;
+}
+
+.sql-view-header p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.sql-view-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.sql-code-preview {
+  flex: 1;
+  margin: 0;
+  padding: 20px;
+  background: #090d16;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: #e2e8f0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  overflow: auto;
+}
+
+/* ABA 4: Explorador e Manipulador de Dados Reais (CRUD) */
+.datamodel-explorer-view {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.explorer-sidebar {
+  width: 240px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+
+.explorer-table-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.explorer-table-btn.active {
+  background: rgba(99, 102, 241, 0.16);
+  border-color: rgba(99, 102, 241, 0.45);
+  color: #fff;
+  font-weight: 600;
+}
+
+.explorer-table-btn small {
+  background: rgba(15, 23, 42, 0.65);
+  padding: 2px 7px;
+  border-radius: 99px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.explorer-main {
+  flex: 1;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.explorer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.explorer-header h3 {
+  margin: 0 0 4px;
+}
+
+.explorer-header p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.explorer-insert-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.explorer-input-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 150px;
+  flex: 1;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.explorer-insert-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.explorer-data-table-wrap {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: auto;
+}
+
+.explorer-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.explorer-data-table th,
+.explorer-data-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.explorer-data-table th {
+  background: rgba(15, 23, 42, 0.55);
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.explorer-data-table th small {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.explorer-empty-row {
+  text-align: center !important;
+  color: var(--muted);
+  padding: 28px !important;
+}
+
+.explorer-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.datamodel-empty-hint {
+  margin: auto;
+  max-width: 420px;
+  text-align: center;
+  padding: 32px;
+  background: var(--panel);
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}

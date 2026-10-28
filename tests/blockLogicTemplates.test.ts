@@ -25,10 +25,7 @@ test('Funções Pré-Montadas: cobre todos os 30 tipos de blocos (Kinds) por cat
 
   for (const kind of allKinds) {
     const grouped = getLogicTemplatesForKind(kind, false);
-    const totalForKind = LOGIC_CATEGORIES.reduce(
-      (acc, cat) => acc + grouped[cat].length,
-      0,
-    );
+    const totalForKind = LOGIC_CATEGORIES.reduce((acc, cat) => acc + grouped[cat].length, 0);
     assert.ok(
       totalForKind > 0,
       `O tipo de bloco "${kind}" deve ter pelo menos uma função/lógica pré-montada compatível`,
@@ -56,9 +53,7 @@ test('Funções Pré-Montadas: propriedades escolhidas geram código e conexões
     nextAuthOrDbId: authBlock.id,
   });
 
-  const createdEdge = g.edges.find(
-    (e) => e.source === fnBlock.id && e.target === authBlock.id,
-  );
+  const createdEdge = g.edges.find((e) => e.source === fnBlock.id && e.target === authBlock.id);
   assert.ok(createdEdge);
   assert.equal(createdEdge.sourceHandle, 'then');
 
@@ -84,21 +79,14 @@ test('Funções Pré-Montadas: recomendações inteligentes criam e conectam blo
   const authRec = analysisBefore.recommendations.find((r) => r.targetKind === 'auth');
   assert.ok(authRec);
 
-  const { graph: nextGraph, targetBlockId } = applyLogicRecommendation(
-    g,
-    valBlock.id,
-    authRec,
-  );
+  const { graph: nextGraph, targetBlockId } = applyLogicRecommendation(g, valBlock.id, authRec);
 
   const createdAuth = nextGraph.nodes.find((n) => n.id === targetBlockId);
   assert.ok(createdAuth);
   assert.equal(createdAuth.data.kind, 'auth');
 
   const edge = nextGraph.edges.find(
-    (e) =>
-      e.source === valBlock.id &&
-      e.target === targetBlockId &&
-      e.sourceHandle === 'valid',
+    (e) => e.source === valBlock.id && e.target === targetBlockId && e.sourceHandle === 'valid',
   );
   assert.ok(edge);
 
@@ -113,10 +101,7 @@ test('Funções Pré-Montadas: recomendações inteligentes criam e conectam blo
   );
   assert.equal(
     graphWithError.edges.some(
-      (e) =>
-        e.source === valBlock.id &&
-        e.target === errBlock.id &&
-        e.sourceHandle === 'invalid',
+      (e) => e.source === valBlock.id && e.target === errBlock.id && e.sourceHandle === 'invalid',
     ),
     true,
   );

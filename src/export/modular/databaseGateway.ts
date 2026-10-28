@@ -24,6 +24,38 @@ async function getPool(spec, env, options) {
   const environment = env.FLOWFORGE_ENV || manifest.environment || 'development';
   if (!['development', 'production'].includes(environment)) throw Object.assign(new Error('Ambiente de banco inválido.'), { status: 503 });
   const config = spec.connection?.[environment];
+  const engine = spec.connection?.engine || manifest.dialect || 'postgres';
+  if (engine === 'sqlite') {
+    const sqlitePath = spec.connection?.sqlitePath || manifest.sqlitePath || './data/flowforge.sqlite';
+    const key = 'sqlite:' + sqlitePath;
+    if (!pools.has(key)) {
+      const { DatabaseSync } = await import('node:sqlite');
+      const { mkdirSync } = await import('node:fs');
+      const { dirname } = await import('node:path');
+      if (sqlitePath !== ':memory:') mkdirSync(dirname(sqlitePath), { recursive: true });
+      const db = new DatabaseSync(sqlitePath);
+      const sqliteClient = {
+        async query(sql, params = []) {
+          const trimmed = sql.trim().toUpperCase();
+          if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(trimmed)) { db.exec(trimmed); return { rows: [] }; }
+          const normalized = sql
+            .replace(/\s+FOR\s+UPDATE/gi, '')
+            .replace(/"public"\./gi, '')
+            .replace(/\$(\d+)/g, '?');
+          if (/^\s*CREATE\s+/i.test(normalized)) { db.exec(normalized); return { rows: [] }; }
+          const stmt = db.prepare(normalized);
+          if (/^\s*SELECT\s+/i.test(normalized) || /\bRETURNING\b/i.test(normalized)) {
+            return { rows: stmt.all(...params) };
+          }
+          stmt.run(...params);
+          return { rows: [] };
+        },
+        release() {},
+      };
+      pools.set(key, { connect: async () => sqliteClient });
+    }
+    return pools.get(key);
+  }
   const secret = config && env[config.secretEnv];
   if (!config || !secret) throw Object.assign(new Error('Credencial PostgreSQL não configurada para esta conexão e ambiente.'), { status: 503, code: 'DATABASE_NOT_CONFIGURED' });
   const key = spec.connection.id + ':' + environment;

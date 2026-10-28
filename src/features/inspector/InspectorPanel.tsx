@@ -293,12 +293,11 @@ export function InspectorPanel({
                   })}
                 </div>
 
-                {onChangeConfig &&
-                  (kind === 'condition' || kind === 'validator') && (
-                    <div className="inspector-tool-subbox">
-                      <LogicCatalogEditor block={chosen} onChange={onChangeConfig} />
-                    </div>
-                  )}
+                {onChangeConfig && (kind === 'condition' || kind === 'validator') && (
+                  <div className="inspector-tool-subbox">
+                    <LogicCatalogEditor block={chosen} onChange={onChangeConfig} />
+                  </div>
+                )}
               </div>
             )}
           </section>
@@ -357,11 +356,7 @@ export function InspectorPanel({
               </button>
               {!collapsedSections.http && (
                 <div className="inspector-card-body">
-                  <HttpRequestTools
-                    block={chosen}
-                    graph={graph}
-                    onChangeConfig={onChangeConfig}
-                  />
+                  <HttpRequestTools block={chosen} graph={graph} onChangeConfig={onChangeConfig} />
                 </div>
               )}
             </section>

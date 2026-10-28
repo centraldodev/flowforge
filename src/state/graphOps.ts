@@ -85,9 +85,7 @@ export const updateConfig = (g: Graph, id: string, config: Record<string, string
               let resolvedTargetHandle = slot.edgeBinding.targetHandle || '';
               if (
                 !resolvedTargetHandle ||
-                !targetPorts.some(
-                  (p) => p.id === resolvedTargetHandle && p.direction === 'input',
-                )
+                !targetPorts.some((p) => p.id === resolvedTargetHandle && p.direction === 'input')
               ) {
                 const preferred = targetPorts.find(
                   (p) =>
@@ -865,8 +863,7 @@ export function createAndBindTargetBlock(
     }
 
     const filteredEdges = nextGraph.edges.filter(
-      (e) =>
-        !(e.source === sourceBlockId && (e.sourceHandle || 'next') === options.sourceHandle),
+      (e) => !(e.source === sourceBlockId && (e.sourceHandle || 'next') === options.sourceHandle),
     );
     nextGraph = syncGraphCode(
       {

@@ -170,7 +170,9 @@ export function generateBlockCode(graph: Graph, block: Block): string {
       getCallForHandle('then', 'result') ||
       getCallForHandle('next', 'result') ||
       getCallForHandle('onSuccess', 'result') ||
-      (outEdges[0] ? `return ${toSafeFunctionName(outEdges[0].target)}(result);` : 'return result;');
+      (outEdges[0]
+        ? `return ${toSafeFunctionName(outEdges[0].target)}(result);`
+        : 'return result;');
     return `function ${fnName}(value = "") {\n  if (typeof __step === 'function') __step('${fnName}');\n  // ${safeCommentLabel}\n  const result = (() => {\n    ${snippet.split('\n').join('\n    ')}\n  })();\n  ${nextCall}\n}`;
   }
 

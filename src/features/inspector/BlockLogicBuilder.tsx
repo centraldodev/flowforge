@@ -1,11 +1,5 @@
 import { useMemo, useState } from 'react';
-import {
-  AlertTriangle,
-  Code,
-  Plus,
-  Sparkles,
-  X,
-} from 'lucide-react';
+import { AlertTriangle, Code, Plus, Sparkles, X } from 'lucide-react';
 import {
   analyzeBlockIntentAndDiagnostics,
   catalog,
@@ -54,10 +48,7 @@ export function BlockLogicBuilder({
   const fnName = toSafeFunctionName(block.id);
 
   // Análise enxuta de template ativo, erros e sugestões
-  const analysis = useMemo(
-    () => analyzeBlockIntentAndDiagnostics(graph, block),
-    [graph, block],
-  );
+  const analysis = useMemo(() => analyzeBlockIntentAndDiagnostics(graph, block), [graph, block]);
 
   // Lista de funções pré-montadas agrupadas por categoria
   const groupedTemplates = useMemo(
@@ -221,9 +212,7 @@ export function BlockLogicBuilder({
                         <div className="logic-tmpl-info">
                           <div className="logic-tmpl-title-row">
                             <strong>{tmpl.name}</strong>
-                            {!isCompatible && (
-                              <span className="compat-tag warn">Incompatível</span>
-                            )}
+                            {!isCompatible && <span className="compat-tag warn">Incompatível</span>}
                           </div>
                           <code className="logic-tmpl-code-hint">
                             {tmpl.buildCodeSnippet(tmpl.configPatch, block.id).split('\n')[0]}
@@ -243,10 +232,7 @@ export function BlockLogicBuilder({
       {analysis.diagnostics.length > 0 && (
         <div className="logic-diagnostics-list" role="alert">
           {analysis.diagnostics.map((diag, idx) => (
-            <div
-              key={`${diag.code}-${idx}`}
-              className={`logic-diagnostic-item ${diag.severity}`}
-            >
+            <div key={`${diag.code}-${idx}`} className={`logic-diagnostic-item ${diag.severity}`}>
               <AlertTriangle size={13} className="diag-icon" />
               <div className="diag-body">
                 <span className="diag-msg">{diag.message}</span>
@@ -285,7 +271,8 @@ export function BlockLogicBuilder({
                     <label>{slot.label}</label>
                     {slot.edgeBinding && (
                       <code className="slot-code-badge">
-                        .{slot.edgeBinding.sourceHandle || 'next'} ➔ {currentVal ? `${toSafeFunctionName(currentVal)}()` : '...'}
+                        .{slot.edgeBinding.sourceHandle || 'next'} ➔{' '}
+                        {currentVal ? `${toSafeFunctionName(currentVal)}()` : '...'}
                       </code>
                     )}
                   </div>
@@ -332,9 +319,7 @@ export function BlockLogicBuilder({
                 <div key={slot.key} className="logic-slot-field span-full">
                   <div className="logic-slot-label-row">
                     <label>{slot.label}</label>
-                    <code className="slot-code-badge">
-                      navigateTo('{currentVal || '...'}')
-                    </code>
+                    <code className="slot-code-badge">navigateTo('{currentVal || '...'}')</code>
                   </div>
                   <select
                     className="logic-slot-select"
@@ -360,9 +345,7 @@ export function BlockLogicBuilder({
                 <div key={slot.key} className="logic-slot-field span-full">
                   <div className="logic-slot-label-row">
                     <label>{slot.label}</label>
-                    <code className="slot-code-badge">
-                      read('{currentVal || 'value'}')
-                    </code>
+                    <code className="slot-code-badge">read('{currentVal || 'value'}')</code>
                   </div>
                   <select
                     className="logic-slot-select"

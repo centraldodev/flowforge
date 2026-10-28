@@ -78,7 +78,12 @@ function buildCompactSummaryLine(block: Block): {
     };
   }
   if (k === 'auth') {
-    const prov = c.provider === 'google' ? 'Google OAuth' : c.mode === 'register' ? 'registerUser()' : 'authenticate()';
+    const prov =
+      c.provider === 'google'
+        ? 'Google OAuth'
+        : c.mode === 'register'
+          ? 'registerUser()'
+          : 'authenticate()';
     return {
       logicName: tmpl?.name || 'Autenticação',
       codePreview: prov,

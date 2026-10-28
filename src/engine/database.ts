@@ -1,4 +1,5 @@
 import type { Block, Graph } from './types';
+import { convertConceptualToLogical } from './dataModeling';
 
 export type FieldType = 'string' | 'number' | 'boolean' | 'date' | 'json';
 
@@ -22,7 +23,11 @@ export type EntityDefinition = {
   fields: EntityField[];
 };
 
+export type DatabaseEngine = 'postgres' | 'sqlite';
+
 export type PostgresConnectionConfig = {
+  engine?: DatabaseEngine;
+  sqlitePath?: string;
   host: string;
   port: number;
   database: string;
@@ -37,6 +42,8 @@ export type PostgresConnectionConfig = {
 
 export type PostgresConnectionDefinition = {
   id: string;
+  engine?: DatabaseEngine;
+  sqlitePath?: string;
   development: PostgresConnectionConfig;
   production: PostgresConnectionConfig;
 };
@@ -60,6 +67,8 @@ export type DatabaseOperationDefinition = {
 
 export type DatabaseManifest = {
   environment: 'development' | 'production';
+  dialect?: DatabaseEngine;
+  sqlitePath?: string;
   entities: EntityDefinition[];
   connections: PostgresConnectionDefinition[];
   operations: DatabaseOperationDefinition[];
@@ -101,6 +110,8 @@ export function postgresConnectionFor(graph: Graph, databaseBlockId: string): Bl
 
 export function parseConnectionConfig(block: Block): PostgresConnectionDefinition {
   const c = block.data.config;
+  const engine: DatabaseEngine = c.engine === 'sqlite' ? 'sqlite' : 'postgres';
+  const sqlitePath = c.sqlitePath || './data/flowforge.sqlite';
   const parsePort = (p: string | undefined, fallback: number) => {
     const n = Number(p);
     return Number.isFinite(n) && n > 0 && n <= 65535 ? n : fallback;
@@ -112,7 +123,11 @@ export function parseConnectionConfig(block: Block): PostgresConnectionDefinitio
 
   return {
     id: block.id,
+    engine,
+    sqlitePath,
     development: {
+      engine,
+      sqlitePath,
       host: c.host || 'localhost',
       port: parsePort(c.port, 5432),
       database: c.database || 'postgres',
@@ -125,6 +140,8 @@ export function parseConnectionConfig(block: Block): PostgresConnectionDefinitio
       tenantColumn: c.tenantColumn || 'tenant_id',
     },
     production: {
+      engine,
+      sqlitePath,
       host: c.productionHost || c.host || 'localhost',
       port: parsePort(c.productionPort || c.port, 5432),
       database: c.productionDatabase || c.database || 'postgres',
@@ -143,7 +160,7 @@ export function parseConnectionConfig(block: Block): PostgresConnectionDefinitio
 }
 
 export function buildDatabaseManifest(graph: Graph): DatabaseManifest {
-  const entities: EntityDefinition[] = graph.nodes
+  const nodeEntities: EntityDefinition[] = graph.nodes
     .filter((n) => n.data.kind === 'entity')
     .map((node) => ({
       id: node.id,
@@ -153,6 +170,48 @@ export function buildDatabaseManifest(graph: Graph): DatabaseManifest {
       tenantColumn: node.data.config.tenantColumn || 'tenant_id',
       fields: parseEntityFields(node.data.config.fields),
     }));
+
+  const entityMap = new Map<string, EntityDefinition>();
+  for (const ent of nodeEntities) {
+    entityMap.set(ent.name, ent);
+  }
+
+  // Inclui também as tabelas geradas pela Modelagem de Dados (Conceitual -> Lógico)
+  if (graph.dataModel && graph.dataModel.entities.length > 0) {
+    const logicalTables = convertConceptualToLogical(graph.dataModel);
+    for (const tbl of logicalTables) {
+      const existing = entityMap.get(tbl.name);
+      const modeledFields: EntityField[] = tbl.columns.map((c) => ({
+        name: c.name,
+        type: c.type,
+        primaryKey: Boolean(c.primaryKey),
+        required: Boolean(c.required),
+        unique: Boolean(c.unique),
+        defaultValue: c.defaultValue,
+      }));
+      if (existing) {
+        // Mescla campos da modelagem que ainda não estavam no nó entity
+        const mergedFields = [...existing.fields];
+        for (const mf of modeledFields) {
+          if (!mergedFields.some((f) => f.name === mf.name)) {
+            mergedFields.push(mf);
+          }
+        }
+        entityMap.set(tbl.name, { ...existing, fields: mergedFields });
+      } else {
+        entityMap.set(tbl.name, {
+          id: tbl.id,
+          name: tbl.name,
+          schema: 'public',
+          multiTenancy: 'none',
+          tenantColumn: 'tenant_id',
+          fields: modeledFields,
+        });
+      }
+    }
+  }
+
+  const entities = [...entityMap.values()];
 
   const connections = graph.nodes
     .filter((n) => n.data.kind === 'postgresConnection')
@@ -186,8 +245,19 @@ export function buildDatabaseManifest(graph: Graph): DatabaseManifest {
       };
     });
 
+  const dialect: DatabaseEngine =
+    graph.dataModel?.dialect ||
+    connections.find((c) => c.engine === 'sqlite')?.engine ||
+    'postgres';
+  const sqlitePath =
+    graph.dataModel?.sqliteFilePath ||
+    connections.find((c) => c.sqlitePath)?.sqlitePath ||
+    './data/flowforge.sqlite';
+
   return {
     environment: (graph.httpEnvironment as 'development' | 'production') ?? 'development',
+    dialect,
+    sqlitePath,
     entities,
     connections,
     operations,
@@ -204,19 +274,21 @@ export function databaseConfigurationIssues(
   for (const node of graph.nodes) {
     if (node.data.kind === 'postgresConnection') {
       const c = node.data.config;
-      const host = env === 'production' ? c.productionHost || c.host : c.host;
-      if (!host) {
-        issues.push({
-          blockId: node.id,
-          message: `Conexão PostgreSQL "${node.data.label}": informe o host para o ambiente ${env}.`,
-        });
-      }
-      const secret = env === 'production' ? c.productionSecretEnv || c.secretEnv : c.secretEnv;
-      if (secret && !secret.startsWith('FLOWFORGE_SECRET_')) {
-        issues.push({
-          blockId: node.id,
-          message: `Conexão PostgreSQL "${node.data.label}": o nome do segredo de senha deve iniciar com "FLOWFORGE_SECRET_".`,
-        });
+      if (c.engine !== 'sqlite') {
+        const host = env === 'production' ? c.productionHost || c.host : c.host;
+        if (!host) {
+          issues.push({
+            blockId: node.id,
+            message: `Conexão PostgreSQL "${node.data.label}": informe o host para o ambiente ${env}.`,
+          });
+        }
+        const secret = env === 'production' ? c.productionSecretEnv || c.secretEnv : c.secretEnv;
+        if (secret && !secret.startsWith('FLOWFORGE_SECRET_')) {
+          issues.push({
+            blockId: node.id,
+            message: `Conexão PostgreSQL "${node.data.label}": o nome do segredo de senha deve iniciar com "FLOWFORGE_SECRET_".`,
+          });
+        }
       }
     }
 
@@ -256,6 +328,50 @@ export interface MigrationPlan {
   filename: string;
   name: string;
   sql: string;
+}
+
+/** Gera instrução DDL compatível com SQLite 3 para criar a tabela */
+export function generateSqliteDDL(entity: EntityDefinition): string {
+  const tableName = sanitizeIdentifier(entity.name);
+  const columnDefs: string[] = [];
+  const fields = [...entity.fields];
+
+  if (entity.multiTenancy === 'column') {
+    const tenantCol = sanitizeIdentifier(entity.tenantColumn || 'tenant_id');
+    if (!fields.some((f) => f.name === tenantCol)) {
+      fields.push({ name: tenantCol, type: 'string', required: true });
+    }
+  }
+
+  for (const field of fields) {
+    const colName = sanitizeIdentifier(field.name);
+    let sqlType = 'TEXT';
+    switch (field.type) {
+      case 'number':
+        sqlType = 'REAL';
+        break;
+      case 'boolean':
+        sqlType = 'INTEGER';
+        break;
+      default:
+        sqlType = 'TEXT';
+    }
+
+    const parts = [`"${colName}"`, sqlType];
+    if (field.primaryKey) parts.push('PRIMARY KEY');
+    else if (field.required) parts.push('NOT NULL');
+    if (field.unique && !field.primaryKey) parts.push('UNIQUE');
+    if (field.defaultValue !== undefined && field.defaultValue !== '') {
+      parts.push(`DEFAULT '${field.defaultValue.replace(/'/g, "''")}'`);
+    }
+    columnDefs.push(parts.join(' '));
+  }
+
+  if (columnDefs.length === 0) {
+    columnDefs.push('"id" TEXT PRIMARY KEY', '"criado_em" TEXT DEFAULT CURRENT_TIMESTAMP');
+  }
+
+  return `CREATE TABLE IF NOT EXISTS "${tableName}" (\n  ${columnDefs.join(',\n  ')}\n);`;
 }
 
 /** Gera instrução DDL compatível com PostgreSQL para criar a tabela com suporte a schema e multi-tenancy */
@@ -330,6 +446,7 @@ export function generatePostgresDDL(
 /** Gera o conjunto sequencial de migrações SQL versionadas do FlowForge */
 export function buildDatabaseMigrations(manifest: DatabaseManifest): MigrationPlan[] {
   const migrations: MigrationPlan[] = [];
+  const isSqlite = manifest.dialect === 'sqlite';
 
   // Migração 001: Tabela de controle de versão de migrações do FlowForge
   migrations.push({
@@ -340,14 +457,14 @@ export function buildDatabaseMigrations(manifest: DatabaseManifest): MigrationPl
 CREATE TABLE IF NOT EXISTS _flowforge_migrations (
   version VARCHAR(255) PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
-  applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+  applied_at ${isSqlite ? 'TEXT' : 'TIMESTAMPTZ'} NOT NULL DEFAULT CURRENT_TIMESTAMP
 );`,
   });
 
   // Migração 002: Criação de esquemas e entidades com DDLs
   const entityStatements: string[] = [];
   for (const entity of manifest.entities) {
-    entityStatements.push(generatePostgresDDL(entity));
+    entityStatements.push(isSqlite ? generateSqliteDDL(entity) : generatePostgresDDL(entity));
   }
   if (entityStatements.length > 0) {
     migrations.push({

@@ -40,6 +40,23 @@ export function clearDevDatabase(): void {
   devTables.clear();
 }
 
+export function seedDevTable(tableName: string, rows: Record<string, unknown>[]): void {
+  const table = getDevTable(tableName);
+  table.clear();
+  rows.forEach((row, index) => {
+    const id = String(row.id ?? index + 1);
+    table.set(id, { ...row, id });
+  });
+}
+
+export function listDevTables(): Record<string, Record<string, unknown>[]> {
+  const out: Record<string, Record<string, unknown>[]> = {};
+  for (const [name, tbl] of devTables.entries()) {
+    out[name] = Array.from(tbl.values());
+  }
+  return out;
+}
+
 /** Executa uma operação de banco de dados com segurança, parâmetros preparados e sanitização */
 export async function executeDatabaseOperation(
   spec: DatabaseOperationDefinition,
@@ -396,6 +413,57 @@ export function createDatabaseGateway(
       const chunks: Buffer[] = [];
       for await (const chunk of req) chunks.push(Buffer.from(chunk));
       const body = JSON.parse(Buffer.concat(chunks).toString('utf-8'));
+
+      // Operações diretas do Explorador de Banco de Dados da aba Modelagem
+      if (body.directAction) {
+        const table = sanitizeIdentifier(String(body.table || 'itens'));
+        const op = String(body.directAction) as DatabaseOperationDefinition['operation'];
+        const dummySpec: DatabaseOperationDefinition = {
+          id: '__direct__',
+          operation: op,
+          table,
+          connection: {
+            id: '__direct_conn__',
+            engine: body.dialect === 'sqlite' ? 'sqlite' : 'postgres',
+            development: {
+              host: 'localhost',
+              port: 5432,
+              database: 'flowforge',
+              schema: 'public',
+              user: 'postgres',
+              secretEnv: '',
+              ssl: 'disable',
+              timeoutMs: 5000,
+            },
+            production: {
+              host: 'localhost',
+              port: 5432,
+              database: 'flowforge',
+              schema: 'public',
+              user: 'postgres',
+              secretEnv: '',
+              ssl: 'disable',
+              timeoutMs: 5000,
+            },
+          },
+        };
+        if (body.seed && typeof body.seed === 'object') {
+          for (const [tblName, rows] of Object.entries(body.seed)) {
+            if (Array.isArray(rows)) {
+              seedDevTable(tblName, rows as Record<string, unknown>[]);
+            }
+          }
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: true, tables: listDevTables() }));
+          return;
+        }
+        const directRes = executeWithLocalStore(table, op, body.payload || {}, dummySpec);
+        res.statusCode = directRes.ok ? 200 : 400;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify(directRes));
+        return;
+      }
 
       const manifest = body.manifest || options.manifest;
       if (!manifest) {
