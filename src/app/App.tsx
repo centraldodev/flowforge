@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { downloadGraph } from '../export';
 import { Toast } from '../components/Toast';
 import { FlowCanvas } from '../features/canvas/FlowCanvas';
-import { DataModelEditor } from '../features/datamodel/DataModelEditor';
 import { FrontendEditor } from '../features/frontend/FrontendEditor';
+import { AppModelingWorkspace } from '../features/modeling/AppModelingWorkspace';
+import type { ModelingStepId } from '../engine/appModeling';
 import { Connections } from '../features/inspector/Connections';
 import { InspectorPanel } from '../features/inspector/InspectorPanel';
 import { InspectorShell } from '../features/inspector/InspectorShell';
@@ -19,7 +20,7 @@ import { loadSavedGraph, usePersistence } from '../state/persistence';
 import { useGraphHistory } from '../state/useGraphHistory';
 import { useNotice } from '../state/useNotice';
 import { useSimulation } from '../state/useSimulation';
-import { Header } from './Header';
+import { Header, type WorkspaceMode } from './Header';
 import { useEditorActions } from './useEditorActions';
 
 type ModalType = 'preview' | 'export' | 'new' | 'settings' | 'code' | 'tests' | 'readiness' | null;
@@ -31,7 +32,10 @@ export function App() {
 
   const [modal, setModal] = useState<ModalType>(null);
   const [sidebar, setSidebar] = useState(false);
-  const [workspaceMode, setWorkspaceMode] = useState<'flow' | 'frontend' | 'datamodel'>('flow');
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('flow');
+  const [modelingTargetStep, setModelingTargetStep] = useState<ModelingStepId | undefined>(
+    undefined,
+  );
   const [isTimeTravelOpen, setIsTimeTravelOpen] = useState(false);
   const [activeFlowFilter, setActiveFlowFilter] = useState<string | null>(null);
   const [notice, setNotice] = useNotice();
@@ -78,6 +82,18 @@ export function App() {
   const { chosen, errors, actions } = editor;
   const closeModal = () => setModal(null);
 
+  useEffect(() => {
+    const handleOpenModelingStep = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ stepId?: ModelingStepId }>).detail;
+      if (detail?.stepId) {
+        setModelingTargetStep(detail.stepId);
+      }
+      setWorkspaceMode('modeling');
+    };
+    window.addEventListener('flowforge:open-modeling-step', handleOpenModelingStep);
+    return () => window.removeEventListener('flowforge:open-modeling-step', handleOpenModelingStep);
+  }, []);
+
   // Encontra pontos de entrada para depuração na tela atual
   const activeScreenId = editor.currentScreenId;
   const entryButtons = graph.nodes.filter(
@@ -122,7 +138,24 @@ export function App() {
       />
 
       <div className="workspace">
-        {workspaceMode === 'frontend' ? (
+        {workspaceMode === 'modeling' ? (
+          <AppModelingWorkspace
+            graph={graph}
+            commit={commit}
+            notify={setNotice}
+            simulation={simulation}
+            undo={undo}
+            redo={redo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            initialStepId={modelingTargetStep}
+            onNavigateToFlows={(filterFlowId, selectBlockId) => {
+              if (filterFlowId !== undefined) setActiveFlowFilter(filterFlowId);
+              if (selectBlockId) editor.setSelected(selectBlockId);
+              setWorkspaceMode('flow');
+            }}
+          />
+        ) : workspaceMode === 'frontend' ? (
           <FrontendEditor
             graph={graph}
             screenId={editor.currentScreenId}
@@ -134,17 +167,6 @@ export function App() {
             canUndo={canUndo}
             canRedo={canRedo}
             onOpenSettings={() => setModal('settings')}
-          />
-        ) : workspaceMode === 'datamodel' ? (
-          <DataModelEditor
-            graph={graph}
-            commit={commit}
-            notify={setNotice}
-            simulation={simulation}
-            undo={undo}
-            redo={redo}
-            canUndo={canUndo}
-            canRedo={canRedo}
           />
         ) : (
           <>

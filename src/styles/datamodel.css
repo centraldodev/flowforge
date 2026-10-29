@@ -1,114 +1,179 @@
-/* ==========================================================================
-   8. Editor de Modelagem de Dados (Conceitual DER brModelo, Lógico, SQL e CRUD)
-   ========================================================================== */
-
+/* Modelagem de dados: navegação, diagrama e propriedades contextuais. */
 .datamodel-workspace {
+  container: datamodel / inline-size;
   display: flex;
   flex-direction: column;
   width: 100%;
   height: 100%;
-  background: var(--bg);
-  color: var(--ink);
+  min-height: 0;
   overflow: hidden;
+  background: var(--bg-root);
+  color: var(--color-text);
+}
+
+.datamodel-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 24px;
+  background: var(--bg-panel);
+  flex-shrink: 0;
+}
+.dm-eyebrow,
+.palette-title {
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.datamodel-heading h2 {
+  margin: 5px 0;
+  font-size: 22px;
+  letter-spacing: -0.035em;
+}
+.datamodel-heading p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+.datamodel-summary {
+  display: flex;
+  gap: 22px;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
+.datamodel-summary span {
+  display: grid;
+  gap: 4px;
+}
+.datamodel-summary strong {
+  font-size: 20px;
+  color: var(--color-text);
+  font-weight: 550;
 }
 
 .datamodel-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 18px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  padding: 10px 24px;
+  border-block: 1px solid var(--color-border);
+  background: var(--bg-panel);
   flex-shrink: 0;
 }
-
-.datamodel-tabs {
-  display: inline-flex;
-  gap: 4px;
-  background: rgba(15, 23, 42, 0.55);
-  padding: 4px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
+.datamodel-toolbar-left {
+  min-width: 0;
 }
-
+.datamodel-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-switch);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
 .datamodel-tab {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
-  padding: 6px 12px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--muted);
-  background: transparent;
-  border: none;
-  border-radius: 7px;
-  cursor: pointer;
-  transition: all 0.16s ease;
-}
-
-.datamodel-tab:hover {
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.datamodel-tab.active {
-  color: #fff;
-  background: var(--accent);
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
-}
-
-.datamodel-dialect-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  background: rgba(15, 23, 42, 0.45);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-}
-
-.dialect-label {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--muted);
-  padding: 0 4px;
-}
-
-.dialect-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
+  padding: 8px 12px;
   font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
+  font-weight: 550;
+  color: var(--color-text-secondary);
   background: transparent;
   border: 1px solid transparent;
   border-radius: 7px;
+  box-shadow: none;
   cursor: pointer;
+  white-space: nowrap;
 }
-
-.dialect-btn.active {
-  color: #34d399;
-  background: rgba(16, 185, 129, 0.14);
-  border-color: rgba(16, 185, 129, 0.38);
+.datamodel-tab:hover {
+  color: var(--color-text);
+  background: var(--bg-card-hover);
 }
-
-.datamodel-toolbar-right {
+.datamodel-tab.active {
+  color: var(--color-focus);
+  border-color: var(--color-primary-border);
+  background: var(--color-primary-subtle);
+  box-shadow: none;
+}
+.datamodel-toolbar-center {
+  margin-left: auto;
+}
+.datamodel-dialect-switch {
   display: flex;
   align-items: center;
   gap: 8px;
+  color: var(--color-text-secondary);
 }
-
+.dialect-label {
+  font-size: 11px;
+}
+.datamodel-dialect-switch select {
+  width: 125px;
+  padding: 7px 10px;
+  font-size: 12px;
+}
+.datamodel-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.datamodel-toolbar-right .icon-only {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  justify-content: center;
+}
 .sync-backend-btn {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 7px 14px;
-  font-size: 12.5px;
+  font-size: 12px;
+  padding: 8px 12px;
+  margin-left: 6px;
 }
-
+.datamodel-view-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+.datamodel-view-bar > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.datamodel-view-bar strong {
+  font-size: 12px;
+  font-weight: 550;
+}
+.datamodel-view-bar span {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
+.dm-sqlite-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
+.dm-sqlite-file input {
+  width: 210px;
+  padding: 5px 8px;
+  font-size: 11px;
+}
 .datamodel-body {
   display: flex;
   flex: 1;
@@ -116,90 +181,196 @@
   overflow: hidden;
 }
 
-/* Paleta Esquerda DER (Estilo brModelo) */
+/* Ferramentas e índice do modelo */
 .datamodel-palette {
-  width: 250px;
-  background: var(--panel);
-  border-right: 1px solid var(--line);
-  padding: 16px;
+  width: 220px;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--color-border);
+  padding: 20px 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   overflow-y: auto;
   flex-shrink: 0;
 }
-
 .palette-title {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  text-transform: uppercase;
+  line-height: 1.6;
 }
-
 .palette-btn {
   display: flex;
+  justify-content: flex-start;
   align-items: center;
-  gap: 11px;
+  gap: 10px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 11px 10px;
   text-align: left;
-  background: rgba(30, 41, 59, 0.55);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  color: var(--ink);
+  background: var(--bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  color: var(--color-text);
   cursor: pointer;
-  transition: all 0.15s ease;
+  box-shadow: none;
 }
-
 .palette-btn:hover {
-  border-color: var(--accent);
-  background: rgba(99, 102, 241, 0.12);
+  border-color: var(--color-primary-border);
+  background: var(--color-primary-subtle);
 }
-
+.palette-btn > svg {
+  color: var(--color-focus);
+  flex-shrink: 0;
+}
 .palette-btn strong {
   display: block;
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 550;
 }
-
 .palette-btn small {
-  font-size: 11px;
-  color: var(--muted);
+  display: block;
+  font-size: 10px;
+  line-height: 1.5;
+  margin-top: 3px;
+  color: var(--color-text-secondary);
 }
-
 .palette-divider {
   height: 1px;
-  background: var(--line);
-  margin: 6px 0;
+  background: var(--color-border);
+  margin: 8px 0;
+  flex-shrink: 0;
 }
-
+.dm-outline-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.dm-count {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  border-radius: 6px;
+  background: var(--bg-card);
+  padding: 2px 6px;
+}
+.dm-outline-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 9px;
+  border: 1px solid var(--color-border-input);
+  border-radius: 7px;
+  background: var(--bg-input);
+  color: var(--color-text-secondary);
+}
+.dm-outline-search input {
+  border: 0;
+  background: transparent;
+  padding: 8px 0;
+  width: 100%;
+  min-width: 0;
+  font-size: 11px;
+  box-shadow: none;
+}
+.dm-outline-search:focus-within {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.dm-outline-search input:focus {
+  outline: none;
+  box-shadow: none;
+  border: 0;
+}
+.dm-entity-outline {
+  display: grid;
+  gap: 5px;
+}
+.dm-outline-item {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  width: 100%;
+  padding: 9px;
+  text-align: left;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  box-shadow: none;
+}
+.dm-outline-item > svg {
+  flex-shrink: 0;
+}
+.dm-outline-item > span {
+  min-width: 0;
+}
+.dm-outline-item strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+.dm-outline-item small {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+}
+.dm-outline-item.active {
+  background: var(--color-primary-subtle);
+  border-color: var(--color-primary-border);
+  color: var(--color-focus);
+}
+.dm-outline-empty {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin: 4px 0 12px;
+}
+.dm-help {
+  border-top: 1px solid var(--color-border);
+  margin-top: auto;
+  padding-top: 16px;
+}
+.dm-help summary {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  list-style: none;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
+.dm-help summary::-webkit-details-marker {
+  display: none;
+}
+.dm-help[open] summary svg {
+  transform: rotate(180deg);
+}
 .brmodelo-tips {
   list-style: none;
   padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.45;
+  margin: 16px 0 0;
+  display: grid;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  line-height: 1.7;
 }
-
 .brmodelo-tips strong {
-  color: var(--ink);
+  font-weight: 550;
+  color: var(--color-text);
 }
 
-/* Canvas DER Conceitual */
+/* Canvas: as cores distinguem seleção, chaves e relações. */
 .datamodel-canvas {
   position: relative;
   flex: 1;
+  min-width: 0;
   overflow: auto;
-  background-color: var(--bg);
-  background-image: radial-gradient(rgba(148, 163, 184, 0.16) 1px, transparent 1px);
-  background-size: 20px 20px;
+  background-color: var(--bg-root);
+  background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+  background-size: 24px 24px;
   user-select: none;
 }
-
 .datamodel-svg-layer {
   position: absolute;
   inset: 0;
@@ -207,140 +378,116 @@
   height: 1800px;
   pointer-events: none;
 }
-
 .der-connector-line {
-  stroke: #64748b;
-  stroke-width: 2px;
+  stroke: var(--color-text-muted);
+  stroke-width: 1.5px;
 }
-
 .der-cardinality-bg {
-  fill: #0f172a;
-  stroke: #475569;
+  fill: var(--bg-panel);
+  stroke: var(--color-border-hover);
   stroke-width: 1px;
 }
-
 .der-cardinality-text {
-  fill: #e2e8f0;
+  fill: var(--color-text-secondary);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
-
-/* Nó de Entidade Conceitual (Retângulo + Pinos brModelo) */
 .der-entity-node {
   position: absolute;
   width: 220px;
   cursor: grab;
   z-index: 2;
 }
-
 .der-entity-node:active {
   cursor: grabbing;
 }
-
 .der-entity-box {
-  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-  border: 2px solid #38bdf8;
-  border-radius: 8px;
-  padding: 10px 12px;
-  text-align: center;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+  background: var(--bg-card);
+  border: 1px solid var(--color-border-hover);
+  border-top: 3px solid var(--color-primary-border);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: left;
+  box-shadow: var(--shadow-md);
 }
-
 .der-entity-node.selected .der-entity-box {
-  border-color: #818cf8;
+  border-color: var(--color-focus);
   box-shadow:
-    0 0 0 3px rgba(129, 140, 248, 0.35),
-    0 10px 24px rgba(0, 0, 0, 0.45);
+    0 0 0 3px var(--color-primary-subtle),
+    var(--shadow-md);
 }
-
 .der-entity-kind {
   display: block;
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 650;
   letter-spacing: 0.1em;
-  color: #38bdf8;
-  margin-bottom: 2px;
+  color: var(--color-focus);
+  margin-bottom: 5px;
 }
-
 .der-entity-box strong {
   display: block;
   font-size: 14px;
-  color: #f8fafc;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
 }
-
 .der-entity-box small {
-  font-size: 11px;
-  color: #94a3b8;
+  font-size: 10px;
+  color: var(--color-text-secondary);
   font-family: ui-monospace, SFMono-Regular, monospace;
 }
-
 .der-attributes-list {
-  margin-top: 4px;
+  margin: 8px 0 0 18px;
   padding-left: 16px;
-  border-left: 2px solid #475569;
-  margin-left: 18px;
+  border-left: 1px solid var(--color-border-hover);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
-
 .der-attribute-pin {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  background: rgba(15, 23, 42, 0.85);
-  padding: 3px 8px;
+  font-size: 11px;
+  background: var(--bg-panel);
+  padding: 5px 8px;
   border-radius: 6px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid var(--color-border);
 }
-
 .der-pin-stem {
   width: 8px;
-  height: 2px;
-  background: #64748b;
+  height: 1px;
+  background: var(--color-text-muted);
   margin-left: -14px;
-}
-
-.der-pin-circle {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  border: 2px solid #cbd5e1;
-  background: transparent;
   flex-shrink: 0;
 }
-
-.der-pin-circle.pk {
-  background: #fbbf24;
-  border-color: #fbbf24;
-  box-shadow: 0 0 6px rgba(251, 191, 36, 0.65);
+.der-pin-circle {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--color-text-secondary);
+  flex-shrink: 0;
 }
-
+.der-pin-circle.pk {
+  background: var(--color-warning);
+  border-color: var(--color-warning);
+}
 .der-attr-name {
-  color: #f1f5f9;
+  color: var(--color-text);
   font-weight: 500;
   flex: 1;
+  overflow-wrap: anywhere;
 }
-
 .der-attr-name em {
   font-style: normal;
-  font-size: 10px;
-  color: #fbbf24;
-  font-weight: 700;
+  font-size: 9px;
+  color: var(--color-warning);
 }
-
 .der-attr-type {
-  font-size: 10.5px;
-  color: #94a3b8;
+  font-size: 10px;
+  color: var(--color-text-secondary);
   font-family: ui-monospace, SFMono-Regular, monospace;
 }
-
-/* Nó de Relacionamento (Losango brModelo) */
 .der-relationship-node {
   position: absolute;
   width: 140px;
@@ -351,12 +498,11 @@
   cursor: grab;
   z-index: 3;
 }
-
 .der-diamond-shape {
   width: 116px;
   height: 56px;
-  background: #1e1b4b;
-  border: 2px solid #a855f7;
+  background: var(--bg-card-hover);
+  border: 2px solid var(--color-primary-border);
   clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
   display: flex;
   align-items: center;
@@ -364,471 +510,912 @@
   text-align: center;
   padding: 0 12px;
 }
-
 .der-relationship-node.selected .der-diamond-shape {
-  background: #312e81;
-  border-color: #f472b6;
+  background: var(--color-primary);
 }
-
 .der-diamond-shape span {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #f3e8ff;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.der-relationship-node.selected span {
+  color: var(--color-primary-text);
 }
 
-/* Inspetor Lateral Direito da Modelagem */
+/* Inspetor: aberto somente com seleção. */
 .datamodel-inspector {
-  width: 330px;
-  background: var(--panel);
-  border-left: 1px solid var(--line);
+  width: 340px;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--color-border);
   padding: 16px;
   overflow-y: auto;
   flex-shrink: 0;
 }
-
+.datamodel-inspector.is-empty {
+  display: none;
+}
+.dm-inspector-topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.dm-inspector-topline button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  justify-content: center;
+}
 .dm-inspector-content {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
-
 .dm-inspector-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--line);
+  align-items: center;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--color-border);
+  gap: 12px;
 }
-
 .dm-inspector-header h3 {
-  margin: 2px 0 0;
-  font-size: 15px;
+  margin: 5px 0 0;
+  font-size: 16px;
+  overflow-wrap: anywhere;
 }
-
+.dm-inspector-header .eyebrow {
+  font-size: 9px;
+  color: var(--color-focus);
+  letter-spacing: 0.08em;
+}
+.datamodel-inspector .field {
+  display: grid;
+  margin: 0;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+.datamodel-inspector input:not([type='checkbox']),
+.datamodel-inspector select {
+  width: 100%;
+  min-width: 0;
+  font-size: 12px;
+}
 .dm-section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.dm-attributes-editor {
-  display: flex;
-  flex-direction: column;
   gap: 8px;
+  margin-top: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
 }
-
+.dm-attributes-editor {
+  display: grid;
+  gap: 12px;
+}
 .dm-attr-card {
-  background: rgba(15, 23, 42, 0.55);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 8px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 12px;
 }
-
 .dm-attr-row {
   display: grid;
-  grid-template-columns: 1fr 115px 26px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) 24px;
   gap: 6px;
   align-items: center;
 }
-
 .dm-attr-row input,
 .dm-attr-row select {
-  padding: 5px 7px;
-  font-size: 12px;
+  padding: 7px 6px;
 }
-
+.dm-attr-row .icon-delete-btn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 4px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 0;
+  box-shadow: none;
+}
+.dm-attr-row .icon-delete-btn:hover {
+  color: var(--color-danger);
+  background: var(--bg-danger-subtle);
+}
 .dm-attr-flags {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  font-size: 11px;
-  color: var(--muted);
+  font-size: 10px;
+  color: var(--color-text-secondary);
 }
-
 .dm-attr-flags label {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   cursor: pointer;
 }
-
-.dm-rel-summary-box {
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.3);
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.dm-rel-summary-box p {
-  margin: 4px 0 0;
-  color: var(--muted);
-}
-
-.dm-inspector-empty {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  color: var(--muted);
-  padding: 20px;
-  gap: 8px;
-}
-
-/* ABA 2: Visualização do Modelo Lógico */
-.datamodel-logical-view {
-  flex: 1;
-  padding: 24px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.logical-header-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  padding: 16px 20px;
-  border-radius: 12px;
-}
-
-.logical-header-banner h3 {
-  margin: 0 0 4px;
-  font-size: 16px;
-}
-
-.logical-header-banner p {
+.dm-attr-flags input {
   margin: 0;
-  font-size: 13px;
-  color: var(--muted);
+  width: 13px;
+  height: 13px;
+}
+.dm-rel-summary-box {
+  background: var(--color-primary-subtle);
+  border: 1px solid var(--color-primary-border);
+  border-radius: 9px;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.dm-rel-summary-box p {
+  margin: 5px 0 0;
+  color: var(--color-text-secondary);
+}
+.dm-inspector-empty {
+  padding: 20px;
+  color: var(--color-text-secondary);
 }
 
+/* Tabelas derivadas e SQL */
+.datamodel-logical-view,
+.datamodel-sql-view {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  overflow: auto;
+}
+.logical-header-banner,
+.sql-view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+.logical-header-banner h3,
+.sql-view-header h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+.logical-header-banner p,
+.sql-view-header p {
+  margin: 0;
+  max-width: 650px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+}
 .logical-tables-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+  gap: 20px;
 }
-
 .logical-table-card {
-  background: var(--panel);
-  border: 1px solid var(--line);
+  background: var(--bg-panel);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-shadow: var(--shadow-sm);
+  min-width: 0;
 }
-
 .logical-table-card.associative {
-  border-color: rgba(168, 85, 247, 0.5);
+  border-color: var(--color-primary-border);
 }
-
 .logical-table-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px;
-  background: rgba(30, 41, 59, 0.65);
-  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--color-border);
 }
-
 .logical-table-title {
   display: flex;
   align-items: center;
   gap: 8px;
   font-family: ui-monospace, SFMono-Regular, monospace;
-  font-size: 14px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
-
 .logical-badge {
-  font-size: 10.5px;
-  padding: 2px 8px;
-  border-radius: 99px;
-  background: rgba(56, 189, 248, 0.14);
-  color: #38bdf8;
-  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: var(--color-primary-subtle);
+  color: var(--color-focus);
+  font-size: 10px;
 }
-
 .logical-columns-list {
-  padding: 10px 14px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   flex: 1;
 }
-
 .logical-col-row {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
-  padding: 5px 8px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
   border-radius: 6px;
-  background: rgba(15, 23, 42, 0.45);
-  font-size: 12.5px;
+  background: var(--bg-card-subtle);
+  font-size: 12px;
 }
-
-.logical-col-left {
+.logical-col-left,
+.logical-col-right {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
-
+.logical-col-right {
+  color: var(--color-text-secondary);
+  font-size: 10px;
+}
 .col-badge {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 1px 5px;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 5px;
   border-radius: 4px;
 }
-
 .col-badge.pk {
-  background: rgba(251, 191, 36, 0.18);
-  color: #fbbf24;
+  background: var(--bg-warning-subtle);
+  color: var(--color-warning);
 }
-
 .col-badge.fk {
-  background: rgba(168, 85, 247, 0.2);
-  color: #c084fc;
+  background: var(--color-primary-subtle);
+  color: var(--color-focus);
 }
-
-.logical-col-right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-}
-
 .nn-tag {
-  color: #f87171;
-  font-size: 10px;
-  font-weight: 700;
+  color: var(--color-text-secondary);
+  font-size: 9px;
 }
-
 .logical-table-footer {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 8px;
-  padding: 10px 14px;
-  border-top: 1px solid var(--line);
-  background: rgba(15, 23, 42, 0.3);
+  padding: 12px;
+  border-top: 1px solid var(--color-border);
 }
-
-/* ABA 3: Visualização de Script SQL */
-.datamodel-sql-view {
-  flex: 1;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  overflow: hidden;
+.logical-table-footer button {
+  font-size: 10px;
+  padding: 7px;
 }
-
-.sql-view-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  padding: 16px 20px;
-  border-radius: 12px;
-}
-
-.sql-view-header h3 {
-  margin: 0 0 4px;
-}
-
-.sql-view-header p {
-  margin: 0;
-  font-size: 13px;
-  color: var(--muted);
-}
-
 .sql-view-actions {
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-
 .sql-code-preview {
   flex: 1;
+  min-height: 200px;
   margin: 0;
-  padding: 20px;
-  background: #090d16;
-  border: 1px solid var(--line);
+  padding: 24px;
+  background: var(--bg-input);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
-  color: #e2e8f0;
+  color: var(--color-text);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: 12px;
+  line-height: 1.8;
   overflow: auto;
+  tab-size: 2;
 }
 
-/* ABA 4: Explorador e Manipulador de Dados Reais (CRUD) */
+/* Explorador: navegação, formulário e registros em áreas distintas. */
 .datamodel-explorer-view {
   display: flex;
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
 }
-
 .explorer-sidebar {
-  width: 240px;
-  background: var(--panel);
-  border-right: 1px solid var(--line);
-  padding: 16px;
+  width: 210px;
+  flex-shrink: 0;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--color-border);
+  padding: 20px 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   overflow-y: auto;
 }
-
+.explorer-sidebar .palette-title {
+  margin: 0 6px 8px;
+}
 .explorer-table-btn {
   display: flex;
+  justify-content: flex-start;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  padding: 9px 12px;
+  padding: 10px;
   border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--ink);
-  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
   cursor: pointer;
   text-align: left;
+  box-shadow: none;
 }
-
-.explorer-table-btn.active {
-  background: rgba(99, 102, 241, 0.16);
-  border-color: rgba(99, 102, 241, 0.45);
-  color: #fff;
-  font-weight: 600;
+.explorer-table-btn span {
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
-
+.explorer-table-btn svg {
+  flex-shrink: 0;
+}
 .explorer-table-btn small {
-  background: rgba(15, 23, 42, 0.65);
-  padding: 2px 7px;
-  border-radius: 99px;
-  font-size: 11px;
-  color: var(--muted);
+  margin-left: auto;
+  background: var(--bg-switch);
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 10px;
 }
-
+.explorer-table-btn.active {
+  background: var(--color-primary-subtle);
+  border-color: var(--color-primary-border);
+  color: var(--color-focus);
+}
 .explorer-main {
   flex: 1;
-  padding: 22px;
+  min-width: 0;
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 22px;
   overflow-y: auto;
 }
-
 .explorer-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
 }
-
 .explorer-header h3 {
-  margin: 0 0 4px;
+  margin: 0 0 6px;
+  font-size: 17px;
+  overflow-wrap: anywhere;
 }
-
 .explorer-header p {
   margin: 0;
-  font-size: 13px;
-  color: var(--muted);
+  max-width: 600px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
 }
-
 .explorer-insert-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 10px;
-  padding: 14px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  gap: 14px;
+  padding: 20px;
+  background: var(--bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
 }
-
 .explorer-input-cell {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-width: 150px;
-  flex: 1;
-  font-size: 11.5px;
-  color: var(--muted);
+  gap: 8px;
+  min-width: 140px;
+  flex: 1 1 160px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
 }
-
+.explorer-input-cell input {
+  width: 100%;
+  min-width: 0;
+}
 .explorer-insert-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
-
 .explorer-data-table-wrap {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
   overflow: auto;
+  flex-shrink: 0;
 }
-
 .explorer-data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 12px;
 }
-
 .explorer-data-table th,
 .explorer-data-table td {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--line);
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--color-border);
   text-align: left;
+  white-space: nowrap;
 }
-
 .explorer-data-table th {
-  background: rgba(15, 23, 42, 0.55);
-  font-weight: 600;
-  color: #cbd5e1;
+  background: var(--bg-card-subtle);
+  font-size: 11px;
+  font-weight: 550;
+  color: var(--color-text-secondary);
 }
-
 .explorer-data-table th small {
-  color: var(--muted);
+  display: block;
+  margin-top: 4px;
+  color: var(--color-text-muted);
   font-weight: 400;
+  font-size: 10px;
 }
-
+.explorer-data-table tr:last-child td {
+  border-bottom: 0;
+}
 .explorer-empty-row {
   text-align: center !important;
-  color: var(--muted);
-  padding: 28px !important;
+  color: var(--color-text-secondary);
+  padding: 32px !important;
+  white-space: normal !important;
+  line-height: 1.7;
 }
-
 .explorer-row-actions {
   display: flex;
   gap: 6px;
 }
-
 .datamodel-empty-hint {
-  margin: auto;
-  max-width: 420px;
+  position: relative;
+  z-index: 1;
+  width: min(440px, calc(100% - 48px));
+  margin: 70px auto 24px;
   text-align: center;
   padding: 32px;
-  background: var(--panel);
-  border: 1px dashed var(--line);
-  border-radius: 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
+  box-shadow: var(--shadow-md);
+}
+.datamodel-empty-hint > svg {
+  color: var(--color-focus);
+}
+.datamodel-empty-hint h3 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: -0.025em;
+  line-height: 1.4;
+}
+.datamodel-empty-hint p {
+  margin: 0 0 6px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.datamodel-empty-hint button {
+  font-size: 12px;
+}
+.datamodel-workspace :is(button, summary):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+/* O mesmo editor também é utilizado dentro da etapa Dados. */
+@container datamodel (max-width: 1100px) {
+  .datamodel-toolbar {
+    gap: 10px;
+    padding-inline: 16px;
+  }
+  .datamodel-toolbar-left {
+    flex: 1 1 100%;
+  }
+  .datamodel-toolbar-center {
+    margin-left: 0;
+  }
+  .datamodel-toolbar-right {
+    margin-left: auto;
+  }
+  .datamodel-palette {
+    width: 190px;
+    padding: 16px 12px;
+  }
+  .datamodel-inspector {
+    width: 300px;
+  }
+  .datamodel-heading {
+    padding: 16px;
+  }
+  .datamodel-heading p {
+    max-width: 400px;
+  }
+  .datamodel-summary {
+    gap: 14px;
+  }
+}
+@container datamodel (max-width: 800px) {
+  .datamodel-body {
+    overflow: auto;
+    flex-direction: column;
+  }
+  .datamodel-palette {
+    width: 100%;
+    flex: none;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    max-height: 190px;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .datamodel-palette > .palette-title,
+  .dm-outline-heading,
+  .dm-outline-search,
+  .dm-entity-outline,
+  .dm-help {
+    grid-column: 1 / -1;
+  }
+  .datamodel-palette .palette-divider {
+    display: none;
+  }
+  .dm-entity-outline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .datamodel-canvas {
+    min-height: 420px;
+    flex: none;
+  }
+  .datamodel-inspector {
+    width: 100%;
+    flex: none;
+    overflow: visible;
+    border-left: 0;
+    border-top: 1px solid var(--color-border);
+  }
+  .dm-attributes-editor {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .datamodel-logical-view,
+  .datamodel-sql-view {
+    flex: none;
+    overflow: visible;
+  }
+  .datamodel-explorer-view {
+    flex-direction: column;
+    overflow: visible;
+    flex: none;
+  }
+  .explorer-sidebar {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+    overflow: visible;
+  }
+  .explorer-sidebar .palette-title {
+    flex-basis: 100%;
+  }
+  .explorer-main {
+    overflow: visible;
+  }
+  .datamodel-heading {
+    align-items: flex-start;
+  }
+  .datamodel-heading p {
+    max-width: 330px;
+  }
+  .datamodel-summary {
+    flex-shrink: 0;
+  }
+  .datamodel-view-bar {
+    padding: 12px 16px;
+  }
+}
+@container datamodel (max-width: 500px) {
+  .datamodel-heading {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+  .datamodel-heading h2 {
+    font-size: 19px;
+  }
+  .datamodel-heading p,
+  .datamodel-heading .dm-eyebrow {
+    display: none;
+  }
+  .datamodel-summary {
+    width: 100%;
+    gap: 18px;
+  }
+  .datamodel-summary span {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+  }
+  .datamodel-summary strong {
+    font-size: 14px;
+  }
+  .datamodel-tabs {
+    width: 100%;
+    gap: 2px;
+  }
+  .datamodel-tab {
+    flex: 1;
+    font-size: 10px;
+    padding: 8px 5px;
+    gap: 4px;
+  }
+  .datamodel-tab svg {
+    width: 12px;
+  }
+  .datamodel-dialect-switch > svg,
+  .dialect-label {
+    display: none;
+  }
+  .datamodel-dialect-switch select {
+    width: 105px;
+    font-size: 11px;
+  }
+  .sync-backend-btn {
+    font-size: 10px;
+    margin-left: 0;
+    padding: 8px;
+  }
+  .datamodel-toolbar-right {
+    gap: 4px;
+  }
+  .datamodel-toolbar-right .icon-only {
+    width: 26px;
+  }
+  .datamodel-view-bar span {
+    display: none;
+  }
+  .dm-attributes-editor {
+    grid-template-columns: 1fr;
+  }
+  .datamodel-empty-hint {
+    padding: 24px;
+    margin-top: 40px;
+  }
+  .datamodel-empty-hint h3 {
+    font-size: 18px;
+  }
+  .datamodel-logical-view,
+  .datamodel-sql-view,
+  .explorer-main {
+    padding: 16px;
+  }
+}
+
+.explorer-section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: -10px;
+}
+.explorer-section-title h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 550;
+}
+.explorer-section-title span {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
+.datamodel-canvas:has(.datamodel-empty-hint) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.datamodel-canvas > .datamodel-empty-hint {
+  margin: 24px;
+}
+
+/* Cabeçalho compacto e diagrama ajustado à área disponível, sem rolagem. */
+.datamodel-heading {
+  padding: 10px 20px;
+  gap: 16px;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+.datamodel-heading > div:first-child {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  min-width: 0;
+}
+.datamodel-heading .dm-eyebrow {
+  display: none;
+}
+.datamodel-heading h2 {
+  margin: 0;
+  font-size: 17px;
+  white-space: nowrap;
+}
+.datamodel-heading p {
+  font-size: 11px;
+  max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.datamodel-summary {
+  width: auto;
+  gap: 16px;
+  flex-shrink: 0;
+}
+.datamodel-summary span {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.datamodel-summary strong {
+  font-size: 13px;
+}
+.datamodel-toolbar {
+  padding-block: 8px;
+}
+.datamodel-view-bar {
+  padding-block: 9px;
+}
+.datamodel-canvas {
+  overflow: hidden;
+  touch-action: none;
+}
+.datamodel-scene {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+.datamodel-scene .der-entity-node,
+.datamodel-scene .der-relationship-node {
+  pointer-events: auto;
+}
+.datamodel-svg-layer {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+@container datamodel (max-width: 800px) {
+  .datamodel-heading p {
+    display: none;
+  }
+  .datamodel-body:has(.datamodel-canvas) {
+    position: relative;
+    overflow: hidden;
+    flex-direction: row;
+  }
+  .datamodel-palette {
+    width: 175px;
+    max-height: none;
+    display: flex;
+    border-bottom: 0;
+    border-right: 1px solid var(--color-border);
+  }
+  .datamodel-palette .palette-divider {
+    display: block;
+  }
+  .dm-entity-outline {
+    grid-template-columns: 1fr;
+  }
+  .datamodel-canvas {
+    flex: 1;
+    min-height: 0;
+  }
+  .datamodel-inspector {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: min(320px, 85%);
+    overflow-y: auto;
+    z-index: 5;
+    box-shadow: var(--shadow-modal);
+  }
+}
+@container datamodel (max-width: 500px) {
+  .datamodel-heading {
+    padding: 10px 16px;
+  }
+  .datamodel-heading h2 {
+    font-size: 15px;
+  }
+  .datamodel-summary {
+    gap: 8px;
+  }
+  .datamodel-summary span {
+    font-size: 9px;
+  }
+  .datamodel-summary span:nth-child(2) {
+    display: none;
+  }
+  .datamodel-palette {
+    width: 132px;
+    padding: 12px 8px;
+  }
+  .palette-btn {
+    padding: 9px 7px;
+    gap: 6px;
+  }
+  .palette-btn small {
+    display: none;
+  }
+  .palette-btn strong {
+    font-size: 10px;
+  }
+  .dm-outline-item {
+    padding: 7px 4px;
+  }
+  .dm-outline-item strong {
+    font-size: 10px;
+  }
+}
+
+.dm-canvas-controls {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-md);
+}
+.dm-canvas-controls button {
+  padding: 6px;
+  width: 30px;
+  height: 30px;
+  justify-content: center;
+}
+.dm-canvas-controls output {
+  min-width: 40px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.datamodel-canvas {
+  cursor: grab;
+}
+.datamodel-canvas:active {
+  cursor: grabbing;
+}
+
+/* O foco dos controles não deve deslocar um canvas sem barras de rolagem. */
+.datamodel-canvas {
+  overflow: clip;
 }

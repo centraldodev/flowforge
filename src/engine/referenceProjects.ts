@@ -1,4 +1,8 @@
 import type { Block, BlockData, Graph, Link } from './types';
+import {
+  createOrderApprovalReferenceModeling,
+  createSchedulingReferenceModeling,
+} from './appModeling';
 
 const b = (id: string, x: number, y: number, data: BlockData): Block => ({
   id,
@@ -585,6 +589,7 @@ export const customerOrdersProject: Graph = {
       ],
     },
   },
+  appModeling: createOrderApprovalReferenceModeling(),
 };
 
 /**
@@ -785,6 +790,7 @@ export const schedulingConflictProject: Graph = {
       },
     ],
   },
+  appModeling: createSchedulingReferenceModeling(),
 };
 
 /**
@@ -958,10 +964,24 @@ export const roleApprovalPortalProject: Graph = {
     sqliteFilePath: './data/portal_aprovacoes.sqlite',
     entities: [
       {
+        id: 'ent_pedidos',
+        name: 'pedidos',
+        label: 'Pedidos e Solicitações',
+        x: 100,
+        y: 100,
+        attributes: [
+          { id: 'ped_1', name: 'id', type: 'string', isPrimaryKey: true, isRequired: true },
+          { id: 'ped_2', name: 'cliente_id', type: 'string', isRequired: true },
+          { id: 'ped_3', name: 'total', type: 'number', isRequired: true },
+          { id: 'ped_4', name: 'status', type: 'string', defaultValue: 'rascunho' },
+          { id: 'ped_5', name: 'org_id', type: 'string', isRequired: true },
+        ],
+      },
+      {
         id: 'ent_solicitacoes',
         name: 'solicitacoes',
         label: 'Solicitações de Compra',
-        x: 100,
+        x: 480,
         y: 100,
         attributes: [
           { id: 'sol_1', name: 'id', type: 'string', isPrimaryKey: true, isRequired: true },
@@ -974,7 +994,7 @@ export const roleApprovalPortalProject: Graph = {
         id: 'ent_aprovacoes',
         name: 'aprovacoes',
         label: 'Histórico de Aprovações',
-        x: 480,
+        x: 860,
         y: 100,
         attributes: [
           { id: 'ap_1', name: 'id', type: 'string', isPrimaryKey: true, isRequired: true },
@@ -996,6 +1016,7 @@ export const roleApprovalPortalProject: Graph = {
       },
     ],
   },
+  appModeling: createOrderApprovalReferenceModeling(),
 };
 
 export const REFERENCE_PROJECTS = {

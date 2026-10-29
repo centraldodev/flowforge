@@ -18,6 +18,7 @@ import {
   type LogicKind,
 } from '../engine/catalogo/logicCatalog';
 import { buildCompositionManifest } from '../engine/composition';
+import { generateAppSpecificationMarkdown } from '../engine/appModeling';
 
 /** Planeja todos os artefatos antes de escrever qualquer arquivo no ZIP. */
 export function createTypeScriptPlan(graph: Graph): ArtifactPlan {
@@ -49,6 +50,25 @@ export function createTypeScriptPlan(graph: Graph): ArtifactPlan {
     'visual-source',
     graph.nodes.map((node) => node.id),
   );
+  if (graph.appModeling) {
+    plan.text(
+      'flowforge/app-modeling.manifest.json',
+      json({
+        schemaVersion: graph.appModeling.schemaVersion,
+        generatorVersion: graph.appModeling.generation.generatorVersion,
+        appliedRevision: graph.appModeling.generation.appliedRevision,
+        specSemanticHash: graph.appModeling.generation.specSemanticHash,
+        artifacts: graph.appModeling.generation.artifacts,
+        appliedSpecification: graph.appModeling.applied,
+      }),
+      'modeling-manifest',
+    );
+    plan.text(
+      'docs/ARCHITECTURE_SPECIFICATION.md',
+      generateAppSpecificationMarkdown(graph),
+      'documentation',
+    );
+  }
   const logicKinds: LogicKind[] = ['condition', 'validator'];
   const catalogNodes = [
     ...graph.nodes,

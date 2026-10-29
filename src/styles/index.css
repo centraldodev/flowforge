@@ -25,3 +25,6 @@
 
 /* 8. Editor de Modelagem de Dados (Conceitual, Lógico, SQL e CRUD) */
 @import './datamodel.css';
+
+/* 9. Área de Modelagem de Apps (Especificação, 9 Etapas Guiadas, C4/UML e Rastreabilidade) */
+@import './modeling.css';

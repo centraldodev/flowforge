@@ -40,5 +40,22 @@ export function parseGraph(text: string): Graph {
     if (typeof e.id !== 'string' || typeof e.source !== 'string' || typeof e.target !== 'string')
       throw Error('Conexão inválida');
   }
+
+  if (g.appModeling !== undefined) {
+    const am = g.appModeling;
+    if (
+      typeof am !== 'object' ||
+      am === null ||
+      typeof am.schemaVersion !== 'number' ||
+      typeof am.draft !== 'object' ||
+      am.draft === null ||
+      !Array.isArray(am.steps) ||
+      typeof am.generation !== 'object' ||
+      am.generation === null
+    ) {
+      throw Error('Estrutura de modelagem do aplicativo inválida');
+    }
+  }
+
   return normalizeGraph(g);
 }

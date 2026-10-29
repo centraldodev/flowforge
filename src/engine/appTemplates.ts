@@ -1,6 +1,12 @@
 import { catalog } from './catalog';
 import { applyDataModelToGraph, type DataModelDesign } from './dataModeling';
 import type { Block, CustomPort, Graph, Kind, Link } from './types';
+import {
+  createTasksReferenceModeling,
+  createStoreReferenceModeling,
+  createSocialReferenceModeling,
+  type AppModeling,
+} from './appModeling';
 
 export type ProjectTemplateId = 'empty' | 'tasks' | 'store' | 'social';
 type TemplateSpec = {
@@ -11,6 +17,7 @@ type TemplateSpec = {
   detail: string;
   listTitle: string;
   dataModel: DataModelDesign;
+  appModeling?: AppModeling;
 };
 
 /** Os três modelos compartilham um núcleo verificável de autenticação e CRUD PostgreSQL. */
@@ -377,10 +384,14 @@ function makeTemplate(spec: TemplateSpec): Graph {
   wire('montar_atualizacao', 'object', 'db_update', 'data');
   wire('registro_id', 'value', 'db_update', 'id');
   wire('db_update', 'onSuccess', 'db_query', 'execute');
-  return applyDataModelToGraph(
+  const graph = applyDataModelToGraph(
     { version: 1, name: spec.name, nodes, edges, dataModel: spec.dataModel },
     spec.dataModel,
   );
+  if (spec.appModeling) {
+    graph.appModeling = spec.appModeling;
+  }
+  return graph;
 }
 
 export const appTemplates: Record<Exclude<ProjectTemplateId, 'empty'>, Graph> = {
@@ -391,6 +402,7 @@ export const appTemplates: Record<Exclude<ProjectTemplateId, 'empty'>, Graph> = 
     title: 'Título',
     detail: 'Descrição',
     listTitle: 'Tarefas',
+    appModeling: createTasksReferenceModeling(),
     dataModel: {
       dialect: 'postgres',
       sqliteFilePath: './data/tarefas.sqlite',
@@ -484,6 +496,7 @@ export const appTemplates: Record<Exclude<ProjectTemplateId, 'empty'>, Graph> = 
     title: 'Nome',
     detail: 'Descrição',
     listTitle: 'Produtos',
+    appModeling: createStoreReferenceModeling(),
     dataModel: {
       dialect: 'postgres',
       sqliteFilePath: './data/catalogo_loja.sqlite',
@@ -576,6 +589,7 @@ export const appTemplates: Record<Exclude<ProjectTemplateId, 'empty'>, Graph> = 
     title: 'Título',
     detail: 'Mensagem',
     listTitle: 'Publicações',
+    appModeling: createSocialReferenceModeling(),
     dataModel: {
       dialect: 'postgres',
       sqliteFilePath: './data/mural_social.sqlite',

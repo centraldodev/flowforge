@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
+  ChevronDown,
+  Search,
+  X,
   Code2,
   Copy,
   Database,
@@ -19,6 +22,10 @@ import {
   Table2,
   Trash2,
   Wand2,
+  Maximize2,
+  Focus,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import type { FieldType, Graph } from '../../engine';
 import {
@@ -48,6 +55,7 @@ type Props = {
 };
 
 type SubMode = 'conceptual' | 'logical' | 'sql' | 'explorer';
+const SUB_MODES: SubMode[] = ['conceptual', 'logical', 'sql', 'explorer'];
 
 const CARDINALITIES: Cardinality[] = ['1,1', '0,1', '1,N', '0,N'];
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
@@ -73,6 +81,8 @@ export function DataModelEditor({
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
   const [selectedRelId, setSelectedRelId] = useState<string | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
+  const [entitySearch, setEntitySearch] = useState('');
+  const panelId = useId();
 
   // Dragging no canvas conceitual
   const [dragging, setDragging] = useState<{
@@ -82,8 +92,71 @@ export function DataModelEditor({
     startY: number;
     origX: number;
     origY: number;
+    scale: number;
   } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const sceneRef = useRef<HTMLDivElement>(null);
+  const [canvasView, setCanvasView] = useState({ x: 0, y: 0, scale: 1 });
+  const [viewMode, setViewMode] = useState<'fit' | 'manual' | 'selection'>('fit');
+  const [fitRevision, setFitRevision] = useState(0);
+  const [panning, setPanning] = useState<{
+    x: number;
+    y: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
+
+  const zoomCanvas = (factor: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    setViewMode('manual');
+    setCanvasView((view) => {
+      const scale = Math.min(2, Math.max(0.05, view.scale * factor));
+      const ratio = scale / view.scale;
+      return {
+        scale,
+        x: canvas.clientWidth / 2 - (canvas.clientWidth / 2 - view.x) * ratio,
+        y: canvas.clientHeight / 2 - (canvas.clientHeight / 2 - view.y) * ratio,
+      };
+    });
+  };
+
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    const scene = sceneRef.current;
+    if (!canvas || !scene || dragging || viewMode === 'manual') return;
+    const fit = () => {
+      const allItems = [
+        ...scene.querySelectorAll<HTMLElement>('.der-entity-node, .der-relationship-node'),
+      ];
+      const selectedItems = allItems.filter((item) => item.classList.contains('selected'));
+      const items = viewMode === 'selection' && selectedItems.length ? selectedItems : allItems;
+      if (!items.length || !canvas.clientWidth || !canvas.clientHeight) return;
+      const left = Math.min(...items.map((item) => item.offsetLeft));
+      const top = Math.min(...items.map((item) => item.offsetTop));
+      const right = Math.max(...items.map((item) => item.offsetLeft + item.offsetWidth));
+      const bottom = Math.max(...items.map((item) => item.offsetTop + item.offsetHeight));
+      const width = Math.max(1, right - left);
+      const height = Math.max(1, bottom - top);
+      const scale = Math.min(
+        viewMode === 'selection' ? 1.5 : 1,
+        Math.max(1, canvas.clientWidth - 64) / width,
+        Math.max(1, canvas.clientHeight - 64) / height,
+      );
+      setCanvasView({
+        x: (canvas.clientWidth - width * scale) / 2 - left * scale,
+        y: (canvas.clientHeight - height * scale) / 2 - top * scale,
+        scale,
+      });
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(canvas);
+    scene
+      .querySelectorAll('.der-entity-node, .der-relationship-node')
+      .forEach((item) => observer.observe(item));
+    return () => observer.disconnect();
+  }, [model, subMode, dragging, viewMode, fitRevision, selectedEntityId, selectedRelId]);
 
   // Estado do Explorador de Dados ao Vivo
   const [activeTable, setActiveTable] = useState<string>('');
@@ -164,6 +237,7 @@ export function DataModelEditor({
       ...prev,
       entities: [...prev.entities, newEntity],
     }));
+    setViewMode('selection');
     setSelectedEntityId(newEntity.id);
     setSelectedRelId(null);
   };
@@ -189,6 +263,7 @@ export function DataModelEditor({
       ...prev,
       relationships: [...prev.relationships, newRel],
     }));
+    setViewMode('selection');
     setSelectedRelId(newRel.id);
     setSelectedEntityId(null);
   };
@@ -244,6 +319,7 @@ export function DataModelEditor({
     origY: number,
   ) => {
     e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
     if (kind === 'entity') {
       setSelectedEntityId(id);
       setSelectedRelId(null);
@@ -258,13 +334,23 @@ export function DataModelEditor({
       startY: e.clientY,
       origX,
       origY,
+      scale: canvasView.scale,
     });
   };
 
   const handlePointerMoveCanvas = (e: React.PointerEvent) => {
+    if (panning) {
+      setViewMode('manual');
+      setCanvasView((view) => ({
+        ...view,
+        x: panning.originX + e.clientX - panning.x,
+        y: panning.originY + e.clientY - panning.y,
+      }));
+      return;
+    }
     if (!dragging) return;
-    const dx = e.clientX - dragging.startX;
-    const dy = e.clientY - dragging.startY;
+    const dx = (e.clientX - dragging.startX) / dragging.scale;
+    const dy = (e.clientY - dragging.startY) / dragging.scale;
     const nextX = Math.max(20, Math.round((dragging.origX + dx) / 10) * 10);
     const nextY = Math.max(20, Math.round((dragging.origY + dy) / 10) * 10);
 
@@ -287,6 +373,10 @@ export function DataModelEditor({
   };
 
   const handlePointerUpCanvas = () => {
+    if (panning) {
+      setPanning(null);
+      return;
+    }
     if (!dragging) return;
     setDragging(null);
     commit((g) => ({ ...g, dataModel: model }));
@@ -394,73 +484,114 @@ export function DataModelEditor({
 
   return (
     <div className="datamodel-workspace">
+      <div className="datamodel-heading">
+        <div>
+          <span className="dm-eyebrow">ESTRUTURA DO APLICATIVO</span>
+          <h2>Modelagem de dados</h2>
+          <p>Entidades, relações e tabelas do aplicativo.</p>
+        </div>
+        <div className="datamodel-summary" aria-label="Resumo do modelo">
+          <span>
+            <strong>{model.entities.length}</strong> entidades
+          </span>
+          <span>
+            <strong>{model.relationships.length}</strong> relações
+          </span>
+          <span>
+            <strong>{logicalTables.length}</strong> tabelas
+          </span>
+        </div>
+      </div>
       {/* Barra Superior da Modelagem de Dados */}
       <div className="datamodel-toolbar">
         <div className="datamodel-toolbar-left">
-          <div className="datamodel-tabs" role="tablist" aria-label="Níveis de Modelagem">
+          <div
+            className="datamodel-tabs"
+            role="tablist"
+            aria-label="Níveis de Modelagem"
+            onKeyDown={(event) => {
+              const current = SUB_MODES.indexOf(subMode);
+              const next =
+                event.key === 'ArrowRight'
+                  ? (current + 1) % SUB_MODES.length
+                  : event.key === 'ArrowLeft'
+                    ? (current + SUB_MODES.length - 1) % SUB_MODES.length
+                    : event.key === 'Home'
+                      ? 0
+                      : event.key === 'End'
+                        ? SUB_MODES.length - 1
+                        : null;
+              if (next === null) return;
+              event.preventDefault();
+              setSubMode(SUB_MODES[next]);
+              const tabs = event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+              tabs[next]?.focus();
+            }}
+          >
             <button
               type="button"
               role="tab"
+              aria-controls={panelId}
+              tabIndex={subMode === 'conceptual' ? 0 : -1}
               aria-selected={subMode === 'conceptual'}
               className={`datamodel-tab ${subMode === 'conceptual' ? 'active' : ''}`}
               onClick={() => setSubMode('conceptual')}
             >
               <Diamond size={14} />
-              <span>1. Modelo Conceitual (DER)</span>
+              <span>Conceitual</span>
             </button>
             <button
               type="button"
               role="tab"
+              aria-controls={panelId}
+              tabIndex={subMode === 'logical' ? 0 : -1}
               aria-selected={subMode === 'logical'}
               className={`datamodel-tab ${subMode === 'logical' ? 'active' : ''}`}
               onClick={() => setSubMode('logical')}
             >
               <Table2 size={14} />
-              <span>2. Modelo Lógico (Tabelas)</span>
+              <span>Tabelas</span>
             </button>
             <button
               type="button"
               role="tab"
+              aria-controls={panelId}
+              tabIndex={subMode === 'sql' ? 0 : -1}
               aria-selected={subMode === 'sql'}
               className={`datamodel-tab ${subMode === 'sql' ? 'active' : ''}`}
               onClick={() => setSubMode('sql')}
             >
               <FileCode2 size={14} />
-              <span>3. Script SQL (DDL)</span>
+              <span>SQL</span>
             </button>
             <button
               type="button"
               role="tab"
+              aria-controls={panelId}
+              tabIndex={subMode === 'explorer' ? 0 : -1}
               aria-selected={subMode === 'explorer'}
               className={`datamodel-tab ${subMode === 'explorer' ? 'active' : ''}`}
               onClick={() => setSubMode('explorer')}
             >
               <Database size={14} />
-              <span>4. Dados Reais (CRUD)</span>
+              <span>Explorador</span>
             </button>
           </div>
         </div>
 
         <div className="datamodel-toolbar-center">
-          <div className="datamodel-dialect-switch" role="group" aria-label="Motor do Banco">
-            <span className="dialect-label">Motor SQL:</span>
-            <button
-              type="button"
-              className={`dialect-btn ${model.dialect === 'postgres' ? 'active' : ''}`}
-              onClick={() => handleSetDialect('postgres')}
+          <label className="datamodel-dialect-switch">
+            <Server size={14} aria-hidden="true" />
+            <span className="dialect-label">Banco</span>
+            <select
+              aria-label="Motor do banco"
+              value={model.dialect}
+              onChange={(event) => handleSetDialect(event.target.value as DatabaseDialect)}
             >
-              <Server size={13} />
-              <span>PostgreSQL</span>
-            </button>
-            <button
-              type="button"
-              className={`dialect-btn ${model.dialect === 'sqlite' ? 'active' : ''}`}
-              onClick={() => handleSetDialect('sqlite')}
-            >
-              <Database size={13} />
-              <span>SQLite</span>
-            </button>
-          </div>
+              <option value="postgres">PostgreSQL</option>
+              <option value="sqlite">SQLite</option>
+            </select>
+          </label>
         </div>
 
         <div className="datamodel-toolbar-right">
@@ -486,56 +617,151 @@ export function DataModelEditor({
             type="button"
             className="primary sync-backend-btn"
             onClick={() => handleApplyToBackend()}
-            title="Configura a conexão do banco e cria/atualiza as entidades no Backend"
+            title="Cria ou atualiza a conexão e os blocos de entidade no fluxo. A conclusão da etapa é feita no rodapé."
           >
             <RefreshCw size={14} />
-            <span>Sincronizar com Backend</span>
+            <span>Gerar entidades no fluxo</span>
           </button>
         </div>
       </div>
 
+      <div className="datamodel-view-bar">
+        <div>
+          <strong>
+            {subMode === 'conceptual'
+              ? 'Diagrama de entidades'
+              : subMode === 'logical'
+                ? 'Estrutura das tabelas'
+                : subMode === 'sql'
+                  ? 'Script de criação'
+                  : 'Explorador de registros'}
+          </strong>
+          <span>
+            {subMode === 'conceptual'
+              ? 'Selecione um elemento para editar. Arraste para organizar.'
+              : subMode === 'logical'
+                ? 'Tabelas e chaves derivadas do modelo conceitual.'
+                : subMode === 'sql'
+                  ? 'Revise o SQL gerado para o banco selecionado.'
+                  : 'Selecione uma tabela para consultar e editar registros.'}
+          </span>
+        </div>
+        {model.dialect === 'sqlite' && (
+          <label className="dm-sqlite-file">
+            Arquivo SQLite
+            <input
+              value={model.sqliteFilePath || './data/flowforge.sqlite'}
+              onChange={(event) =>
+                updateModel((prev) => ({ ...prev, sqliteFilePath: event.target.value }))
+              }
+            />
+          </label>
+        )}
+      </div>
+
       {/* Corpo Principal */}
-      <div className="datamodel-body">
+      <div
+        className="datamodel-body"
+        id={panelId}
+        role="tabpanel"
+        aria-label={
+          subMode === 'conceptual'
+            ? 'Modelo conceitual'
+            : subMode === 'logical'
+              ? 'Tabelas do modelo'
+              : subMode === 'sql'
+                ? 'Script SQL'
+                : 'Explorador de dados'
+        }
+      >
         {/* ABA 1: MODELO CONCEITUAL (Estilo brModelo) */}
         {subMode === 'conceptual' && (
           <>
             <div className="datamodel-palette">
-              <span className="palette-title">FERRAMENTAS DER (brModelo)</span>
+              <span className="palette-title">Adicionar ao diagrama</span>
               <button type="button" className="palette-btn" onClick={handleAddEntity}>
                 <Table2 size={16} />
                 <div>
-                  <strong>Nova Entidade</strong>
-                  <small>Retângulo com atributos</small>
+                  <strong>Nova entidade</strong>
+                  <small>Objeto e seus atributos</small>
                 </div>
               </button>
               <button type="button" className="palette-btn" onClick={handleAddRelationship}>
                 <Diamond size={16} />
                 <div>
-                  <strong>Novo Relacionamento</strong>
-                  <small>Losango com cardinalidade (1:N, N:N)</small>
+                  <strong>Relacionamento</strong>
+                  <small>Conecte duas entidades</small>
                 </div>
               </button>
 
               <div className="palette-divider" />
-              <span className="palette-title">COMO FUNCIONA</span>
-              <ul className="brmodelo-tips">
-                <li>
-                  <strong>Entidade:</strong> Representa um objeto do mundo real (ex: Cliente,
-                  Produto).
-                </li>
-                <li>
-                  <strong>Atributo Identificador (PK):</strong> Bolinha preenchida (●) que
-                  identifica cada registro.
-                </li>
-                <li>
-                  <strong>Relacionamento (Losango):</strong> Liga duas entidades com cardinalidades
-                  <code>(1,1)</code>, <code>(0,N)</code>, etc.
-                </li>
-                <li>
-                  <strong>Conversão Automática:</strong> Relacionamentos <code>1:N</code> criam
-                  chaves estrangeiras (FK) e <code>N:N</code> criam tabelas associativas sozinhos!
-                </li>
-              </ul>
+              <div className="dm-outline-heading">
+                <span className="palette-title">Entidades</span>
+                <span className="dm-count">{model.entities.length}</span>
+              </div>
+              <label className="dm-outline-search">
+                <Search size={14} aria-hidden="true" />
+                <input
+                  aria-label="Buscar entidade"
+                  placeholder="Buscar entidade…"
+                  value={entitySearch}
+                  onChange={(event) => setEntitySearch(event.target.value)}
+                />
+              </label>
+              <div className="dm-entity-outline">
+                {model.entities
+                  .filter((entity) =>
+                    `${entity.label} ${entity.name}`
+                      .toLocaleLowerCase()
+                      .includes(entitySearch.toLocaleLowerCase()),
+                  )
+                  .map((entity) => (
+                    <button
+                      type="button"
+                      key={entity.id}
+                      className={`dm-outline-item ${selectedEntityId === entity.id ? 'active' : ''}`}
+                      aria-pressed={selectedEntityId === entity.id}
+                      onClick={() => {
+                        setViewMode('selection');
+                        setSelectedEntityId(entity.id);
+                        setSelectedRelId(null);
+                      }}
+                    >
+                      <Table2 size={14} />
+                      <span>
+                        <strong>{entity.label || entity.name}</strong>
+                        <small>{entity.attributes.length} atributos</small>
+                      </span>
+                    </button>
+                  ))}
+                {model.entities.length === 0 && (
+                  <p className="dm-outline-empty">Suas entidades aparecerão aqui.</p>
+                )}
+                {model.entities.length > 0 &&
+                  !model.entities.some((entity) =>
+                    `${entity.label} ${entity.name}`
+                      .toLocaleLowerCase()
+                      .includes(entitySearch.toLocaleLowerCase()),
+                  ) && <p className="dm-outline-empty">Nenhuma entidade encontrada.</p>}
+              </div>
+              <details className="dm-help">
+                <summary>
+                  Guia do diagrama <ChevronDown size={14} />
+                </summary>
+                <ul className="brmodelo-tips">
+                  <li>
+                    <strong>Entidades</strong> representam objetos como Cliente e Produto.
+                  </li>
+                  <li>
+                    <strong>PK</strong> identifica cada registro. <strong>FK</strong> referencia
+                    outra tabela.
+                  </li>
+                  <li>
+                    <strong>1:N</strong> gera uma chave estrangeira; <strong>N:N</strong> gera uma
+                    tabela associativa.
+                  </li>
+                </ul>
+              </details>
             </div>
 
             <div
@@ -543,133 +769,202 @@ export function DataModelEditor({
               className="datamodel-canvas"
               onPointerMove={handlePointerMoveCanvas}
               onPointerUp={handlePointerUpCanvas}
-              onPointerDown={() => {
-                setSelectedEntityId(null);
-                setSelectedRelId(null);
+              onPointerCancel={handlePointerUpCanvas}
+              onPointerDown={(event) => {
+                if (event.button !== 0 || (event.target as HTMLElement).closest('button')) return;
+                event.currentTarget.setPointerCapture(event.pointerId);
+                setPanning({
+                  x: event.clientX,
+                  y: event.clientY,
+                  originX: canvasView.x,
+                  originY: canvasView.y,
+                });
               }}
             >
-              {/* Camada SVG para linhas e cardinalidades estilo brModelo */}
-              <svg className="datamodel-svg-layer">
-                {model.relationships.map((rel) => {
-                  const source = model.entities.find((e) => e.id === rel.sourceEntityId);
-                  const target = model.entities.find((e) => e.id === rel.targetEntityId);
-                  if (!source || !target) return null;
+              <div
+                className="dm-canvas-controls"
+                role="group"
+                aria-label="Visualização do diagrama"
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => zoomCanvas(1 / 1.2)}
+                  aria-label="Diminuir zoom"
+                  title="Diminuir zoom"
+                >
+                  <ZoomOut size={15} />
+                </button>
+                <output aria-label="Zoom atual">{Math.round(canvasView.scale * 100)}%</output>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => zoomCanvas(1.2)}
+                  aria-label="Aumentar zoom"
+                  title="Aumentar zoom"
+                >
+                  <ZoomIn size={15} />
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => {
+                    setViewMode('fit');
+                    setFitRevision((value) => value + 1);
+                  }}
+                  aria-label="Ajustar à tela"
+                  title="Ajustar todo o diagrama à tela"
+                >
+                  <Maximize2 size={15} />
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={!selectedEntity && !selectedRel}
+                  onClick={() => {
+                    setViewMode('selection');
+                    setFitRevision((value) => value + 1);
+                  }}
+                  aria-label="Focar seleção"
+                  title="Focar a entidade ou relação selecionada"
+                >
+                  <Focus size={15} />
+                </button>
+              </div>
+              <div
+                ref={sceneRef}
+                className="datamodel-scene"
+                style={{
+                  transform: `translate(${canvasView.x}px, ${canvasView.y}px) scale(${canvasView.scale})`,
+                }}
+              >
+                {/* Camada SVG para linhas e cardinalidades estilo brModelo */}
+                {model.entities.length > 0 && (
+                  <svg className="datamodel-svg-layer">
+                    {model.relationships.map((rel) => {
+                      const source = model.entities.find((e) => e.id === rel.sourceEntityId);
+                      const target = model.entities.find((e) => e.id === rel.targetEntityId);
+                      if (!source || !target) return null;
 
-                  const sx = source.x + 110;
-                  const sy = source.y + 45;
-                  const rx = rel.x + 70;
-                  const ry = rel.y + 36;
-                  const tx = target.x + 110;
-                  const ty = target.y + 45;
+                      const sx = source.x + 110;
+                      const sy = source.y + 45;
+                      const rx = rel.x + 70;
+                      const ry = rel.y + 36;
+                      const tx = target.x + 110;
+                      const ty = target.y + 45;
 
-                  const midSourceX = Math.round((sx + rx) / 2);
-                  const midSourceY = Math.round((sy + ry) / 2);
-                  const midTargetX = Math.round((tx + rx) / 2);
-                  const midTargetY = Math.round((ty + ry) / 2);
+                      const midSourceX = Math.round((sx + rx) / 2);
+                      const midSourceY = Math.round((sy + ry) / 2);
+                      const midTargetX = Math.round((tx + rx) / 2);
+                      const midTargetY = Math.round((ty + ry) / 2);
 
+                      return (
+                        <g key={rel.id}>
+                          <line x1={sx} y1={sy} x2={rx} y2={ry} className="der-connector-line" />
+                          <line x1={rx} y1={ry} x2={tx} y2={ty} className="der-connector-line" />
+                          <rect
+                            x={midSourceX - 20}
+                            y={midSourceY - 11}
+                            width={40}
+                            height={20}
+                            rx={5}
+                            className="der-cardinality-bg"
+                          />
+                          <text
+                            x={midSourceX}
+                            y={midSourceY + 3}
+                            textAnchor="middle"
+                            className="der-cardinality-text"
+                          >
+                            ({rel.sourceCardinality})
+                          </text>
+
+                          <rect
+                            x={midTargetX - 20}
+                            y={midTargetY - 11}
+                            width={40}
+                            height={20}
+                            rx={5}
+                            className="der-cardinality-bg"
+                          />
+                          <text
+                            x={midTargetX}
+                            y={midTargetY + 3}
+                            textAnchor="middle"
+                            className="der-cardinality-text"
+                          >
+                            ({rel.targetCardinality})
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                )}
+
+                {/* Nós de Entidades (Retângulos com pinos de atributos estilo brModelo) */}
+                {model.entities.map((ent) => {
+                  const isSelected = ent.id === selectedEntityId;
                   return (
-                    <g key={rel.id}>
-                      <line x1={sx} y1={sy} x2={rx} y2={ry} className="der-connector-line" />
-                      <line x1={rx} y1={ry} x2={tx} y2={ty} className="der-connector-line" />
-                      <rect
-                        x={midSourceX - 20}
-                        y={midSourceY - 11}
-                        width={40}
-                        height={20}
-                        rx={5}
-                        className="der-cardinality-bg"
-                      />
-                      <text
-                        x={midSourceX}
-                        y={midSourceY + 3}
-                        textAnchor="middle"
-                        className="der-cardinality-text"
-                      >
-                        ({rel.sourceCardinality})
-                      </text>
-
-                      <rect
-                        x={midTargetX - 20}
-                        y={midTargetY - 11}
-                        width={40}
-                        height={20}
-                        rx={5}
-                        className="der-cardinality-bg"
-                      />
-                      <text
-                        x={midTargetX}
-                        y={midTargetY + 3}
-                        textAnchor="middle"
-                        className="der-cardinality-text"
-                      >
-                        ({rel.targetCardinality})
-                      </text>
-                    </g>
+                    <div
+                      key={ent.id}
+                      style={{ left: ent.x, top: ent.y }}
+                      className={`der-entity-node ${isSelected ? 'selected' : ''}`}
+                      onPointerDown={(e) =>
+                        handlePointerDownItem(e, 'entity', ent.id, ent.x, ent.y)
+                      }
+                    >
+                      <div className="der-entity-box">
+                        <span className="der-entity-kind">ENTIDADE</span>
+                        <strong>{ent.label || ent.name}</strong>
+                        <small>{ent.name}</small>
+                      </div>
+                      <div className="der-attributes-list">
+                        {ent.attributes.map((attr) => (
+                          <div key={attr.id} className="der-attribute-pin">
+                            <span className="der-pin-stem" />
+                            <span
+                              className={`der-pin-circle ${attr.isPrimaryKey ? 'pk' : ''}`}
+                              title={
+                                attr.isPrimaryKey ? 'Atributo Identificador (PK)' : 'Atributo Comum'
+                              }
+                            />
+                            <span className="der-attr-name">
+                              {attr.name}
+                              {attr.isPrimaryKey && <em> (PK)</em>}
+                            </span>
+                            <span className="der-attr-type">{attr.type}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   );
                 })}
-              </svg>
 
-              {/* Nós de Entidades (Retângulos com pinos de atributos estilo brModelo) */}
-              {model.entities.map((ent) => {
-                const isSelected = ent.id === selectedEntityId;
-                return (
-                  <div
-                    key={ent.id}
-                    style={{ left: ent.x, top: ent.y }}
-                    className={`der-entity-node ${isSelected ? 'selected' : ''}`}
-                    onPointerDown={(e) => handlePointerDownItem(e, 'entity', ent.id, ent.x, ent.y)}
-                  >
-                    <div className="der-entity-box">
-                      <span className="der-entity-kind">ENTIDADE</span>
-                      <strong>{ent.label || ent.name}</strong>
-                      <small>{ent.name}</small>
+                {/* Nós de Relacionamento (Losangos estilo brModelo) */}
+                {model.relationships.map((rel) => {
+                  const isSelected = rel.id === selectedRelId;
+                  return (
+                    <div
+                      key={rel.id}
+                      style={{ left: rel.x, top: rel.y }}
+                      className={`der-relationship-node ${isSelected ? 'selected' : ''}`}
+                      onPointerDown={(e) => handlePointerDownItem(e, 'rel', rel.id, rel.x, rel.y)}
+                    >
+                      <div className="der-diamond-shape">
+                        <span>{rel.name || 'possui'}</span>
+                      </div>
                     </div>
-                    <div className="der-attributes-list">
-                      {ent.attributes.map((attr) => (
-                        <div key={attr.id} className="der-attribute-pin">
-                          <span className="der-pin-stem" />
-                          <span
-                            className={`der-pin-circle ${attr.isPrimaryKey ? 'pk' : ''}`}
-                            title={
-                              attr.isPrimaryKey ? 'Atributo Identificador (PK)' : 'Atributo Comum'
-                            }
-                          />
-                          <span className="der-attr-name">
-                            {attr.name}
-                            {attr.isPrimaryKey && <em> (PK)</em>}
-                          </span>
-                          <span className="der-attr-type">{attr.type}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Nós de Relacionamento (Losangos estilo brModelo) */}
-              {model.relationships.map((rel) => {
-                const isSelected = rel.id === selectedRelId;
-                return (
-                  <div
-                    key={rel.id}
-                    style={{ left: rel.x, top: rel.y }}
-                    className={`der-relationship-node ${isSelected ? 'selected' : ''}`}
-                    onPointerDown={(e) => handlePointerDownItem(e, 'rel', rel.id, rel.x, rel.y)}
-                  >
-                    <div className="der-diamond-shape">
-                      <span>{rel.name || 'possui'}</span>
-                    </div>
-                  </div>
-                );
-              })}
-
+                  );
+                })}
+              </div>
               {model.entities.length === 0 && (
                 <div className="datamodel-empty-hint">
                   <Sparkles size={28} />
                   <h3>Modelagem Conceitual (Estilo brModelo)</h3>
                   <p>
-                    Clique em <strong>Nova Entidade</strong> à esquerda para desenhar suas tabelas
-                    conceituais e depois ligue-as com <strong>Novo Relacionamento</strong>.
+                    Clique em <strong>Nova entidade</strong> à esquerda para desenhar suas tabelas
+                    conceituais e depois ligue-as com <strong>Relacionamento</strong>.
                   </p>
                   <button type="button" className="primary" onClick={handleAddEntity}>
                     <Plus size={15} /> Criar Primeira Entidade
@@ -679,7 +974,24 @@ export function DataModelEditor({
             </div>
 
             {/* Inspetor Lateral Direito do Modelo Conceitual */}
-            <aside className="datamodel-inspector">
+            <aside
+              className={`datamodel-inspector ${!selectedEntity && !selectedRel ? 'is-empty' : ''}`}
+              aria-label="Propriedades do elemento"
+            >
+              <div className="dm-inspector-topline">
+                <span className="palette-title">Propriedades</span>
+                <button
+                  type="button"
+                  className="secondary icon-only"
+                  aria-label="Fechar propriedades"
+                  onClick={() => {
+                    setSelectedEntityId(null);
+                    setSelectedRelId(null);
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
               {selectedEntity ? (
                 <div className="dm-inspector-content">
                   <div className="dm-inspector-header">
@@ -764,6 +1076,7 @@ export function DataModelEditor({
                           <input
                             value={attr.name}
                             placeholder="nome_campo"
+                            aria-label={`Nome do atributo ${attr.name}`}
                             onChange={(e) => {
                               const name = toSqlTableName(e.target.value);
                               updateModel((prev) => ({
@@ -782,6 +1095,7 @@ export function DataModelEditor({
                             }}
                           />
                           <select
+                            aria-label={`Tipo do atributo ${attr.name}`}
                             value={attr.type}
                             onChange={(e) => {
                               const type = e.target.value as FieldType;
@@ -855,7 +1169,7 @@ export function DataModelEditor({
                                 }));
                               }}
                             />
-                            <span>PK (Identificador ●)</span>
+                            <span>Chave (PK)</span>
                           </label>
                           <label>
                             <input
@@ -1061,17 +1375,6 @@ export function DataModelEditor({
                     Clique em uma <strong>Entidade</strong> ou <strong>Relacionamento</strong> no
                     diagrama para editar seus atributos, chaves primárias (PK) e cardinalidades.
                   </p>
-                  {model.dialect === 'sqlite' && (
-                    <label className="field" style={{ marginTop: 14, width: '100%' }}>
-                      Arquivo do Banco SQLite
-                      <input
-                        value={model.sqliteFilePath || './data/flowforge.sqlite'}
-                        onChange={(e) =>
-                          updateModel((prev) => ({ ...prev, sqliteFilePath: e.target.value }))
-                        }
-                      />
-                    </label>
-                  )}
                 </div>
               )}
             </aside>
@@ -1182,7 +1485,7 @@ export function DataModelEditor({
                 </button>
                 <button type="button" className="primary" onClick={() => handleApplyToBackend()}>
                   <RefreshCw size={15} />
-                  <span>Aplicar ao Banco do Projeto</span>
+                  <span>Gerar entidades no fluxo</span>
                 </button>
               </div>
             </div>
@@ -1244,6 +1547,10 @@ export function DataModelEditor({
                   </div>
 
                   {/* Formulário rápido de Inserção / Edição na tabela */}
+                  <div className="explorer-section-title">
+                    <h4>{editingRowId !== null ? 'Editar registro' : 'Adicionar registro'}</h4>
+                    <span>Preencha os campos da tabela selecionada.</span>
+                  </div>
                   <div className="explorer-insert-bar">
                     {currentTableDef.columns.map((col) => (
                       <label key={col.name} className="explorer-input-cell">
@@ -1280,6 +1587,10 @@ export function DataModelEditor({
                   </div>
 
                   {/* Grade de Registros */}
+                  <div className="explorer-section-title">
+                    <h4>Registros da tabela</h4>
+                    <span>{tableRows.length} registros</span>
+                  </div>
                   <div className="explorer-data-table-wrap">
                     <table className="explorer-data-table">
                       <thead>

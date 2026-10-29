@@ -118,6 +118,7 @@ export type Graph = {
   tests?: import('./testScenarios').TestScenario[];
   entities?: import('./database').EntityDefinition[];
   dataModel?: import('./dataModeling').DataModelDesign;
+  appModeling?: import('./appModeling').AppModeling;
   auth?: import('./auth').IdentityProviderConfig;
   databasePolicy?: { multitenancy?: unknown };
 };

@@ -21,3 +21,4 @@ export * from './testScenarios';
 export * from './productionReadiness';
 export * from './blockLogicTemplates';
 export * from './dataModeling';
+export * from './appModeling';

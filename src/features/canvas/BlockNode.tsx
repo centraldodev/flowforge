@@ -295,6 +295,26 @@ export function BlockNode({ id, data, selected }: NodeProps<FlowNode>) {
         </div>
 
         <div className="block-heading-meta">
+          {data.config?.modelingOriginStep && data.config?.modelingDetached !== 'true' && (
+            <button
+              type="button"
+              className="block-modeling-origin-badge nodrag"
+              title="Bloco gerado pela Modelagem de Apps. Clique para editar na Modelagem."
+              onClick={(e) => {
+                e.stopPropagation();
+                window.dispatchEvent(
+                  new CustomEvent('flowforge:open-modeling-step', {
+                    detail: {
+                      stepId: data.config.modelingOriginStep,
+                      elementId: data.config.modelingOriginId,
+                    },
+                  }),
+                );
+              }}
+            >
+              Modelado · Editar
+            </button>
+          )}
           {data.connectionRole === 'source' && (
             <span className="block-connection-role-badge source">Origem</span>
           )}

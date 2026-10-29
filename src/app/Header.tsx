@@ -3,7 +3,7 @@ import {
   ChevronRight,
   Clock,
   Code2,
-  Database,
+  Compass,
   FlaskConical,
   LayoutDashboard,
   Pause,
@@ -16,9 +16,11 @@ import {
 } from 'lucide-react';
 import type { DebuggerStatus } from '../compiler/interpreter/debuggerTypes';
 
+export type WorkspaceMode = 'modeling' | 'flow' | 'frontend';
+
 type Props = {
-  workspaceMode: 'flow' | 'frontend' | 'datamodel';
-  onWorkspaceMode: (mode: 'flow' | 'frontend' | 'datamodel') => void;
+  workspaceMode: WorkspaceMode;
+  onWorkspaceMode: (mode: WorkspaceMode) => void;
   projectName: string;
   onRenameProject: (name: string) => void;
   onSimulate: () => void;
@@ -91,6 +93,16 @@ export function Header({
         <div className="workspace-mode" role="group" aria-label="Área de trabalho">
           <button
             type="button"
+            aria-pressed={workspaceMode === 'modeling'}
+            className={workspaceMode === 'modeling' ? 'active' : ''}
+            onClick={() => onWorkspaceMode('modeling')}
+            title="Modelagem de Apps (Requisitos, Casos de Uso, Dados, Permissões, Regras, Estados, Processos, APIs e Cenários)"
+          >
+            <Compass size={14} />
+            <span>Modelagem</span>
+          </button>
+          <button
+            type="button"
             aria-pressed={workspaceMode === 'flow'}
             className={workspaceMode === 'flow' ? 'active' : ''}
             onClick={() => onWorkspaceMode('flow')}
@@ -106,15 +118,6 @@ export function Header({
           >
             <LayoutDashboard size={14} />
             <span>Interface</span>
-          </button>
-          <button
-            type="button"
-            aria-pressed={workspaceMode === 'datamodel'}
-            className={workspaceMode === 'datamodel' ? 'active' : ''}
-            onClick={() => onWorkspaceMode('datamodel')}
-          >
-            <Database size={14} />
-            <span>Modelagem de Dados</span>
           </button>
         </div>
         {/* Controles de Depuração Visual */}

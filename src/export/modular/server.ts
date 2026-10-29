@@ -17,10 +17,125 @@ export function emitServer(plan: ArtifactPlan, graph: Graph) {
   const hasPaymentsRealtime = emitPaymentsAndRealtime(plan, graph);
   const manifest = buildHttpManifest(graph);
   const hasHttp = manifest.requests.length > 0;
-  if (!hasHttp && !hasDb && !hasAuth && !hasIntegrations && !hasPaymentsRealtime) return false;
+  const hasModeledOps = Boolean(graph.appModeling?.applied?.operations?.length);
+  if (!hasHttp && !hasDb && !hasAuth && !hasIntegrations && !hasPaymentsRealtime && !hasModeledOps)
+    return false;
   emitDiagnostics(plan, graph, true);
   emitOpenApi(plan, graph);
   const root = 'apps/api/src/';
+  if (hasModeledOps && graph.appModeling?.applied) {
+    const specJson = JSON.stringify(graph.appModeling.applied);
+    const opsGatewayCode = `// Runtime Determinístico de Operações Modeladas, Regras e Políticas (Gerado por FlowForge)
+const spec = ${specJson};
+const idempotencyStore = new Map();
+const recordsStore = new Map();
+
+function parseExactCents(val) {
+  if (typeof val === 'number') return Math.round(val * 100);
+  const str = String(val ?? '').trim().replace(/[R$\\s]/g, '');
+  if (!str) return 0;
+  const normalized = str.includes(',') && str.includes('.')
+    ? str.replace(/\\./g, '').replace(',', '.')
+    : str.includes(',') ? str.replace(',', '.') : str;
+  const num = Number(normalized);
+  return Number.isNaN(num) ? 0 : Math.round(num * 100);
+}
+
+function evaluateCondition(node, inputs) {
+  if (node.kind === 'logical') {
+    if (!node.children?.length) return true;
+    return node.logicalOp === 'and'
+      ? node.children.every((c) => evaluateCondition(c, inputs))
+      : node.children.some((c) => evaluateCondition(c, inputs));
+  }
+  const left = inputs[node.leftField];
+  const right = node.rightValue;
+  if (node.useExactCents) {
+    const l = parseExactCents(left), r = parseExactCents(right);
+    if (node.operator === 'lte') return l <= r;
+    if (node.operator === 'gt') return l > r;
+    if (node.operator === 'gte') return l >= r;
+    if (node.operator === 'lt') return l < r;
+    if (node.operator === 'eq') return l === r;
+    return l !== r;
+  }
+  if (node.operator === 'lte') return Number(left) <= Number(right);
+  if (node.operator === 'gt') return Number(left) > Number(right);
+  if (node.operator === 'gte') return Number(left) >= Number(right);
+  if (node.operator === 'lt') return Number(left) < Number(right);
+  if (node.operator === 'eq') return String(left ?? '') === String(right ?? '');
+  return String(left ?? '') !== String(right ?? '');
+}
+
+export function createOperationsGateway() {
+  return async (req, res) => {
+    const p = req.url?.split('?')[0] || '';
+    const contract = (spec.apiContracts || []).find((c) => c.path === p && c.method === (req.method || 'POST'));
+    if (!contract) return false;
+    let raw = '';
+    for await (const chunk of req) raw += chunk;
+    const body = raw ? JSON.parse(raw) : {};
+    const idemKey = contract.idempotencyKeyHeader ? req.headers[contract.idempotencyKeyHeader.toLowerCase()] : undefined;
+    if (idemKey && idempotencyStore.has(idemKey)) {
+      const cached = idempotencyStore.get(idemKey);
+      res.statusCode = cached.status;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify(cached.body));
+      return true;
+    }
+    const op = (spec.operations || []).find((o) => o.id === contract.operationId);
+    const actor = body.__actor || {
+      userId: req.headers['x-user-id'] || '',
+      role: req.headers['x-user-role'] || 'guest',
+      orgId: req.headers['x-org-id'] || '',
+      authenticated: Boolean(req.headers['x-user-id'] || req.headers.authorization),
+    };
+    const payload = body.payload || body;
+    const existing = body.existingRecord || recordsStore.get(String(payload.id || '')) || null;
+    if (op.accessMode !== 'public') {
+      if (!actor.authenticated || !actor.userId) {
+        res.statusCode = 401; res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: false, error: { code: 'UNAUTHORIZED', message: 'Sessão obrigatória.' } }));
+        return true;
+      }
+      const policy = (spec.policies || []).find((pol) => pol.id === op.policyId);
+      if (!policy || (!policy.actorRoles.includes('*') && !policy.actorRoles.includes(actor.role))) {
+        res.statusCode = 403; res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: false, error: { code: 'FORBIDDEN_ROLE', message: policy?.errorMessage || 'Acesso negado.' } }));
+        return true;
+      }
+      if (policy.scope === 'organization' && existing && existing.org_id && String(existing.org_id) !== String(actor.orgId)) {
+        res.statusCode = 403; res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: false, error: { code: 'CROSS_ORG_FORBIDDEN', message: 'Acesso negado entre organizações.' } }));
+        return true;
+      }
+      if (policy.forbidSelfApproval && existing && String(existing.vendedor_id || '') === String(actor.userId)) {
+        res.statusCode = 403; res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: false, error: { code: 'SELF_APPROVAL_FORBIDDEN', message: 'Autoaprovação proibida.' } }));
+        return true;
+      }
+    }
+    let outcome = 'success';
+    for (const ruleId of op.ruleIds || []) {
+      const rule = (spec.rules || []).find((r) => r.id === ruleId);
+      if (!rule) continue;
+      const matched = (rule.rows || []).find((row) => evaluateCondition(row.condition, { ...(existing || {}), ...payload }));
+      outcome = matched ? matched.outcome : (rule.defaultOutcome || 'unmatched');
+    }
+    const record = { ...(existing || {}), ...payload, org_id: existing?.org_id || actor.orgId || 'org_default' };
+    if (record.id) recordsStore.set(String(record.id), record);
+    const status = op.entityAction === 'create' ? 201 : 200;
+    const responseBody = { ok: true, outcome, record };
+    if (idemKey) idempotencyStore.set(idemKey, { status, body: responseBody });
+    res.statusCode = status;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(responseBody));
+    return true;
+  };
+}
+`;
+    plan.text(root + 'operations/gateway.mjs', opsGatewayCode, 'operations-runtime');
+  }
   if (hasHttp) {
     for (const [filename, content] of Object.entries(httpGatewayModules)) {
       const deps = [...content.matchAll(/from '\.\/([^']+)'/g)].map(
@@ -150,6 +265,15 @@ export function emitServer(plan: ArtifactPlan, graph: Graph) {
     inits.push('const realtime = createRealtimeGateway();');
     routes.unshift("if (p.startsWith('/api/realtime')) return realtime(req, res);");
     appDeps.push(root + 'realtime/gateway.mjs');
+  }
+
+  if (hasModeledOps && graph.appModeling?.applied) {
+    imports.push("import { createOperationsGateway } from './operations/gateway.mjs';");
+    inits.push('const modeledOps = createOperationsGateway();');
+    routes.unshift(
+      "if (p.startsWith('/api/operations')) { if (await modeledOps(req, res)) return; }",
+    );
+    appDeps.push(root + 'operations/gateway.mjs');
   }
 
   imports.push("import { createDiagnosticsGateway } from './runtime/diagnostics.mjs';");

@@ -417,6 +417,11 @@ if __name__ == "__main__":
  * Adiciona ao ZIP os artefatos do projeto Python compilado a partir da ProgramIR.
  */
 export function addPythonProject(zip: JSZip, g: Graph) {
+  if (g.appModeling?.applied) {
+    throw new Error(
+      'Projetos com Modelagem de Apps aplicada (políticas multi-tenant, regras transacionais e operações de servidor) exigem o destino TypeScript + React com backend modular nesta versão.',
+    );
+  }
   if (
     g.nodes.some(
       (node) =>

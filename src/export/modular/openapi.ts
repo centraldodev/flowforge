@@ -406,6 +406,83 @@ export function generateOpenApiSpec(graph: Graph): OpenApiSpec {
     };
   }
 
+  // Contratos de API e Operações da Modelagem Aplicada (Seção 8 do plano)
+  const appliedSpec = graph.appModeling?.applied;
+  if (appliedSpec && appliedSpec.apiContracts.length > 0) {
+    tags.push({
+      name: 'Operações Modeladas',
+      description: 'Endpoints derivados de contratos de operações e regras de negócio aplicadas',
+    });
+
+    for (const contract of appliedSpec.apiContracts) {
+      const op = appliedSpec.operations.find((o) => o.id === contract.operationId);
+      if (!op) continue; // Não publica contratos ainda não implementados
+
+      const methodKey = contract.method.toLowerCase();
+      const responses: Record<string, unknown> = {
+        [op.entityAction === 'create' ? '201' : '200']: {
+          description: op.outputSummary || 'Operação executada com sucesso',
+        },
+      };
+      for (const errCase of op.errorCases) {
+        responses[String(errCase.status)] = {
+          description: `${errCase.code}: ${errCase.message}`,
+        };
+      }
+
+      paths[contract.path] = {
+        ...(paths[contract.path] as Record<string, unknown> | undefined),
+        [methodKey]: {
+          tags: ['Operações Modeladas'],
+          summary: `${op.code} — ${contract.name}`,
+          description: `Operação vinculada: ${op.name} | Entidade: ${op.targetEntity} | Transacional: ${op.transactional ? 'Sim' : 'Não'}`,
+          ...(contract.authRequired
+            ? { security: [{ BearerAuth: [] }, { SessionToken: [] }] }
+            : {}),
+          ...(contract.idempotencyKeyHeader
+            ? {
+                parameters: [
+                  {
+                    name: contract.idempotencyKeyHeader,
+                    in: 'header',
+                    required: false,
+                    schema: { type: 'string' },
+                    description:
+                      'Chave de idempotência para evitar duplicidade de efeito em retentativas',
+                  },
+                ],
+              }
+            : {}),
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: op.inputs.filter((i) => i.required).map((i) => i.name),
+                  properties: Object.fromEntries(
+                    op.inputs.map((i) => [
+                      i.name,
+                      {
+                        type:
+                          i.type === 'number' || i.type === 'decimal_cents'
+                            ? 'number'
+                            : i.type === 'boolean'
+                              ? 'boolean'
+                              : 'string',
+                      },
+                    ]),
+                  ),
+                },
+              },
+            },
+          },
+          responses,
+        },
+      };
+    }
+  }
+
   return {
     openapi: '3.0.3',
     info: {
